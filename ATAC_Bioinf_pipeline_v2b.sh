@@ -38,20 +38,13 @@
 # 2. Read alignment - bowtie2 > samtools sorted bam
 # 3. Remove mitochondrial mapped - samtools > new bam
 # 	3a. Fragment/insert size distribution
-# 4. Post alignment filtering - Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates: samtools > final bam
-# 	4a. Convert PE Bam to tagalign - bedtools
-# 	4b. Calculate Cross-correlation QC scores - phantompeakqualtools (v1.2.1)
-# 	4c. Generate self-pseudoreplicates for each replicate - probably not required
-# 	4d. Generate pooled dataset and pooled-pseudoreplicates
-# 	4e. TN5 shifting of tagaligns for ATAC Seq - gawk
-# 	4f. Calculate Jensen-Shannon distance (JSD) - deeptools (v3.3.0) plotFingerprint
-# 	4g. Calculate GC bias
-# 	4h. Fragment length statistics (PE only)
-# 5. Call peaks on replicates, self-pseudoreplicates, pooled data and pooled-pseudoreplicates
-# 	5a. peak calling - macs2
-# 	5b. Blacklist filtering for peaks - bedtools
-# 	5c. Bed to bigbed conversion for narrowpeaks
-# 	5d. Naive overlap thresholding for MACS2 peak calls
+# 4. Post alignment filtering
+#   4a. Filter reads (Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates) - samtools > final bam
+# 5. ATAC peak-calling
+# 	5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
+#   5b. TSS enrichment - plot
+# 	5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
+# 	5d. peak calling - macs2 NOTE: consider running another peak-calling program and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
 # 6. IDR on all pairs of replicates, self-pseudoreplicates and pooled pseudoreplicates - IDR is optional. The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
 # 	6a. IDR of true replicates
 # 	6b. Compute Fraction of Reads in Peaks (FRiP)
@@ -69,8 +62,8 @@
 helpFunction()
 {
    echo ""
-   echo "Usage: $0 -s spID -g spG -f gFA -m mtID -u Usr"
-   echo -e "\t-s spID = Species ID, preferably two short letters, individual and tissue e.g. Metriaclima zebra Individual 1 Liver ATAC/gDNA = Mz1_L_ATAC/Mz1_L_gDNA"
+   echo "Usage: $0 -s spID -g spG -f gFA -m mtID -u Usr -a annot"
+   echo -e "\t-s spID = Species ID, preferably two short letters, individual and tissue e.g. Metriaclima zebra Individual 1 Liver ATAC/gDNA = Mz1_L_ATAC/Mz1_L_gDNA Note: this naming convention needs to be the same as renaming in space delimited file"
    echo -e "\t-g spG = Species genome ID e.g. hg19 or M_zebra_UMD1"
    echo -e "\t-f gFA = Full path to genome assembly in FASTA format"
    echo -e "\t-m mtID = NCBI accession number to complete mitochondrial genome FASTA"
@@ -115,7 +108,7 @@ scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in t
 WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
-### 1. Trim adaptors
+### 1. Trim adaptors and renaming
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 trimdir=($WD/1.adaptor_trimming) # assign trimmed reads dir
 trimarray=X-X # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
@@ -188,12 +181,12 @@ JOBID1=$( sbatch --hold --job-nam=START --array=$trimarray 1a.trimadaptors.sh | 
 
 echo '# -- 1a. Adaptor trimming started -- #'
 
-# rename the files according to species and tissue - provide this as a 2-column SPACE-delimited table that will be assigned as a variable above, placed in the trimdir
+# rename the files according to species, tissue and experiment - provide this as a 2-column SPACE-delimited table that will be assigned as a variable above, placed in the trimdir
 # only provide for the two paired files you are working on and not all files
 
 # Example is (note, these are made up examples)
-# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz Pn1T_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz' > libids.txt
-# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1T_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
+# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz' > libids.txt
+# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
 
 echo '#!/bin/bash -e' > 1b.renamefiles.sh
 echo '#SBATCH -p tgac-short # partition (queue)' >> 1b.renamefiles.sh
@@ -273,12 +266,14 @@ echo 'ml samtools/1.7' >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' "$scripts"/"$libids " > " $reads >> 2b.readalign.sh
 echo 'mapfile -t reads < '$reads' # ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
-echo "awk -F' ' '{print \$2}' " $scripts"/"$libids " | awk -F'_' '{print \$1}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
+echo "awk -F' ' '{print \$2}' " $scripts"/"$libids " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
 echo 'srun bowtie2 -k' $multimapping '-X2000 --mm --threads' $bwt_thread '-x' $idx '-1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
 echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment stats' >> 2b.readalign.sh
+
+
 
 # ## this is if you are running several libraries (>2) in an array
 # echo '#!/bin/bash -e' > 2b.readalign.sh

@@ -25,7 +25,7 @@ helpFunction()
 {
    echo ""
    echo "Usage: $0 -s spID -g spG -c parameterC"
-   echo -e "\t-s spID = Species ID, preferably two short letters and tissue e.g. Metriaclima zebra Liver = Mz_L"
+   echo -e "\t-s spID = Species ID, preferably two short letters, tissue and experiment e.g. Metriaclima zebra Liver = Mz_L_ATAC/gDNA"
    echo -e "\t-g spG = Species genome ID e.g. hg19 or M_zebra_UMD1"
    echo -e "\t-c Description of what is parameterC"
    exit 1 # Exit script after printing help
@@ -68,7 +68,7 @@ rawreaddir=($WD/0.rawreads) # assign raw reads dir
 
 ################################################################################################################
 
-### 0. Merge files if sequenced over multiple lanes - Add the species ID and tissue to create read1 and read2 e.g. Mz_L_read1 and Mz_L_read2
+### 0. Merge files if sequenced over multiple lanes - Add the species ID and tissue to create read1 and read2 e.g. Mz_L_ATAC_read1 and Mz_L_ATAC_read2
 
 # 0a. Create folder linked to reads
 mkdir -p $rawreaddir
