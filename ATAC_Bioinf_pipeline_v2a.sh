@@ -66,6 +66,8 @@ WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # insert the working director
 
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 
+libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
+
 ################################################################################################################
 
 ### 0. Merge files if sequenced over multiple lanes - Add the species ID and tissue to create read1 and read2 e.g. Mz_L_ATAC_read1 and Mz_L_ATAC_read2
@@ -88,3 +90,35 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 echo '# -- 0. File merging complete -- #'
 
 ################################################################################################################
+
+### 1. Create the appropriate directory structure and file paths for downstream analysis (and to run following scripts)
+
+# 1a. Create approporiate directory structure - this uses the space delimited file of 'merged fasta filename' and 'species_tissue_experiment_FASTA_filename' e.g. Mz_L_ATAC/gDNA for creating the symbolic links as per species structure
+
+# Example is (note, these are made up examples)
+# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz' > libids.txt
+# echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
+
+# A. read in the space delimited file and prepare working directories for all col2 entries
+
+prefix=($scripts/prefix.txt)
+reads=(reads.txt)
+
+
+awk -F' ' '{print $2}' $libids | awk -F'_' '{print $1"_"$2"_"$3}' > $prefix # create a prefix file to iterate
+mapfile -t prefixmap < $prefix # assign prefixes to $prefixmap
+
+awk -F' ' '{print $2}' $libids > $reads
+mapfile -t reads < $reads # ${reads[0]} calls read1 AND ${reads[1]} calls read2'
+
+# B. within each species_tissue_experiment working directory, create a raw reads directory too
+
+# 1b. Create symbolic links to raw reads in per species_tissue e.g. Mz_L and experiment (ATAC/gDNA) - no file renaming required at this stage; will be done after trimming
+
+
+# 1a.
+
+spWD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$i) # insert the working directory
+sprawreaddir=($spWD/0.rawreads) # assign raw reads dir
+
+mkdir -p $sprawreaddir

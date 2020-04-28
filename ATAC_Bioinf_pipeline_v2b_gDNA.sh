@@ -12,12 +12,12 @@
 # Note: Script is adapted for SBATCH usage
 
 ## Place the following files in $scripts - to be created prior to running
-# 1. Prepare a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename'
+# 1. This has been prepared by previous script './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 # 2. Run as an sbatch script with 8Gb memory and >15 day runtime
 
 ################################################################################################################
 
-# ~ This pipeline should be ran after 'ATAC_Bioinf_pipeline_v2b.sh' that merges files sequenced over mutilple lanes, but prior to 'ATAC_Bioinf_pipeline_v2b.sh', that:
+# ~ This pipeline should be ran after 'ATAC_Bioinf_pipeline_v2a.sh' that merges files sequenced over mutilple lanes, but prior to 'ATAC_Bioinf_pipeline_v2b.sh' that works on the ATAC data
 
 ################################################################################################################
 
@@ -76,12 +76,13 @@ email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 trimdir=($WD/1.adaptor_trimming) # assign trimmed reads dir
 trimarray=X-X # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
-libids=($trimdir/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissueID_experiment_barcode_{R1,R2}.fastq.merged.gz
-libids2=$libids.sh
+libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissueID_experiment_barcode_{R1,R2}.fastq.merged.gz
+libids1=libids1.txt
+libids2=libids.sh
 
 ### 2. Read alignment
 readalign=($WD/2.read_alignment)
-RAarray=X-X # INSERT the number range of paired Mz *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
+RAarray=X-X # INSERT the number range of paired *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
 idx=$spG # species bowtie index
 bam='.bam' # output BAM to add prefix beforehand
 log='.align.log' # output bowtie alignment log to add prefix beforehand
@@ -145,7 +146,8 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1b.renamefiles.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1b.renamefiles.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
-echo "sed 's/^/mv /g'" $scripts"/"$libids ">" $libids2 >> 1b.renamefiles.sh
+echo "grep $spID $libids > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
+echo "sed 's/^/mv /g'" $libids1 ">" $libids2 >> 1b.renamefiles.sh
 echo "sed -i '1 i\\n'" $libids2 >> 1b.renamefiles.sh
 echo "sed -i '1 i\#!/bin/sh'" $libids2 >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
@@ -210,9 +212,9 @@ printf '\n' >> 2b.readalign.sh
 echo 'ml bowtie2/2.2.6' >> 2b.readalign.sh
 echo 'ml samtools/1.7' >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo "awk -F' ' '{print \$2}' "$scripts"/"$libids " > " $reads >> 2b.readalign.sh
+echo "awk -F' ' '{print \$2}' "$libids1 " > " $reads >> 2b.readalign.sh
 echo 'mapfile -t reads < '$reads' # ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
-echo "awk -F' ' '{print \$2}' " $scripts"/"$libids " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
+echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
 echo 'srun bowtie2 -k' $multimapping '-X2000 --mm --threads' $bwt_thread '-x' $idx '-1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
@@ -234,9 +236,9 @@ echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment
 # echo 'ml bowtie2/2.2.6' >> 2b.readalign.sh
 # echo 'ml samtools/1.7' >> 2b.readalign.sh
 # printf '\n' >> 2b.readalign.sh
-# echo "grep '_L001_R1.fastq.merged.gz' " $scripts"/"$libids " | awk -F' '{print \$2}' | grep ^"$spID" > "$read1 "# create a list file of read1 for the array" >> 2b.readalign.sh
-# echo "grep '_L001_R2.fastq.merged.gz' " $scripts"/"$libids " | awk -F' '{print \$2}' | grep ^"$spID" > "$read2 "# create a list file of read2 for the array" >> 2b.readalign.sh
-# echo "awk -F' ' '{print \$2}' " $scripts"/"$libids " | awk -F'_' '{print \$1}' | grep "$spID" > "$prefix "# create a prefix file to iterate on the array" >> 2b.readalign.sh
+# echo "grep '_L001_R1.fastq.merged.gz' " $libids " | awk -F' '{print \$2}' | grep ^"$spID" > "$read1 "# create a list file of read1 for the array" >> 2b.readalign.sh
+# echo "grep '_L001_R2.fastq.merged.gz' " $libids " | awk -F' '{print \$2}' | grep ^"$spID" > "$read2 "# create a list file of read2 for the array" >> 2b.readalign.sh
+# echo "awk -F' ' '{print \$2}' " $libids " | awk -F'_' '{print \$1}' | grep "$spID" > "$prefix "# create a prefix file to iterate on the array" >> 2b.readalign.sh
 # printf '\n' >> 2b.readalign.sh
 # echo 'mapfile -t read1map < '$read1 '# assign read1 as elements to $read1map' >> 2b.readalign.sh
 # echo 'mapfile -t read2map < '$read2 '# assign read2 as elements to $read2map' >> 2b.readalign.sh
