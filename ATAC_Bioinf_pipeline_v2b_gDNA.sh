@@ -28,7 +28,7 @@
 
 ################################################################################################################
 
-# ~ This pipeline should be ran after 'ATAC_Bioinf_pipeline_v2a.sh' that merges files sequenced over mutilple lanes, but prior to 'ATAC_Bioinf_pipeline_v2b.sh' that works on the ATAC data
+# ~ This pipeline should be ran after 'ATAC_Bioinf_pipeline_v2a.sh' that merges files sequenced over mutilple lanes, but prior to 'ATAC_Bioinf_pipeline_v2b.sh' that works on the ATAC data for final peak calling
 
 ################################################################################################################
 
