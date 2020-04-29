@@ -18,7 +18,7 @@
   # ATAC_Bioinf_pipeline_v2b_part3b.R
   # ATAC_Bioinf_pipeline_v2b_part5bD-a.py
   # ATAC_Bioinf_pipeline_v2b_part5bD.py
-# 3. Run as an sbatch script with 8Gb memory and >15 day runtime - will spawn off other jobs
+# 3. Run as an sbatch script with 8Gb memory and >15 days runtime - will spawn off other jobs
 
 ################################################################################################################
 
