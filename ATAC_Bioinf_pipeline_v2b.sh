@@ -8,22 +8,24 @@
 ################################################################################################################
 
 # Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
-# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
+# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat -a M_zebra_UMD1.gtf
 # Note: Script is adapted for SBATCH usage
 
-## Place the following files in $scripts - to be created prior to running
+## Place this script and the following files in $WD (created in first script)
 # 1. As used in './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 # 2. Scripts:
   # ATAC_Bioinf_pipeline_v2b_part3a.py
   # ATAC_Bioinf_pipeline_v2b_part3b.R
+  # ATAC_Bioinf_pipeline_v2b_part5bD-a.py
   # ATAC_Bioinf_pipeline_v2b_part5bD.py
-# 3. Run as an sbatch script with 8Gb memory and >15 day runtime
+# 3. Run as an sbatch script with 8Gb memory and >15 day runtime - will spawn off other jobs
 
 ################################################################################################################
 
-# ~ This pipeline follows on from 'ATAC_Bioinf_pipeline_v2a.sh', that:
+# ~ This pipeline follows on from 'ATAC_Bioinf_pipeline_v2a.sh' and 'ATAC_Bioinf_pipeline_v2b_gDNA.sh', that:
 
 # 0. Merges files sequenced over multiple lanes
+# 1-2: Trimming and alignment of gDNA reads
 
 ################################################################################################################
 
@@ -47,8 +49,6 @@
 # 8. Annotation:
 # 	8a. TSS enrichment
 # 	8b. Fraction of Reads in annotated regions
-
-## This script will spawn off several other jobs and thus, can be ran with 12Gb memory (to create directories etc.) but with a long run time
 
 ################################################################################################################
 
@@ -363,7 +363,7 @@ echo "blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignm
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-10; then pident>75% according to BLAST hit and alignment length to mitochondrial genome' >> 3.mtfilt_fragcount_B.sh
 echo 'ml python/3.5' >> 3.mtfilt_fragcount_B.sh
-echo "python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable "'$mtscaff at top' >> 3.mtfilt_fragcount_B.sh
+echo "python $WD/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable "'$mtscaff at top' >> 3.mtfilt_fragcount_B.sh
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff' >> 3.mtfilt_fragcount_B.sh
 echo "IFS=$'\\\n' scaffarray=("'$(cut -f2 '$mtscaff" | awk ""'"'!x[$0]++'"'))" '# this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}' >> 3.mtfilt_fragcount_B.sh
@@ -387,7 +387,7 @@ echo 'samtools view $bam_file_nochrM | awk '"'"'$9>0'"' | cut -f9 | sort | uniq 
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
 echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B.sh
-echo "R CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
+echo "R CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$WD/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
 echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 
 JOBID6=$( sbatch --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
@@ -536,7 +536,7 @@ bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="\t"}{$4="N";$5="1000";print $0}' |
 bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="\t"}{$4="N";$5="1000";print $0}' | gzip -c > $tagalign_control1
 
 # 5b. TSS enrichment plotting
-# This calls one python script 'ATAC_Bioinf_pipeline_v2b_part5bD.py' and requires encode_lib_genomic.py and encode_lib_common.py are in the same scripts folder
+# This calls two python scripts - make sure in they're in the same folder
 
 # create a 2kb window around TSS (+/- 1kb) bed file e.g.
 # chr1	134210701	134214701	+

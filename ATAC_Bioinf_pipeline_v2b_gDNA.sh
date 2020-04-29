@@ -1,5 +1,16 @@
 #!/bin/sh
 
+#!/bin/bash -e
+#SBATCH -p tgac-long # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 8000 # memory pool for all cores
+#SBATCH -t 3-15:59 # time (D-HH:MM)
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+
 ################################################################################################################
 
 # ATAC-seq pipeline - Part 2 (gDNA only - to be ran prior to ATAC pipeline 'ATAC_Bioinf_pipeline_v2b.sh')
@@ -7,13 +18,13 @@
 
 ################################################################################################################
 
-# Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
-# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
+# Script usage: ./ATAC_Bioinf_pipeline_v2b_gDNA.sh -s "spID" -g "spG" -f "gFA"
+# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_gDNA -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa
 # Note: Script is adapted for SBATCH usage
 
-## Place the following files in $scripts - to be created prior to running
-# 1. This has been prepared by previous script './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
-# 2. Run as an sbatch script with 8Gb memory and >15 day runtime
+## Place this script and the following files in $WD (created in previous script)
+# 1. This has been prepared for previous script './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
+# 2. Run as an sbatch script with 8Gb memory and >3 day runtime - will spawn off other jobs
 
 ################################################################################################################
 
@@ -25,8 +36,6 @@
 
 # 1. Trim adaptors - trimgalore
 # 2. Read alignment - bowtie2 > samtools sorted bam
-
-## This script will spawn off other jobs and thus, can be ran with 12Gb memory (to create directories etc.) but with a long run time
 
 ################################################################################################################
 
@@ -75,14 +84,14 @@ email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 ### 1. Trim adaptors and renaming
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 trimdir=($WD/1.adaptor_trimming) # assign trimmed reads dir
-trimarray=X-X # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
+trimarray=0-0 # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
 libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissueID_experiment_barcode_{R1,R2}.fastq.merged.gz
 libids1=libids1.txt
 libids2=libids.sh
 
 ### 2. Read alignment
 readalign=($WD/2.read_alignment)
-RAarray=X-X # INSERT the number range of paired *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
+RAarray=0-0 # INSERT the number range of paired *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
 idx=$spG # species bowtie index
 bam='.bam' # output BAM to add prefix beforehand
 log='.align.log' # output bowtie alignment log to add prefix beforehand
@@ -259,6 +268,21 @@ echo '# -- 2b.'$spID' read alignment started -- #'
 
 ################################################################################################################
 
-## DO A CHECK AT THIS POINT TO SEE WHETHER THE ABOVE IS COMPLETED BEFORE ECHOING COMPLETED BELOW
+### 3. Genomic DNA library alignments completion
+
+echo '#!/bin/bash -e' > 3.gDNA_alignments_complete.sh
+echo '#SBATCH -p tgac-short # partition (queue)' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -N 1 # number of nodes' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -n 1 # number of tasks' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH --mem 2000' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -t 0-00:45' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 3.gDNA_alignments_complete.sh
+echo "#SBATCH --mail-user=$email # send-to address" >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 3.gDNA_alignments_complete.sh
+printf '\n' >> 3.gDNA_alignments_complete.sh
+echo "echo 'Genomic DNA library alignment is complete' > gDNAcompleted.txt" >> 3.gDNA_alignments_complete.sh
+
+JOBID5=$( sbatch --dependency=afterok:${JOBID4} 3.gDNA_alignments_complete.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
 
 echo '# -- 2b.'$spID' read alignment completed -- #'
