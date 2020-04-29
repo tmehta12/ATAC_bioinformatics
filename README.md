@@ -6,24 +6,27 @@ Multi tissue and multi species ATAC bioinformatics analysis pipeline
 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
 ### B. Trimming and alignment of gDNA reads
-Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
-e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
+Place the script 'ATAC_Bioinf_pipeline_v2b_gDNA.sh' in each gDNA ($spID) folder only e.g. Mz_L_gDNA
+Script usage: ./ATAC_Bioinf_pipeline_v2b_gDNA.sh -s "spID" -g "spG" -f "gFA"
+e.g. ./ATAC_Bioinf_pipeline_v2b_gDNA.sh -s Mz1_L_gDNA -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa
 Note: Script is adapted for SBATCH usage
 
-This pipeline is ran as species-specific, and contains the following components:
+This pipeline is ran as species-specific, from each folder, and contains the following components:
 1. Trim adaptors - trimgalore
 2. Read alignment - bowtie2 > samtools sorted bam
 
 ### C. Trimming and alignment of ATAC reads, and then filtering, calling peaks, and annotation
+Place the script 'ATAC_Bioinf_pipeline_v2b.sh' in each ATAC ($spID) folder only e.g. Mz_L_ATAC
 Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
 e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
 Note: Script is adapted for SBATCH usage
 
-Place the following files in $scripts - to be created prior to running
+Place the following files in top most directory:
 - As used in 'ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 - Scripts:
   - ATAC_Bioinf_pipeline_v2b_part3a.py
   - ATAC_Bioinf_pipeline_v2b_part3b.R
+  - ATAC_Bioinf_pipeline_v2b_part5bD-a.py
   - ATAC_Bioinf_pipeline_v2b_part5bD.py
 - Run as an sbatch script with 8Gb memory and >15 day runtime - will spawn off other jobs
 
