@@ -1,5 +1,15 @@
 #!/bin/sh
 
+#!/bin/bash -e
+#SBATCH -p tgac-medium # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 12000 # memory pool for all cores
+#SBATCH -t 0-23:59 # time (D-HH:MM)
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
 
 ################################################################################################################
 
@@ -8,65 +18,31 @@
 
 ################################################################################################################
 
-# Script usage: ./ATAC_Bioinf_pipeline_v2a.sh -s "spID" -g "spG" -c "String C"
-# After this, run
+### Script usage
+
+# 1. Create a topmost directly separately, placing this script in there and running from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
+# 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
 ################################################################################################################
 
-# ~ This pipeline can (should) be proceeded 'ATAC_Bioinf_pipeline_v2b.sh', that does:
+# ~ This pipeline should be proceeded with 'ATAC_Bioinf_pipeline_v2b_gDNA.sh' and then 'ATAC_Bioinf_pipeline_v2b.sh' that does:
 
-# 1-8: Trimming, alignment, filtering, calling peaks, and annotation
-
-################################################################################################################
-
-# This may or may not be required - Setting parameters for command line input (AMEND BELOW IF REQUIRED!)
-
-helpFunction()
-{
-   echo ""
-   echo "Usage: $0 -s spID -g spG -c parameterC"
-   echo -e "\t-s spID = Species ID, preferably two short letters, tissue and experiment e.g. Metriaclima zebra Liver = Mz_L_ATAC/gDNA"
-   echo -e "\t-g spG = Species genome ID e.g. hg19 or M_zebra_UMD1"
-   echo -e "\t-c Description of what is parameterC"
-   exit 1 # Exit script after printing help
-}
-
-while getopts "s:g:c:" opt
-do
-   case "$opt" in
-      a ) spID="$OPTARG" ;;
-      b ) spG="$OPTARG" ;;
-      c ) parameterC="$OPTARG" ;;
-      ? ) helpFunction ;; # Print helpFunction in case parameter is non-existent
-   esac
-done
-
-# Print helpFunction in case parameters are empty
-if [ -z "$spID" ] || [ -z "$spG" ] || [ -z "$parameterC" ]
-then
-   echo "Some or all of the parameters are empty";
-   helpFunction
-fi
-
-# Begin script in case all parameters are correct
-echo "$spID"
-echo "$spG"
-echo "$parameterC"
+# 1-2: Trimming and alignment of gDNA reads
+# 1-8: Trimming and alignment of ATAC reads, and then filtering, calling peaks, and annotation
 
 ################################################################################################################
 
 # Add variables here:
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately
+scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately and place this script in there too
+
+libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
 
 rawreadfolder1=(/tgac/data/reads/TarangMehta_EI_EI_TM_ENQ-1771_A_03/170214_D00507_0252_AHG5KGBCXY)
 rawreadfolder2=(/tgac/data/reads/TarangMehta_EI_EI_TM_ENQ-1771_A_03/170320_D00507_0270_AHHYLLBCXY)
 rawreadfolder3=(/tgac/data/reads/)
 
 WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # insert the working directory
-
-rawreaddir=($WD/0.rawreads) # assign raw reads dir
-
-libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
+rawreaddir=($WD/0.rawreads)
 
 ################################################################################################################
 
@@ -87,7 +63,6 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 
 
 
-echo '# -- 0. File merging complete -- #'
 
 ################################################################################################################
 
@@ -100,25 +75,36 @@ echo '# -- 0. File merging complete -- #'
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
 
 # A. read in the space delimited file and prepare working directories for all col2 entries
+# B. within each species_tissue_experiment working directory, create a raw reads directory too
 
 prefix=($scripts/prefix.txt)
-reads=(reads.txt)
 
+echo '# -- 0. File merging complete -- #'
 
 awk -F' ' '{print $2}' $libids | awk -F'_' '{print $1"_"$2"_"$3}' > $prefix # create a prefix file to iterate
-mapfile -t prefixmap < $prefix # assign prefixes to $prefixmap
-
-awk -F' ' '{print $2}' $libids > $reads
-mapfile -t reads < $reads # ${reads[0]} calls read1 AND ${reads[1]} calls read2'
-
-# B. within each species_tissue_experiment working directory, create a raw reads directory too
+for i in $prefix; do
+  mkdir -p $WD/$i
+  cd $WD/$i
+  mkdir 0.rawreads
+done
 
 # 1b. Create symbolic links to raw reads in per species_tissue e.g. Mz_L and experiment (ATAC/gDNA) - no file renaming required at this stage; will be done after trimming
 
+cd $WD
 
-# 1a.
+libids2=($scripts/libids2.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment only e.g. Mz_L_ATAC/gDNA
+sed 's/ATAC_.*/ATAC/g' $libids | sed 's/gDNA_.*/gDNA/g' > $libids2 # create the above
 
-spWD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$i) # insert the working directory
-sprawreaddir=($spWD/0.rawreads) # assign raw reads dir
+# For loop, if statement to create symbolic link to raw reads for each species_tissue_experiment
+for i in $libids2; do
+  spdir=$(awk -F' ' '{print $2}' $i) # pull out the species_tissue_experiment ID of each line
+  cd $WD/$spdir # change to each subdirectory
+  dir=$(pwd) # create variable of the full path
+  dir2=$(echo $dir | sed "s|$WD||g") # pull out the species_tissue_experiment ID of the working path
+  read=$(awk -F' ' '{print $1}' $i) # pull out the corresponding read filename of each line
+  if [[ $spdir == $dir2 ]]; then # if the species_tissue_experiment ID in the list and the working directory match, then
+    ln -s $rawreaddir/$read 0.rawreads/ # create symbolic link in raw reads dir to corresponding raw read
+  fi
+done
 
-mkdir -p $sprawreaddir
+################################################################################################################
