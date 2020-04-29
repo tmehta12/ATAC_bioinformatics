@@ -12,7 +12,7 @@
 # Note: Script is adapted for SBATCH usage
 
 ## Place the following files in $scripts - to be created prior to running
-# 1. This can be copied from previous script './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
+# 1. As used in './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 # 2. Scripts:
   # ATAC_Bioinf_pipeline_v2b_part3a.py
   # ATAC_Bioinf_pipeline_v2b_part3b.R
