@@ -106,14 +106,14 @@ email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 ### 1. Trim adaptors and renaming
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 trimdir=($WD/1.adaptor_trimming) # assign trimmed reads dir
-trimarray=X-X # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
+trimarray=0-0 # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
 libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
 libids1=libids1.txt
 libids2=libids.sh
 
 ### 2. Read alignment
 readalign=($WD/2.read_alignment)
-RAarray=X-X # INSERT the number range of paired Mz *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
+RAarray=0-0 # INSERT the number range of paired Mz *fastq.merged.gz to align in zero base e.g. 10 pairs = 0-9
 idx=$spG # species bowtie index
 bam='.bam' # output BAM to add prefix beforehand
 log='.align.log' # output bowtie alignment log to add prefix beforehand
