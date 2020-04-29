@@ -1,11 +1,11 @@
-### ATAC_bioinformatics
+# ATAC_bioinformatics
 Multi tissue and multi species ATAC bioinformatics analysis pipeline
 
-## A. Merging reads sequenced across multiple lanes
+### A. Merging reads sequenced across multiple lanes
 1. Create a topmost directory separately, placing this script in there and running from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
-## B. Trimming and alignment of gDNA reads
+### B. Trimming and alignment of gDNA reads
 Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
 e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
 Note: Script is adapted for SBATCH usage
@@ -14,7 +14,7 @@ This pipeline is ran as species-specific, and contains the following components:
 1. Trim adaptors - trimgalore
 2. Read alignment - bowtie2 > samtools sorted bam
 
-## C. Trimming and alignment of ATAC reads, and then filtering, calling peaks, and annotation
+### C. Trimming and alignment of ATAC reads, and then filtering, calling peaks, and annotation
 Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
 e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
 Note: Script is adapted for SBATCH usage
