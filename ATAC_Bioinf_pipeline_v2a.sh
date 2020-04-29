@@ -20,7 +20,7 @@
 
 ### Script usage
 
-# 1. Create a topmost directly separately, placing this script in there and running from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
+# 1. Create a topmost directory separately, placing this script in there and running from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
 # 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
 ################################################################################################################
