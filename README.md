@@ -32,18 +32,18 @@ Place the following files in $scripts - to be created prior to running
 1. Trim adaptors - trimgalore
 2. Read alignment - bowtie2 > samtools sorted bam
 3. Remove mitochondrial mapped - samtools > new bam
-- 3a. Fragment/insert size distribution
+  - 3a. Fragment/insert size distribution
 4. Post alignment filtering
-- 4a. Filter reads (Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates) - samtools > final bam
+  - 4a. Filter reads (Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates) - samtools > final bam
 5. ATAC peak-calling
-- 5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
-- 5b. TSS enrichment - plot
-- 5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
-- 5d. peak calling - macs2 NOTE: consider running another peak-calling program and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
+  - 5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
+  - 5b. TSS enrichment - plot
+  - 5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
+  - 5d. peak calling - macs2 NOTE: consider running another peak-calling program and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
 6. IDR on all pairs of replicates, self-pseudoreplicates and pooled pseudoreplicates - IDR is optional. The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
-- 6a. IDR of true replicates
-- 6b. Compute Fraction of Reads in Peaks (FRiP)
+  - 6a. IDR of true replicates
+  - 6b. Compute Fraction of Reads in Peaks (FRiP)
 7. Create signal tracks - bedtools
 8. Annotation:
-- 8a. TSS enrichment
-- 8b. Fraction of Reads in annotated regions
+  - 8a. TSS enrichment
+  - 8b. Fraction of Reads in annotated regions
