@@ -494,7 +494,8 @@ echo '# -- 4.'$spID' Post alignment filtering started -- #'
   # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
   # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
 # 	5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
-# 	5d. peak calling - macs2 NOTE: consider running another peak-calling program (like HOMER) and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
+# 	5d. peak calling - macs2
+#   5e. peak calling using another program - Genrich) and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
 
 mkdir -p $peakcall
 cd $peakcall
@@ -586,6 +587,29 @@ echo "macs2 bdgcmp -t $output_prefix\_treat_pileup.bdg -c $output_prefix\_contro
 
 JOBID8=$( sbatch --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
 
+# 5e. peak calling using another program - Genrich) and take the intersection
+# installed on HPC by CiS
+
+source package 8bf6d6cb-b9e9-4215-a3d8-b17a76fec816 # sources Genrich on HPC - guidance: https://informatics.fas.harvard.edu/atac-seq-guidelines.html#another-peak-caller-why; https://github.com/jsh58/Genrich
+Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalThresh -j -y -r -v # output is ENCODE narrowPeak format
+
+# ENCODE narrowPeak format
+# 1. chrom 	Name of the chromosome
+# 2. chromStart 	Starting position of the peak (0-based)
+# 3. chromEnd 	Ending position of the peak (not inclusive)
+# 4. name 	peak_N, where N is the 0-based count
+# 5. score 	Average AUC (total AUC / bp) × 1000, rounded to the nearest int (max. 1000)
+# 6. strand 	. (no orientation)
+# 7. signalValue 	Total area under the curve (AUC)
+# 8. pValue 	Summit -log10(p-value)
+# 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
+# 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
+
+
+
+
+
+
 echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
 echo '# -- 5.'$spID' Peak calling started -- #'
@@ -634,6 +658,8 @@ echo '# -- 8.'$spID' Peak annotation has started -- #'
 ################################################################################################################
 
 ### NOTE: be careful when considering differential peaks as some may be only offset by a few bases. In this secnario, consider the average number of mapped reads over a window.
+
+## FOR DIFFERENTIAL ANALYSIS OF PEAKS, USE HOMER; SOME CODE HERE: https://dtc-coding-dojo.github.io/main//blog/Analysing_ATAC_and_CHIPseq_data/
 
 ## ~ INSERT CODE HERE ~ ##
 

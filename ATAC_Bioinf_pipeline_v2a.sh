@@ -77,16 +77,20 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 # A. read in the space delimited file and prepare working directories for all col2 entries
 # B. within each species_tissue_experiment working directory, create a raw reads directory too
 
+cd $WD
+
 prefix=($scripts/prefix.txt)
 
 echo '# -- 0. File merging complete -- #'
 
-awk -F' ' '{print $2}' $libids | awk -F'_' '{print $1"_"$2"_"$3}' > $prefix # create a prefix file to iterate
-for i in $prefix; do
-  mkdir -p $WD/$i
-  cd $WD/$i
+awk -F' ' '{print $2}' $libids | awk -F'_' '{print $1"_"$2"_"$3}' | sort -u > $prefix # create a prefix file to iterate
+while IFS= read -r i; do
+  # echo $i
+  mkdir $i
+  cd $i
   mkdir 0.rawreads
-done
+  cd ../
+done < $prefix
 
 # 1b. Create symbolic links to raw reads in per species_tissue e.g. Mz_L and experiment (ATAC/gDNA) - no file renaming required at this stage; will be done after trimming
 
@@ -95,16 +99,22 @@ cd $WD
 libids2=($scripts/libids2.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment only e.g. Mz_L_ATAC/gDNA
 sed 's/ATAC_.*/ATAC/g' $libids | sed 's/gDNA_.*/gDNA/g' > $libids2 # create the above
 
-# For loop, if statement to create symbolic link to raw reads for each species_tissue_experiment
-for i in $libids2; do
-  spdir=$(awk -F' ' '{print $2}' $i) # pull out the species_tissue_experiment ID of each line
+# while read, if statement to create symbolic link to raw reads for each species_tissue_experiment
+
+while IFS= read -r i; do
+  # echo $i
+  spdir=$(echo $i | awk -F' ' '{print $2}') # pull out the species_tissue_experiment ID of each line
+  # echo $spdir
   cd $WD/$spdir # change to each subdirectory
   dir=$(pwd) # create variable of the full path
-  dir2=$(echo $dir | sed "s|$WD||g") # pull out the species_tissue_experiment ID of the working path
-  read=$(awk -F' ' '{print $1}' $i) # pull out the corresponding read filename of each line
+  # echo $dir
+  dir2=$(echo $dir | sed "s|$WD/||g") # pull out the species_tissue_experiment ID of the working path
+  # echo $dir2
+  read=$(echo $i | awk -F' ' '{print $1}') # pull out the corresponding read filename of each line
+  # echo $read
   if [[ $spdir == $dir2 ]]; then # if the species_tissue_experiment ID in the list and the working directory match, then
     ln -s $rawreaddir/$read 0.rawreads/ # create symbolic link in raw reads dir to corresponding raw read
   fi
-done
+done < $libids2
 
 ################################################################################################################
