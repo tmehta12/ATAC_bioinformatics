@@ -20,7 +20,7 @@
 
 ### Script usage
 
-# 1. Create a topmost directory separately, placing this script in there and running from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
+# 1. Create a topmost directory separately, placing this script in there and run from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
 # 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
 ################################################################################################################
@@ -44,6 +44,13 @@ rawreadfolder3=(/tgac/data/reads/)
 WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # insert the working directory
 rawreaddir=($WD/0.rawreads)
 
+prefix=($scripts/prefix.txt)
+prefixgDNA=($scripts/prefixgDNA.txt)
+prefixATAC=($scripts/prefixATAC.txt)
+
+gDNAscr=(ATAC_Bioinf_pipeline_v2b_gDNA.sh)
+ATACscr=(ATAC_Bioinf_pipeline_v2b.sh)
+
 ################################################################################################################
 
 ### 0. Merge files if sequenced over multiple lanes - Add the species ID and tissue to create read1 and read2 e.g. Mz_L_ATAC_read1 and Mz_L_ATAC_read2
@@ -61,7 +68,7 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 
 # Then, merge with new sequencing files {TO ADD}
 
-
+## Ensure final output is *_R1.fastq.merged.gz/*_R2.fastq.merged.gz
 
 
 ################################################################################################################
@@ -78,8 +85,6 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 # B. within each species_tissue_experiment working directory, create a raw reads directory too
 
 cd $WD
-
-prefix=($scripts/prefix.txt)
 
 echo '# -- 0. File merging complete -- #'
 
@@ -118,3 +123,18 @@ while IFS= read -r i; do
 done < $libids2
 
 ################################################################################################################
+
+### 2. Add relevant scripts to each directory
+
+# Add each ATAC_Bioinf_pipeline_v2b_gDNA.sh script to each gDNA folder and ATAC_Bioinf_pipeline_v2b.sh to each ATAC folder
+
+grep 'gDNA' $prefix > $prefixgDNA
+grep 'ATAC' $prefix > $prefixATAC
+
+while IFS= read -r i; do
+  cp $gDNAscr $i
+done < $prefixgDNA
+
+while IFS= read -r i; do
+  cp $ATACscr $i
+done < $prefixATAC
