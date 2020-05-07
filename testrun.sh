@@ -9,6 +9,12 @@ WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # insert the working director
 rawreaddir=(/tgac/workarea/group-vh/Tarang/ATACseq/1.run1jan2017_twolanes/0.rawreads)
 libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
 
+prefix=($scripts/prefix.txt)
+prefixgDNA=($scripts/prefixgDNA.txt)
+prefixATAC=($scripts/prefixATAC.txt)
+
+gDNAscr=(ATAC_Bioinf_pipeline_v2b_gDNA.sh)
+ATACscr=(ATAC_Bioinf_pipeline_v2b.sh)
 
 cd $scripts
 
@@ -59,8 +65,6 @@ PRO1563_S1_lib_TCGCCTGC-CCTTGCCG_L001_R2.fastq.merged.gz Nb5_T_gDNA_PRO1563_S1_l
 
 cd $WD
 
-prefix=($scripts/prefix.txt)
-
 echo '# -- 0. File merging complete -- #'
 
 awk -F' ' '{print $2}' $libids | awk -F'_' '{print $1"_"$2"_"$3}' | sort -u > $prefix # create a prefix file to iterate
@@ -98,3 +102,26 @@ while IFS= read -r i; do
     ln -s $rawreaddir/$read 0.rawreads/ # create symbolic link in raw reads dir to corresponding raw read
   fi
 done < $libids2
+
+## At the end of this script, you should add each ATAC_Bioinf_pipeline_v2b_gDNA.sh script to each gDNA folder and ATAC_Bioinf_pipeline_v2b.sh to each ATAC folder
+
+grep 'gDNA' $prefix > $prefixgDNA
+grep 'ATAC' $prefix > $prefixATAC
+
+while IFS= read -r i; do
+  cp $gDNAscr $i
+done < $prefixgDNA
+
+while IFS= read -r i; do
+  cp $ATACscr $i
+done < $prefixATAC
+
+## This is the end (theoretically) of ATAC_Bioinf_pipeline_v2a.sh (just doesn't include the merging as that was already done)
+
+### Will test the proceeding scripts on Ab5_L_gDNA and Ab5_L_ATAC
+
+cd $WD/Ab5_L_gDNA
+sbatch ATAC_Bioinf_pipeline_v2b_gDNA.sh -s Ab5_L_gDNA -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta # started 07/05/2020 14:20
+
+cd $WD/Ab5_L_ATAC
+sbatch ATAC_Bioinf_pipeline_v2b.sh -s Ab5_L_ATAC -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta -m NC_027289.1 -u mehtat -a /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Annotatation/protein_coding/gtf/Astatotilapia_burtoni.BROADAB2.gtf.gz
