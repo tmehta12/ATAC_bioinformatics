@@ -181,12 +181,12 @@ printf '\n' >> 1a.trimadaptors.sh
 echo 'mapfile -t read1 < trimarrayread1 # assign read1 as elements to $read1 variable' >> 1a.trimadaptors.sh
 echo 'mapfile -t read2 < trimarrayread2 # assign read2 as elements to $read2 variable' >> 1a.trimadaptors.sh
 printf '\n' >> 1a.trimadaptors.sh
-echo 'srun trim_galore --output_dir $trimdir --paired --fastqc ${read1[${SLURM_ARRAY_TASK_ID}]} ${read2[${SLURM_ARRAY_TASK_ID}]}' >> 1a.trimadaptors.sh
-
-# assign '1a.trimadaptors.sh' to variable: JOBID1 and run
-JOBID1=$( sbatch --hold --job-nam=START --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
+echo "srun trim_galore --output_dir $trimdir --paired"' --fastqc ${read1[${SLURM_ARRAY_TASK_ID}]} ${read2[${SLURM_ARRAY_TASK_ID}]}' >> 1a.trimadaptors.sh
 
 echo '# -- 1a. Adaptor trimming started -- #'
+
+# assign '1a.trimadaptors.sh' to variable: JOBID1 and run
+JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
 
 # rename the files according to species, tissue and experiment - provide this as a 2-column SPACE-delimited table that will be assigned as a variable above, placed in the trimdir
 # only provide for the two paired files you are working on and not all files
@@ -207,18 +207,19 @@ echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1b.renamefiles.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
 echo "grep $spID $libids > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
-echo "sed 's/^/mv /g'" $libids1 ">" $libids2 >> 1b.renamefiles.sh
-echo "sed -i '1 i\\n'" $libids2 >> 1b.renamefiles.sh
-echo "sed -i '1 i\#!/bin/sh'" $libids2 >> 1b.renamefiles.sh
+echo "sed 's/^/mv /g' $libids1 > $libids2" >> 1b.renamefiles.sh
+echo "sed -i '1 i\\n' $libids2" >> 1b.renamefiles.sh
+echo "sed -i '1 i\#!/bin/sh' $libids2" >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
-echo "sh" $libids2 >> 1b.renamefiles.sh
-
-# assign '1b.renamefiles.sh' to variable: JOBID2 and run
-JOBID2=$( sbatch --dependency=afterok:${JOBID1} 1b.renamefiles.sh | awk '{print $4}' ) # JOB2 depends on JOB1 completing successfully
+echo "sh $libids2" >> 1b.renamefiles.sh
 
 echo '# -- 1a. Adaptor trimming completed -- #'
 
 echo '# -- 1b. Renaming files started -- #'
+
+# assign '1b.renamefiles.sh' to variable: JOBID2 and run
+JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1b.renamefiles.sh | awk '{print $4}' ) # JOB2 depends on JOB1 completing successfully
+
 
 ################################################################################################################
 
@@ -243,18 +244,18 @@ printf '\n' >> 2a.genomeindex.sh
 echo 'ml bowtie2/2.2.6' >> 2a.genomeindex.sh
 printf '\n' >> 2a.genomeindex.sh
 echo '#build indexes and assign to variables' >> 2a.genomeindex.sh
-echo 'bowtie2-build $gFA $spG' >> 2a.genomeindex.sh
+echo "bowtie2-build $gFA $spG" >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa M_zebra_UMD1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/PunNye1.0/P_nyererei_v1.assembly.fasta P_nyererei_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta A_burtoni_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/NeoBri1.0/N_brichardi_v1.assembly.fasta N_brichardi_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/O_niloticus_UMD1/O_niloticus_UMD1.fasta O_niloticus_UMD1' >> 2a.genomeindex.sh
 
-JOBID3=$( sbatch --dependency=afterok:${JOBID2} 2a.genomeindex.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
-
 echo '# -- 1b. Renaming files completed -- #'
 
 echo '# -- 2a.'$spID' genome index building started -- #'
+
+JOBID3=$( sbatch -W --dependency=afterok:${JOBID2} 2a.genomeindex.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
 
 
 # 2b. bowtie2 read alignments to genome indexes
@@ -272,15 +273,14 @@ printf '\n' >> 2b.readalign.sh
 echo 'ml bowtie2/2.2.6' >> 2b.readalign.sh
 echo 'ml samtools/1.7' >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo "awk -F' ' '{print \$2}' "$libids1 " > " $reads >> 2b.readalign.sh
-echo 'mapfile -t reads < '$reads' # ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
+echo "awk -F' ' '{print \$2}' $libids1 > $reads" >> 2b.readalign.sh
+echo "mapfile -t reads < $reads"'# ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k' $multimapping '-X2000 --mm --threads' $bwt_thread '-x' $idx '-1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k ' $multimapping ' -X2000 --mm --threads ' $bwt_thread ' -x ' $idx ' -1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap '$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment stats' >> 2b.readalign.sh
-
+echo 'samtools flagstat ' $prefixmap$bam ' > ' $prefixmap$fgQC1 ' # output alignment stats' >> 2b.readalign.sh
 
 
 # ## this is if you are running several libraries (>2) in an array
@@ -311,13 +311,15 @@ echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment
 # printf '\n' >> 2b.readalign.sh
 # echo 'samtools flagstat ${prefixmap[${SLURM_ARRAY_TASK_ID}]}'$bam '>' $readalign'/${prefixmap[${SLURM_ARRAY_TASK_ID}]}'$fgQC1 '# output alignment stats' >> 2b.readalign.sh
 
-# JOBID4=$( sbatch --dependency=afterok:${JOBID3} --array=$RAarray 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
-
-JOBID4=$( sbatch --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
+# JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} --array=$RAarray 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
 
 echo '# -- 2a.'$spID' genome index building completed -- #'
 
 echo '# -- 2b.'$spID' read alignment started -- #'
+
+JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
+
+
 
 ################################################################################################################
 
@@ -345,11 +347,12 @@ echo "PWD=$(pwd)" >> 3.mtfilt_fragcount_A.sh
 echo 'SCRIPT="cd '${PWD}'; wget -O '$mtID'.fasta https://www.ncbi.nlm.nih.gov/search/api/sequence/'$mtID'/?report=fasta; exit"' >> 3.mtfilt_fragcount_A.sh
 echo 'ssh  -oStrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.mtfilt_fragcount_A.sh
 
-JOBID5=$( sbatch --dependency=afterok:${JOBID4} 3.mtfilt_fragcount_A.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
-
 echo '# -- 2b.'$spID' read alignment completed -- #'
 
 echo '# -- 3a.'$spID' mitochondrial genome download started: '$mtID' -- #'
+
+JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 3.mtfilt_fragcount_A.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+
 
 ## 3b. remove mitochondrial mapped reads from ATAC data and plot fragment lengths
 echo '#!/bin/bash -e' > 3.mtfilt_fragcount_B.sh
@@ -401,11 +404,13 @@ echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B.sh
 echo "R CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$WD/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
 echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 
-JOBID6=$( sbatch --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
-
 echo '# -- 3a.'$spID' mitochondrial genome downloaded: '$mtID' -- #'
 
 echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot started -- #'
+
+JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
+
+
 
 ################################################################################################################
 
@@ -477,11 +482,13 @@ echo 'done' >> 4.postalign_filt.sh
 #   java -Xmx2g -jar /tgac/software/production/picardtools/1.84/x86_64/bin/CollectInsertSizeMetrics.jar \R=$gFA \I=$filtdir/$nodup_filt_bam_file \O="$filtdir/${nodup_filt_bam_file}_PicardInsertMetrics.jar.txt" \H="$filtdir/${nodup_filt_bam_file}_insert_size_histogram.pdf" \M=0.5
 # done
 
-JOBID7=$( sbatch --dependency=afterok:${JOBID6} 4.postalign_filt.sh | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
-
 echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot completed -- #'
 
 echo '# -- 4.'$spID' Post alignment filtering started -- #'
+
+JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} 4.postalign_filt.sh | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
+
+
 
 ################################################################################################################
 
@@ -600,15 +607,13 @@ echo "Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
-
-
-JOBID8=$( sbatch --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
-
-
-
 echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
 echo '# -- 5.'$spID' Peak calling started -- #'
+
+JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
+
+
 
 ## NEED TO ADD ANOTHER SCRIPT TO IDENTIFY THE INTERSECTION BETWEEN MACS2 AND GENRICH - BEDTOOLS?
 
@@ -620,11 +625,13 @@ echo '# -- 5.'$spID' Peak calling started -- #'
 
 ## ~ INSERT CODE HERE ~ ##
 
-JOBID9=$( sbatch --dependency=afterok:${JOBID8} XX.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
+# echo '# -- 5.'$spID' Peak calling completed -- #'
+#
+# echo '# -- 6.'$spID' IDR started -- #'
+#
+# JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} XX.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
 
-echo '# -- 5.'$spID' Peak calling completed -- #'
 
-echo '# -- 6.'$spID' IDR started -- #'
 
 ################################################################################################################
 
@@ -632,11 +639,12 @@ echo '# -- 6.'$spID' IDR started -- #'
 
 ## ~ INSERT CODE HERE ~ ##
 
-JOBID10=$( sbatch --dependency=afterok:${JOBID9} XX.sh | awk '{print $4}' ) # JOB10 depends on JOB9 completing successfully
+# echo '# -- 6.'$spID' IDR completed -- #'
+#
+# echo '# -- 7.'$spID' Creating signal tracks has started -- #'
+#
+# JOBID10=$( sbatch -W --dependency=afterok:${JOBID9} XX.sh | awk '{print $4}' ) # JOB10 depends on JOB9 completing successfully
 
-echo '# -- 6.'$spID' IDR completed -- #'
-
-echo '# -- 7.'$spID' Creating signal tracks has started -- #'
 
 ################################################################################################################
 
@@ -646,11 +654,12 @@ echo '# -- 7.'$spID' Creating signal tracks has started -- #'
 
 ## ~ INSERT CODE HERE ~ ##
 
-JOBID11=$( sbatch --dependency=afterok:${JOBID10} XX.sh | awk '{print $4}' ) # JOB11 depends on JOB10 completing successfully
+# echo '# -- 7.'$spID' Creating signal tracks has completed -- #'
+#
+# echo '# -- 8.'$spID' Peak annotation has started -- #'
+#
+# JOBID11=$( sbatch -W --dependency=afterok:${JOBID10} XX.sh | awk '{print $4}' ) # JOB11 depends on JOB10 completing successfully
 
-echo '# -- 7.'$spID' Creating signal tracks has completed -- #'
-
-echo '# -- 8.'$spID' Peak annotation has started -- #'
 
 ################################################################################################################
 
@@ -660,6 +669,11 @@ echo '# -- 8.'$spID' Peak annotation has started -- #'
 
 ## ~ INSERT CODE HERE ~ ##
 
-JOBID12=$( sbatch --dependency=afterok:${JOBID11} XX.sh | awk '{print $4}' ) # JOB12 depends on JOB11 completing successfully
+# echo '# -- 8.'$spID' Peak annotation has completed -- #'
+#
+# JOBID12=$( sbatch -W --dependency=afterok:${JOBID11} XX.sh | awk '{print $4}' ) # JOB12 depends on JOB11 completing successfully
 
-echo '# -- 8.'$spID' Peak annotation has completed -- #'
+################################################################################################################
+
+### Finish the script
+exit 0
