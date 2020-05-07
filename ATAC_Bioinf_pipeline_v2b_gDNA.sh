@@ -131,12 +131,16 @@ printf '\n' >> 1a.trimadaptors.sh
 echo 'mapfile -t read1 < trimarrayread1 # assign read1 as elements to $read1 variable' >> 1a.trimadaptors.sh
 echo 'mapfile -t read2 < trimarrayread2 # assign read2 as elements to $read2 variable' >> 1a.trimadaptors.sh
 printf '\n' >> 1a.trimadaptors.sh
-echo 'srun trim_galore --output_dir $trimdir --paired --fastqc ${read1[${SLURM_ARRAY_TASK_ID}]} ${read2[${SLURM_ARRAY_TASK_ID}]}' >> 1a.trimadaptors.sh
-
-# assign '1a.trimadaptors.sh' to variable: JOBID1 and run
-JOBID1=$( sbatch --hold --job-nam=START --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
+echo "srun trim_galore --output_dir $trimdir --paired"' --fastqc ${read1[${SLURM_ARRAY_TASK_ID}]} ${read2[${SLURM_ARRAY_TASK_ID}]}' >> 1a.trimadaptors.sh
 
 echo '# -- 1a. Adaptor trimming started -- #'
+
+# assign '1a.trimadaptors.sh' to variable: JOBID1 and run
+JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run); Do not exit until the submitted job terminates.
+
+
+### YOU NEED TO INTRODUCE WAIT COMMANDS THAT ONLY PROCEED WITH BELOW ONCE ABOVE IS COMPLETED WITH EXIT STATUS 0
+# wait $JOBID1
 
 # rename the files according to species, tissue and experiment - provide this as a 2-column SPACE-delimited table that will be assigned as a variable above, placed in the trimdir
 # only provide for the two paired files you are working on and not all files
@@ -157,18 +161,19 @@ echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1b.renamefiles.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
 echo "grep $spID $libids > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
-echo "sed 's/^/mv /g'" $libids1 ">" $libids2 >> 1b.renamefiles.sh
-echo "sed -i '1 i\\n'" $libids2 >> 1b.renamefiles.sh
-echo "sed -i '1 i\#!/bin/sh'" $libids2 >> 1b.renamefiles.sh
+echo "sed 's/^/mv /g' $libids1 > $libids2" >> 1b.renamefiles.sh
+echo "sed -i '1 i\\n' $libids2" >> 1b.renamefiles.sh
+echo "sed -i '1 i\#!/bin/sh' $libids2" >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
-echo "sh" $libids2 >> 1b.renamefiles.sh
-
-# assign '1b.renamefiles.sh' to variable: JOBID2 and run
-JOBID2=$( sbatch --dependency=afterok:${JOBID1} 1b.renamefiles.sh | awk '{print $4}' ) # JOB2 depends on JOB1 completing successfully
+echo "sh $libids2" >> 1b.renamefiles.sh
 
 echo '# -- 1a. Adaptor trimming completed -- #'
 
 echo '# -- 1b. Renaming files started -- #'
+
+# assign '1b.renamefiles.sh' to variable: JOBID2 and run
+JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1b.renamefiles.sh | awk '{print $4}' ) # JOB2 depends on JOB1 completing successfully
+
 
 ################################################################################################################
 
@@ -193,18 +198,18 @@ printf '\n' >> 2a.genomeindex.sh
 echo 'ml bowtie2/2.2.6' >> 2a.genomeindex.sh
 printf '\n' >> 2a.genomeindex.sh
 echo '#build indexes and assign to variables' >> 2a.genomeindex.sh
-echo 'bowtie2-build $gFA $spG' >> 2a.genomeindex.sh
+echo "bowtie2-build $gFA $spG" >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa M_zebra_UMD1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/PunNye1.0/P_nyererei_v1.assembly.fasta P_nyererei_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta A_burtoni_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/NeoBri1.0/N_brichardi_v1.assembly.fasta N_brichardi_v1' >> 2a.genomeindex.sh
 echo '#bowtie2-build /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/O_niloticus_UMD1/O_niloticus_UMD1.fasta O_niloticus_UMD1' >> 2a.genomeindex.sh
 
-JOBID3=$( sbatch --dependency=afterok:${JOBID2} 2a.genomeindex.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
-
 echo '# -- 1b. Renaming files completed -- #'
 
 echo '# -- 2a.'$spID' genome index building started -- #'
+
+JOBID3=$( sbatch -W --dependency=afterok:${JOBID2} 2a.genomeindex.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
 
 
 # 2b. bowtie2 read alignments to genome indexes
@@ -227,9 +232,9 @@ echo 'mapfile -t reads < '$reads' # ${reads[0]} calls read1 AND ${reads[1]} call
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k' $multimapping '-X2000 --mm --threads' $bwt_thread '-x' $idx '-1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k ' $multimapping ' -X2000 --mm --threads ' $bwt_thread ' -x ' $idx ' -1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap '$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment stats' >> 2b.readalign.sh
+echo 'samtools flagstat ' $prefixmap$bam ' > ' $prefixmap$fgQC1 ' # output alignment stats' >> 2b.readalign.sh
 
 # ## this is if you are running several libraries (>2) in an array
 # echo '#!/bin/bash -e' > 2b.readalign.sh
@@ -261,11 +266,13 @@ echo 'samtools flagstat' $prefixmap$bam '>' $prefixmap$fgQC1 '# output alignment
 
 # JOBID4=$( sbatch --dependency=afterok:${JOBID3} --array=$RAarray 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
 
-JOBID4=$( sbatch --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
-
 echo '# -- 2a.'$spID' genome index building completed -- #'
 
 echo '# -- 2b.'$spID' read alignment started -- #'
+
+JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
+
+
 
 ################################################################################################################
 
@@ -284,6 +291,13 @@ echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 3.gDNA_alignments_complete.sh
 printf '\n' >> 3.gDNA_alignments_complete.sh
 echo "echo 'Genomic DNA library alignment is complete' > gDNAcompleted.txt" >> 3.gDNA_alignments_complete.sh
 
-JOBID5=$( sbatch --dependency=afterok:${JOBID4} 3.gDNA_alignments_complete.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
-
 echo '# -- 2b.'$spID' read alignment completed -- #'
+
+JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 3.gDNA_alignments_complete.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+
+
+
+################################################################################################################
+
+### Finish the script
+exit 0
