@@ -272,8 +272,6 @@ echo '# -- 2b.'$spID' read alignment started -- #'
 
 JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
 
-
-
 ################################################################################################################
 
 ### 3. Genomic DNA library alignments completion
@@ -294,8 +292,6 @@ echo "echo 'Genomic DNA library alignment is complete' > gDNAcompleted.txt" >> 3
 echo '# -- 2b.'$spID' read alignment completed -- #'
 
 JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 3.gDNA_alignments_complete.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
-
-
 
 ################################################################################################################
 
