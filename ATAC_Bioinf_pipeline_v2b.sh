@@ -584,14 +584,9 @@ printf '\n' >> 5.peakcall.sh
 echo '# Generate a fold change file comparing the sample to the control and logLR track' >> 5.peakcall.sh
 echo "macs2 bdgcmp -t $output_prefix\_treat_pileup.bdg -c $output_prefix\_control_lambda.bdg -o $output_prefix\_FE.bdg -m FE" >> 5.peakcall.sh
 echo "macs2 bdgcmp -t $output_prefix\_treat_pileup.bdg -c $output_prefix\_control_lambda.bdg -o $output_prefix\_logLR.bdg -m logLR -p 0.00001" >> 5.peakcall.sh
-
-JOBID8=$( sbatch --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
-
-# 5e. peak calling using another program - Genrich) and take the intersection
-# installed on HPC by CiS
-
-source package 8bf6d6cb-b9e9-4215-a3d8-b17a76fec816 # sources Genrich on HPC - guidance: https://informatics.fas.harvard.edu/atac-seq-guidelines.html#another-peak-caller-why; https://github.com/jsh58/Genrich
-Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalThresh -j -y -r -v # output is ENCODE narrowPeak format
+echo '# 5e. peak calling using another program - Genrich (installed on HPC by CiS) and take the intersection' >> 5.peakcall.sh
+echo 'source package 8bf6d6cb-b9e9-4215-a3d8-b17a76fec816 # sources Genrich on HPC - guidance: https://informatics.fas.harvard.edu/atac-seq-guidelines.html#another-peak-caller-why; https://github.com/jsh58/Genrich' >> 5.peakcall.sh
+echo "Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalThresh -j -y -r -v # output is ENCODE narrowPeak format" >> 5.peakcall.sh
 
 # ENCODE narrowPeak format
 # 1. chrom 	Name of the chromosome
@@ -607,6 +602,7 @@ Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalTh
 
 
 
+JOBID8=$( sbatch --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
 
 
 
@@ -614,6 +610,7 @@ echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
 echo '# -- 5.'$spID' Peak calling started -- #'
 
+## NEED TO ADD ANOTHER SCRIPT TO IDENTIFY THE INTERSECTION BETWEEN MACS2 AND GENRICH - BEDTOOLS?
 
 ################################################################################################################
 
