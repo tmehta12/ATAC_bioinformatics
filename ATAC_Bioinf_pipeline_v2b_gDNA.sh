@@ -138,10 +138,6 @@ echo '# -- 1a. Adaptor trimming started -- #'
 # assign '1a.trimadaptors.sh' to variable: JOBID1 and run
 JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run); Do not exit until the submitted job terminates.
 
-
-### YOU NEED TO INTRODUCE WAIT COMMANDS THAT ONLY PROCEED WITH BELOW ONCE ABOVE IS COMPLETED WITH EXIT STATUS 0
-# wait $JOBID1
-
 # rename the files according to species, tissue and experiment - provide this as a 2-column SPACE-delimited table that will be assigned as a variable above, placed in the trimdir
 # only provide for the two paired files you are working on and not all files
 
