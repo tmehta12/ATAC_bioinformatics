@@ -125,6 +125,8 @@ echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1a.trimadaptors.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1a.trimadaptors.sh
 printf '\n' >> 1a.trimadaptors.sh
 echo 'source trim_galore-0.5.0' >> 1a.trimadaptors.sh
+echo 'ml java' >> 1a.trimadaptors.sh
+echo 'source fastqc-0.11.9' >> 1a.trimadaptors.sh
 printf '\n' >> 1a.trimadaptors.sh
 echo "for read1 in $rawreaddir/*_R1.fastq.merged.gz; do read2="'$(echo $read1 | sed'" 's/_R1.fastq.merged.gz/_R2.fastq.merged.gz/'); "'echo $read1 >> trimarrayread1; echo $read2 >> trimarrayread2; done' >> 1a.trimadaptors.sh
 printf '\n' >> 1a.trimadaptors.sh
@@ -145,11 +147,6 @@ JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) #
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz Pn1_T_gDNA_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz' > libids.txt
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_gDNA_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
 
-# The trimmed files need calling to rename, not the original files!
-PRO1563_S1_lib_CAGAATGC-TAACTCTA_L001_R1.fastq.merged.gz_trimmed.fq.gz
-PRO1563_S1_lib_CAGAATGC-TAACTCTA_L001_R2.fastq.merged.gz_trimmed.fq.gz
-
-
 echo '#!/bin/bash -e' > 1b.renamefiles.sh
 echo '#SBATCH -p tgac-short # partition (queue)' >> 1b.renamefiles.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1b.renamefiles.sh
@@ -161,7 +158,7 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1b.renamefiles.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1b.renamefiles.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
-echo "grep $spID $libids | sed 's/.fastq.merged.gz/.fastq.merged.gz_trimmed.fq.gz/g' > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
+echo "grep $spID $libids | sed 's/R1.fastq.merged.gz/R1.fastq.merged.gz_val_1.fq.gz/g' | sed 's/R2.fastq.merged.gz/R2.fastq.merged.gz_val_2.fq.gz/g' > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
 echo "sed 's/^/mv /g' $libids1 > $libids2" >> 1b.renamefiles.sh
 echo "sed -i '1 i\\n' $libids2" >> 1b.renamefiles.sh
 echo "sed -i '1 i\#!/bin/sh' $libids2" >> 1b.renamefiles.sh
