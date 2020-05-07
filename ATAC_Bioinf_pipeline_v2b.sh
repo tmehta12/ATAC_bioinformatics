@@ -107,9 +107,9 @@ email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 rawreaddir=($WD/0.rawreads) # assign raw reads dir
 trimdir=($WD/1.adaptor_trimming) # assign trimmed reads dir
 trimarray=0-0 # INSERT the number range of paired *fastq.merged.gz to trim in zero base e.g. 10 pairs = 0-9
-libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
-libids1=libids1.txt
-libids2=libids.sh
+libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissueID_experiment_barcode_{R1,R2}.fastq.merged.gz
+libids1=($trimdir/libids1.txt) # this has the new trimmed ID gzipped fastq file paths
+libids2=($trimdir/libids.sh)
 
 ### 2. Read alignment
 readalign=($WD/2.read_alignment)
@@ -206,7 +206,7 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1b.renamefiles.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1b.renamefiles.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
-echo "grep $spID $libids > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
+echo "grep $spID $libids | sed 's/.fastq.merged.gz/.fastq.merged.gz_trimmed.fq.gz/g' > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
 echo "sed 's/^/mv /g' $libids1 > $libids2" >> 1b.renamefiles.sh
 echo "sed -i '1 i\\n' $libids2" >> 1b.renamefiles.sh
 echo "sed -i '1 i\#!/bin/sh' $libids2" >> 1b.renamefiles.sh
@@ -273,7 +273,7 @@ printf '\n' >> 2b.readalign.sh
 echo 'ml bowtie2/2.2.6' >> 2b.readalign.sh
 echo 'ml samtools/1.7' >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo "awk -F' ' '{print \$2}' $libids1 > $reads" >> 2b.readalign.sh
+echo "awk -F' ' '{print \$2}' $libids1 | sed -e"' "s|^|'$trimdir'/|g" > '"$reads" >> 2b.readalign.sh
 echo "mapfile -t reads < $reads"'# ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
