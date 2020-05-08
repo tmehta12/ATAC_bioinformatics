@@ -277,11 +277,11 @@ printf '\n' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' $libids1 | sed -e"' "s|^|'$trimdir'/|g" > '"$reads" >> 2b.readalign.sh
 echo "mapfile -t reads < $reads"'# ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
-echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
+echo "mapfile -t prefixmap < '$prefix | sort -u"' # assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k ' $multimapping ' -X2000 --mm --threads ' $bwt_thread ' -x ' $idx ' -1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k '$multimapping' -X2000 --mm --threads '$bwt_thread' -x '$idx' -1 ${reads[0]} -2 ${reads[1]} 2>$prefixmap'$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo 'samtools flagstat ' $prefixmap$bam ' > ' $prefixmap$fgQC1 ' # output alignment stats' >> 2b.readalign.sh
+echo "samtools flagstat $prefixmap$bam > $prefixmap$fgQC1 # output alignment stats" >> 2b.readalign.sh
 
 
 # ## this is if you are running several libraries (>2) in an array
