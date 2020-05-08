@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 3-15:59 # time (D-HH:MM)
+#SBATCH -t 1-00:59 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -24,7 +24,7 @@
 
 ## Place this script and the following files in $WD of each gDNA folder only e.g. Mz1_L_gDNA (created in previous script)
 # 1. libids.txt in $scripts folder: this has been prepared for previous script './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
-# 2. Run as an sbatch script with 8Gb memory and >3 day runtime - will spawn off other jobs
+# 2. Run as an sbatch script with 8Gb memory and ~1 day runtime - will spawn off other jobs
 # 3. Run this gDNA script first for each experiment and then the ATAC once all gDNA are successfuly completed
 
 ################################################################################################################
