@@ -1,5 +1,16 @@
 #!/bin/sh
 
+#!/bin/bash -e
+#SBATCH -p tgac-long # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 8000 # memory pool for all cores
+#SBATCH -t 3-15:59 # time (D-HH:MM)
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+
 ################################################################################################################
 
 # ATAC-seq pipeline - Part 2
@@ -18,7 +29,7 @@
   # ATAC_Bioinf_pipeline_v2b_part3b.R
   # ATAC_Bioinf_pipeline_v2b_part5bD-a.py
   # ATAC_Bioinf_pipeline_v2b_part5bD.py
-# 3. Run as an sbatch script with 8Gb memory and >15 days runtime - will spawn off other jobs
+# 3. Run as an sbatch script with 8Gb memory and ~3 days runtime - will spawn off other jobs
 
 ################################################################################################################
 
