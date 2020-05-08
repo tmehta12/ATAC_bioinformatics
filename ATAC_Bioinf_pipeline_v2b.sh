@@ -210,7 +210,6 @@ echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
 echo "grep $spID $libids | sed 's/R1.fastq.merged.gz/R1.fastq.merged.gz_val_1.fq.gz/g' | sed 's/R2.fastq.merged.gz/R2.fastq.merged.gz_val_2.fq.gz/g' > $libids1 # grep the relevant species files from the long list" >> 1b.renamefiles.sh
 echo "sed 's/^/mv /g' $libids1 > $libids2" >> 1b.renamefiles.sh
-echo "sed -i '1 i\\n' $libids2" >> 1b.renamefiles.sh
 echo "sed -i '1 i\#!/bin/sh' $libids2" >> 1b.renamefiles.sh
 printf '\n' >> 1b.renamefiles.sh
 echo "sh $libids2" >> 1b.renamefiles.sh
@@ -280,7 +279,7 @@ echo "mapfile -t reads < $reads"'# ${reads[0]} calls read1 AND ${reads[1]} calls
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
 echo 'mapfile -t prefixmap < '$prefix '# assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k ' $multimapping ' -X2000 --mm --threads ' $bwt_thread ' -x ' $idx ' -1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap '$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k ' $multimapping ' -X2000 --mm --threads ' $bwt_thread ' -x ' $idx ' -1 ${reads[0]} -2 ${reads[1]} 2>'$prefixmap$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
 echo 'samtools flagstat ' $prefixmap$bam ' > ' $prefixmap$fgQC1 ' # output alignment stats' >> 2b.readalign.sh
 
