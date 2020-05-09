@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #!/bin/bash -e
-#SBATCH -p tgac-long # partition (queue)
+#SBATCH -p tgac-medium # partition (queue)
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
