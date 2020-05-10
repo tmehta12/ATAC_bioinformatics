@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 1-00:59 # time (D-HH:MM)
+#SBATCH -t 0-05:00 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -215,7 +215,7 @@ echo '#!/bin/bash -e' > 2b.readalign.sh
 echo '#SBATCH -p ei-largemem # partition (queue)' >> 2b.readalign.sh
 echo '#SBATCH -N 1 # number of nodes' >> 2b.readalign.sh
 echo '#SBATCH -c '$bwt_thread '# number of cores' >> 2b.readalign.sh
-echo '#SBATCH --mem 512GB' >> 2b. readalign.sh
+echo '#SBATCH --mem 512GB' >> 2b.readalign.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 2b.readalign.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 2b.readalign.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 2b.readalign.sh
@@ -227,11 +227,11 @@ printf '\n' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' $libids1 | sed -e"' "s|^|'$trimdir'/|g" > '"$reads" >> 2b.readalign.sh
 echo 'mapfile -t reads < '$reads' # ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
-echo "mapfile -t prefixmap < $prefix | sort -u"' # assign prefixes to $prefixmap' >> 2b.readalign.sh
+echo "mapfile -t prefixmap < $prefix"' # assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k '$multimapping' -X2000 --mm --threads '$bwt_thread' -x '$idx' -1 ${reads[0]} -2 ${reads[1]} 2>$prefixmap'$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k '$multimapping' -X2000 --mm --threads '$bwt_thread' -x '$idx' -1 ${reads[0]} -2 ${reads[1]} 2>${prefixmap[0]}'$log '| samtools view -Su /dev/stdin | samtools sort -o ${prefixmap[0]}'$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo 'samtools flagstat $prefixmap'"$bam > "'$prefixmap'"$fgQC1 # output alignment stats" >> 2b.readalign.sh
+echo 'samtools flagstat ${prefixmap[0]}'"$bam > "'${prefixmap[0]}'"$fgQC1 # output alignment stats" >> 2b.readalign.sh
 
 # ## this is if you are running several libraries (>2) in an array
 # echo '#!/bin/bash -e' > 2b.readalign.sh
