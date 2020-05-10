@@ -20,7 +20,7 @@
 
 # Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
 # e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat -a M_zebra_UMD1.gtf
-# Note: Script is adapted for SBATCH usage
+# Note: Script is adapted for SBATCH usage and uses gDNA controls (can be removed from peak calling step)
 
 ## Place this script and the following files in $WD (created in first script)
 # 1. As used in './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
@@ -288,11 +288,11 @@ printf '\n' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' $libids1 | sed -e"' "s|^|'$trimdir'/|g" > '"$reads" >> 2b.readalign.sh
 echo "mapfile -t reads < $reads"'# ${reads[0]} calls read1 AND ${reads[1]} calls read2' >> 2b.readalign.sh
 echo "awk -F' ' '{print \$2}' " $libids1 " | awk -F'_' '{print \$1\"_\"\$2\"_\"\$3}' > "$prefix "# create a prefix file to iterate" >> 2b.readalign.sh
-echo "mapfile -t prefixmap < $prefix | sort -u"' # assign prefixes to $prefixmap' >> 2b.readalign.sh
+echo "mapfile -t prefixmap < $prefix"' # assign prefixes to $prefixmap' >> 2b.readalign.sh
 echo '# run bowtie2 with multimapping and threading, then output sorted BAM file' >> 2b.readalign.sh
-echo 'srun bowtie2 -k '$multimapping' -X2000 --mm --threads '$bwt_thread' -x '$idx' -1 ${reads[0]} -2 ${reads[1]} 2>$prefixmap'$log '| samtools view -Su /dev/stdin | samtools sort -o $prefixmap'$bam >> 2b.readalign.sh
+echo 'srun bowtie2 -k '$multimapping' -X2000 --mm --threads '$bwt_thread' -x '$idx' -1 ${reads[0]} -2 ${reads[1]} 2>${prefixmap[0]}'$log '| samtools view -Su /dev/stdin | samtools sort -o ${prefixmap[0]}'$bam >> 2b.readalign.sh
 printf '\n' >> 2b.readalign.sh
-echo "samtools flagstat $prefixmap$bam > $prefixmap$fgQC1 # output alignment stats" >> 2b.readalign.sh
+echo 'samtools flagstat ${prefixmap[0]}'"$bam > "'${prefixmap[0]}'"$fgQC1 # output alignment stats" >> 2b.readalign.sh
 
 
 # ## this is if you are running several libraries (>2) in an array
