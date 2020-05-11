@@ -393,7 +393,7 @@ echo "python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # outpu
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# if-else statement - if $mtscaff exists then continue with normal steps (filtering etc.), else if it does not exist then create a new file with same name $bam_file_nochrM' >> 3.mtfilt_fragcount_B.sh
 echo "if [ -f $mtscaff ]; then" >> 3.mtfilt_fragcount_B.sh
-echo -e '\techo '"$mtscaff DOES exist; filtering chrM mapped reads, outputing new BAM and plotting fragment length count" >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo '"$mtscaff" ' DOES exist - filtering chrM mapped reads, outputing new BAM and plotting fragment length count' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff' >> 3.mtfilt_fragcount_B.sh
 echo -e "\tIFS=$'\\\n' scaffarray=("'$(cut -f2 '$mtscaff" | awk ""'"'!x[$0]++'"'))" '# this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}' >> 3.mtfilt_fragcount_B.sh
 echo -e '\techo Scaffold/s matching mitochondrial genome are/is: ${scaffarray[@]} # this will echo each scaffold that matches mtDNA' >> 3.mtfilt_fragcount_B.sh
@@ -406,7 +406,7 @@ echo -e '\tml perl_activeperl/5.18' >> 3.mtfilt_fragcount_B.sh
 echo -e '\tml zlib/1.2.8' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# A. assign mtDNA filtered bam to new file with extension .nochrM.bam' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# B. remove all reads mapping to mitochondrial scaffold/s and index' >> 3.mtfilt_fragcount_B.sh
-echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/'); samtools idxstats "'$bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); samtools idxstats "'$bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# 7. Calculate fragment length count for each' >> 3.mtfilt_fragcount_B.sh
 echo -e '\tfrag_length=$(echo $bam_file_nochrM | sed -e '"'s/.bam/_frag_length_count.txt/')" >> 3.mtfilt_fragcount_B.sh
 echo -e '\tsamtools view $bam_file_nochrM | awk '"'"'$9>0'"' | cut -f9 | sort | uniq -c | sort -b -k2,2n | sed -e 's/^[ \t]*//' > "'$frag_length' >> 3.mtfilt_fragcount_B.sh
@@ -415,9 +415,9 @@ echo -e '\tsource R-3.5.2' >> 3.mtfilt_fragcount_B.sh
 echo -e "\tR CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
 echo -e '\tmv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 echo 'else' >> 3.mtfilt_fragcount_B.sh
-echo -e '\techo '"$mtscaff DOES NOT exist; creating a non-chrM_filtered BAM file and plotting fragment length count" >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo '"$mtscaff"' DOES NOT exist - creating a non-chrM_filtered BAM file and plotting fragment length count' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# A. assign non-mtDNA filtered bam to new file with extension .nochrM.bam (for complete naming conventions)' >> 3.mtfilt_fragcount_B.sh
-echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/'); xargs samtools view -b "'$bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b "'$bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# B. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
 echo -e '\tsource R-3.5.2' >> 3.mtfilt_fragcount_B.sh
 echo -e "\tR CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
@@ -435,7 +435,7 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 # python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable $mtscaff at top
 # # if-else statement - if $mtscaff exists then continue with normal steps (filtering etc.), else if it does not exist then create a new file with same name '$bam_file_nochrM'
 # if [ -f $mtscaff ]; then
-#     echo "$mtscaff DOES exist; filtering chrM mapped reads, outputing new BAM and plotting fragment length count"
+#     echo "$mtscaff DOES exist - filtering chrM mapped reads, outputing new BAM and plotting fragment length count"
 #     # 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff
 #     IFS=$'\n' scaffarray=($(cut -f2 $mtscaff | awk '!x[$0]++')) # this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}
 #     echo Scaffold/s matching mitochondrial genome are/is: ${scaffarray[@]} # this will echo each scaffold that matches mtDNA
@@ -448,7 +448,7 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 #     ml zlib/1.2.8
 #     # A. assign mtDNA filtered bam to new file with extension .nochrM.bam
 #     # B. remove all reads mapping to mitochondrial scaffold/s and index
-#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/'); samtools idxstats $bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test
+#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); samtools idxstats $bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test
 #     # 7. Calculate fragment length count for each
 #     frag_length=$(echo $bam_file_nochrM | sed -e 's/.bam/_frag_length_count.txt/')
 #     samtools view $bam_file_nochrM | awk '$9>0' | cut -f9 | sort | uniq -c | sort -b -k2,2n | sed -e 's/^[ \t]*//' > $frag_length
@@ -457,9 +457,9 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 #     R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
 #     mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
 # else
-#     echo "$mtscaff DOES NOT exist; creating a non-chrM_filtered BAM file and plotting fragment length count"
+#     echo "$mtscaff DOES NOT exist - creating a non-chrM_filtered BAM file and plotting fragment length count"
 #     # A. assign non-mtDNA filtered bam to new file with extension .nochrM.bam (for complete naming conventions)
-#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/'); xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done
+#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/' | | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done
 #     # B. Plot fragment length count in R
 #     source R-3.5.2
 #     R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
@@ -507,13 +507,13 @@ echo 'ml R/3.2.3' >> 4.postalign_filt.sh
 printf '\n' >> 4.postalign_filt.sh
 echo "for bam_file in ${mtfilt}/*.nochrM.bam; do" >> 4.postalign_filt.sh
 echo '\t# variables for output files' >> 4.postalign_filt.sh
-echo '\tbam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.sorted.bam/')" >> 4.postalign_filt.sh
-echo '\tbam_file_dup=$(echo $bam_file | sed -e '"'s/.bam/.sorted.dup.bam/')" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam/') # final bam file" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_index_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam.bai/') # index file" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.flagstat.qc/') # QC file" >> 4.postalign_filt.sh
-echo '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/') # library complexity" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
+echo '\tbam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.sorted.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
+echo '\tbam_file_dup=$(echo $bam_file | sed -e '"'s/.bam/.sorted.dup.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
+echo '\tnodup_filt_bam_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file" >> 4.postalign_filt.sh
+echo '\tnodup_filt_bam_index_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file" >> 4.postalign_filt.sh
+echo '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.flagstat.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # QC file" >> 4.postalign_filt.sh
+echo '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
+echo '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
 echo '\t# Filter reads' >> 4.postalign_filt.sh
 echo "\tsambamba sort -m 24G -t 2 -o $filtdir/"'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
 echo "\tsambamba markdup -l 0 -t 10 $filtdir/"'$bam_file_sorted '"$filtdir/"'$bam_file_dup' >> 4.postalign_filt.sh
@@ -526,13 +526,13 @@ echo 'done' >> 4.postalign_filt.sh
 
 # for bam_file in ${mtfilt}/*.nochrM.bam; do
 #   # variables for output files
-#   bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.sorted.bam/')
-#   bam_file_dup=$(echo $bam_file | sed -e 's/.bam/.sorted.dup.bam/')
-#   nodup_filt_bam_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam/') # final bam file
-#   nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/') # index file
-#   nodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e 's/.bam/.flagstat.qc/') # QC file
-#   pbc_file_qc=$(echo $bam_file | sed -e 's/.bam/.pbc.qc/') # library complexity
-#   nodup_filt_bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.srt.bam/') # final bam file, sorted (temp)
+#   bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.sorted.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')
+#   bam_file_dup=$(echo $bam_file | sed -e 's/.bam/.sorted.dup.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')
+#   nodup_filt_bam_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file
+#   nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file
+#   nodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e 's/.bam/.flagstat.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # QC file
+#   pbc_file_qc=$(echo $bam_file | sed -e 's/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity
+#   nodup_filt_bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)
 #   # Filter reads
 #   sambamba sort -m 24G -t 2 -o $filtdir/$bam_file_sorted -u $bam_file
 #   sambamba markdup -l 0 -t 10 $filtdir/$bam_file_sorted $filtdir/$bam_file_dup
