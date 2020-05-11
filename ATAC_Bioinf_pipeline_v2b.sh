@@ -357,7 +357,7 @@ echo "USERNAME=$Usr" >> 3.mtfilt_fragcount_A.sh
 echo 'HOSTNAME="software"' >> 3.mtfilt_fragcount_A.sh
 echo "PWD=$(pwd)" >> 3.mtfilt_fragcount_A.sh
 echo 'SCRIPT="cd '${PWD}'; wget -O '$mtID'.fasta https://www.ncbi.nlm.nih.gov/search/api/sequence/'$mtID'/?report=fasta; exit"' >> 3.mtfilt_fragcount_A.sh
-echo 'ssh  -oStrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.mtfilt_fragcount_A.sh
+echo 'ssh -oStrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.mtfilt_fragcount_A.sh
 
 echo '# -- 2b.'$spID' read alignment completed -- #'
 
