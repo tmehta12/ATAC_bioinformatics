@@ -141,6 +141,7 @@ mtfilt=($WD/3.Mtfilt_fragcnt) # mitochondrial filtering and frag count directory
 mtgen=($mtfilt/$mtID'.fasta') # species mitochondrial genome
 blstout=($spID.genome_mt.blast) # blast outfile
 mtscaff=($spID.genome_mt.filtered.blast) # filtered BLAST to mitochondrial genome output
+bam_file_nochrM=($spID.nochrM.bam)
 
 ### 4. Post alignment filtering
 filtdir=($WD/4.postalign_filt) # post alignment filtering directory
@@ -415,10 +416,9 @@ echo -e '\t# A. assign non-mtDNA filtered bam to new file with extension .nochrM
 echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b "'$bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done' >> 3.mtfilt_fragcount_B.sh
 echo 'fi' >> 3.mtfilt_fragcount_B.sh
 echo '# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
-echo "bam_file_nochrM=($spID.nochrM.bam)" >> 3.mtfilt_fragcount_B.sh
 echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B.sh
-echo "Rscript --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
-echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
+echo "R CMD BATCH --no-save --no-restore '--args $bam_file_nochrM' $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
+echo 'mv Rplots.pdf "$(basename "'$bam_file_nochrM'" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 
 # ml samtools/1.7
 # # 2. create a blast database of each genome and store under variables
@@ -456,7 +456,7 @@ echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # renam
 # 8. Plot fragment length count in R
 # source R-3.5.2
 # bam_file_nochrM=($spID.nochrM.bam)
-# Rscript --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
+# R CMD BATCH --no-save --no-restore '--args $bam_file_nochrM' $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
 # mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
 
 echo '# -- 3a.'$spID' mitochondrial genome downloaded: '$mtID' -- #'
