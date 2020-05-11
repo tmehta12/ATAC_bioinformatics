@@ -357,7 +357,7 @@ echo "USERNAME=$Usr" >> 3.mtfilt_fragcount_A.sh
 echo 'HOSTNAME="software"' >> 3.mtfilt_fragcount_A.sh
 echo "PWD=$(pwd)" >> 3.mtfilt_fragcount_A.sh
 echo 'SCRIPT="cd '${PWD}'; wget -O '$mtID'.fasta https://www.ncbi.nlm.nih.gov/search/api/sequence/'$mtID'/?report=fasta; exit"' >> 3.mtfilt_fragcount_A.sh
-echo 'ssh -oStrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.mtfilt_fragcount_A.sh
+echo 'ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.mtfilt_fragcount_A.sh
 
 echo '# -- 2b.'$spID' read alignment completed -- #'
 
@@ -420,9 +420,11 @@ echo -e '\t# A. assign non-mtDNA filtered bam to new file with extension .nochrM
 echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b "'$bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done' >> 3.mtfilt_fragcount_B.sh
 echo -e '\t# B. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
 echo -e '\tsource R-3.5.2' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tbam_file_nochrM=($spID.nochrM.bam)" >> 3.mtfilt_fragcount_B.sh
 echo -e "\tR CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
 echo -e '\tmv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 echo 'fi' >> 3.mtfilt_fragcount_B.sh
+
 
 # ml samtools/1.7
 # # 2. create a blast database of each genome and store under variables
@@ -459,9 +461,10 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 # else
 #     echo "$mtscaff DOES NOT exist - creating a non-chrM_filtered BAM file and plotting fragment length count"
 #     # A. assign non-mtDNA filtered bam to new file with extension .nochrM.bam (for complete naming conventions)
-#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/' | | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done
+#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/' | sed -e 's/2.read_alignment/3.Mtfilt_fragcnt/g'); xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done
 #     # B. Plot fragment length count in R
 #     source R-3.5.2
+#     bam_file_nochrM=($spID.nochrM.bam)
 #     R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
 #     mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
 # fi
@@ -471,7 +474,6 @@ echo '# -- 3a.'$spID' mitochondrial genome downloaded: '$mtID' -- #'
 echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot started -- #'
 
 JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
-
 
 
 ################################################################################################################
@@ -485,7 +487,6 @@ cd $filtdir
 echo '#!/bin/bash -e' > 4.postalign_filt.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
 echo '#SBATCH -N 1 # number of nodes' >> 4.postalign_filt.sh
-echo '#SBATCH -C 1 # number of cores' >> 4.postalign_filt.sh
 echo '#SBATCH --mem 24000' >> 4.postalign_filt.sh
 echo '#SBATCH -t 0-05:59' >> 4.postalign_filt.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 4.postalign_filt.sh
@@ -571,8 +572,6 @@ cd $peakcall
 echo '#!/bin/bash -e' > 5.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
-echo '#SBATCH -C 1 # number of cores' >> 5.peakcall.sh
-echo '#SBATCH -T 1 # number of threads per core' >> 5.peakcall.sh
 echo '#SBATCH --mem 24000' >> 5.peakcall.sh
 echo '#SBATCH -t 0-05:59' >> 5.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5.peakcall.sh
@@ -591,12 +590,12 @@ printf '\n' >> 5.peakcall.sh
 echo '# Sum total length of all scaffolds in assembly - needed as input for Macs2' >> 5.peakcall.sh
 echo 'source bioawk-1.0' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo 'Gensz=$(bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk "'-F"\\t" '"'{print;x+="'$2}END{print "Total " x}'"' | tail -1 | sed 's/Total //g') # this will output the sum length of scaffolds and assign to variable "'$Gensz'
+echo 'Gensz=$(bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk "'-F"\\t" '"'{print;x+="'$2}END{print "Total " x}'"' | tail -1 | sed 's/Total //g') # this will output the sum length of scaffolds and assign to variable "'$Gensz' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo "# 5a. Convert each bam to a .tagAlign - contains the start/end positions of each read:" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c  > $tagalign_test1"
-echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1"
+echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c  > $tagalign_test1" >> 5.peakcall.sh
+echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5b. TSS enrichment plotting' >> 5.peakcall.sh
 echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
