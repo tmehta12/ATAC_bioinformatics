@@ -391,30 +391,80 @@ echo '# 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-1
 echo 'ml python/3.5' >> 3.mtfilt_fragcount_B.sh
 echo "python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable "'$mtscaff at top' >> 3.mtfilt_fragcount_B.sh
 printf '\n' >> 3.mtfilt_fragcount_B.sh
-echo '# 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff' >> 3.mtfilt_fragcount_B.sh
-echo "IFS=$'\\\n' scaffarray=("'$(cut -f2 '$mtscaff" | awk ""'"'!x[$0]++'"'))" '# this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}' >> 3.mtfilt_fragcount_B.sh
-echo 'echo Scaffold/s matching mitochondrial genome are/is: ${scaffarray[@]} # this will echo each scaffold that matches mtDNA' >> 3.mtfilt_fragcount_B.sh
-echo 'echo Total number of scaffolds matching mitochondrial genome is: ${#scaffarray[@]} # this will echo the number of scaffolds that match mtDNA' >> 3.mtfilt_fragcount_B.sh
-echo '# for sc in ${scaffarray[@]}; do echo $sc ; done # this will loop through each element (Scaff) of the array and echo on new line' >> 3.mtfilt_fragcount_B.sh
-echo 'grepscaff=$(echo ${scaffarray[@]} | sed '"'s/ / | grep -v /g' | sed 's/^/grep -v /') # Assign grep commands to variable: input grep -v and then pipe in front of each element of the array e.g. UNK2407 UNK3173 UNK1343 > grep -v UNK2407 | grep -v UNK3173 | grep -v UNK1343" >> 3.mtfilt_fragcount_B.sh
-printf '\n' >> 3.mtfilt_fragcount_B.sh >> 3.mtfilt_fragcount_B.sh
-echo '# 6. Loop through variable of scaffold/s matching the mitochondrial genome and filter reads assigned to these scaffolds.' >> 3.mtfilt_fragcount_B.sh
-echo 'ml samtools/1.3' >> 3.mtfilt_fragcount_B.sh
-echo 'ml perl_activeperl/5.18' >> 3.mtfilt_fragcount_B.sh
-echo 'ml zlib/1.2.8' >> 3.mtfilt_fragcount_B.sh
-printf '\n' >> 3.mtfilt_fragcount_B.sh
-echo '# 1. assign mtDNA filtered bam to new file with extension .nochrM.bam' >> 3.mtfilt_fragcount_B.sh
-echo '# 2. remove all reads mapping to mitochondrial scaffold/s and index' >> 3.mtfilt_fragcount_B.sh
-echo "for bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/'); samtools idxstats "'$bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test' >> 3.mtfilt_fragcount_B.sh
-printf '\n' >> 3.mtfilt_fragcount_B.sh
-echo '# 7. Calculate fragment length count for each' >> 3.mtfilt_fragcount_B.sh
-echo 'frag_length=$(echo $bam_file_nochrM | sed -e '"'s/.bam/_frag_length_count.txt/')" >> 3.mtfilt_fragcount_B.sh
-echo 'samtools view $bam_file_nochrM | awk '"'"'$9>0'"' | cut -f9 | sort | uniq -c | sort -b -k2,2n | sed -e 's/^[ \t]*//' > "'$frag_length' >> 3.mtfilt_fragcount_B.sh
-printf '\n' >> 3.mtfilt_fragcount_B.sh
-echo '# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
-echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B.sh
-echo "R CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$WD/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
-echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
+echo '# if-else statement - if $mtscaff exists then continue with normal steps (filtering etc.), else if it does not exist then create a new file with same name $bam_file_nochrM' >> 3.mtfilt_fragcount_B.sh
+echo "if [ -f $mtscaff ]; then" >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo '"$mtscaff DOES exist; filtering chrM mapped reads, outputing new BAM and plotting fragment length count" >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tIFS=$'\\\n' scaffarray=("'$(cut -f2 '$mtscaff" | awk ""'"'!x[$0]++'"'))" '# this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}' >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo Scaffold/s matching mitochondrial genome are/is: ${scaffarray[@]} # this will echo each scaffold that matches mtDNA' >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo Total number of scaffolds matching mitochondrial genome is: ${#scaffarray[@]} # this will echo the number of scaffolds that match mtDNA' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# for sc in ${scaffarray[@]}; do echo $sc ; done # this will loop through each element (Scaff) of the array and echo on new line' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tgrepscaff=$(echo ${scaffarray[@]} | sed '"'s/ / | grep -v /g' | sed 's/^/grep -v /') # Assign grep commands to variable: input grep -v and then pipe in front of each element of the array e.g. UNK2407 UNK3173 UNK1343 > grep -v UNK2407 | grep -v UNK3173 | grep -v UNK1343" >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# 6. Loop through variable of scaffold/s matching the mitochondrial genome and filter reads assigned to these scaffolds.' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tml samtools/1.3' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tml perl_activeperl/5.18' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tml zlib/1.2.8' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# A. assign mtDNA filtered bam to new file with extension .nochrM.bam' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# B. remove all reads mapping to mitochondrial scaffold/s and index' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/'); samtools idxstats "'$bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# 7. Calculate fragment length count for each' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tfrag_length=$(echo $bam_file_nochrM | sed -e '"'s/.bam/_frag_length_count.txt/')" >> 3.mtfilt_fragcount_B.sh
+echo -e '\tsamtools view $bam_file_nochrM | awk '"'"'$9>0'"' | cut -f9 | sort | uniq -c | sort -b -k2,2n | sed -e 's/^[ \t]*//' > "'$frag_length' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tsource R-3.5.2' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tR CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
+echo -e '\tmv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
+echo 'else' >> 3.mtfilt_fragcount_B.sh
+echo -e '\techo '"$mtscaff DOES NOT exist; creating a non-chrM_filtered BAM file and plotting fragment length count" >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# A. assign non-mtDNA filtered bam to new file with extension .nochrM.bam (for complete naming conventions)' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tfor bam_file in $readalign/*.bam; do bam_file_nochrM="'$(echo $bam_file | sed -e '"'s/.bam/.nochrM.bam/'); xargs samtools view -b "'$bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done' >> 3.mtfilt_fragcount_B.sh
+echo -e '\t# B. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
+echo -e '\tsource R-3.5.2' >> 3.mtfilt_fragcount_B.sh
+echo -e "\tR CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
+echo -e '\tmv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
+echo 'fi' >> 3.mtfilt_fragcount_B.sh
+
+# ml samtools/1.7
+# # 2. create a blast database of each genome and store under variables
+# ml blast/2.3.0
+# makeblastdb -in $gFA -parse_seqids -dbtype nucl # create a blast database of the genome assembly
+# # 3. blast the mitochondrial genomes against the assembly - output tabular format
+# blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignments 10 -max_hsps 20 -num_threads 5 -out Ab5_L_ATAC.genome_mt.blast -query /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/3.Mtfilt_fragcnt/NC_027289.1.fasta # blast the mitochondrial genome against the input genome assembly, output tabular format
+# # 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-10; then pident>75% according to BLAST hit and alignment length to mitochondrial genome
+# ml python/3.5
+# python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable $mtscaff at top
+# # if-else statement - if $mtscaff exists then continue with normal steps (filtering etc.), else if it does not exist then create a new file with same name '$bam_file_nochrM'
+# if [ -f $mtscaff ]; then
+#     echo "$mtscaff DOES exist; filtering chrM mapped reads, outputing new BAM and plotting fragment length count"
+#     # 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff
+#     IFS=$'\n' scaffarray=($(cut -f2 $mtscaff | awk '!x[$0]++')) # this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}
+#     echo Scaffold/s matching mitochondrial genome are/is: ${scaffarray[@]} # this will echo each scaffold that matches mtDNA
+#     echo Total number of scaffolds matching mitochondrial genome is: ${#scaffarray[@]} # this will echo the number of scaffolds that match mtDNA
+#     # for sc in ${scaffarray[@]}; do echo $sc ; done # this will loop through each element (Scaff) of the array and echo on new line
+#     grepscaff=$(echo ${scaffarray[@]} | sed 's/ / | grep -v /g' | sed 's/^/grep -v /') # Assign grep commands to variable: input grep -v and then pipe in front of each element of the array e.g. UNK2407 UNK3173 UNK1343 > grep -v UNK2407 | grep -v UNK3173 | grep -v UNK1343
+#     # 6. Loop through variable of scaffold/s matching the mitochondrial genome and filter reads assigned to these scaffolds.
+#     ml samtools/1.3
+#     ml perl_activeperl/5.18
+#     ml zlib/1.2.8
+#     # A. assign mtDNA filtered bam to new file with extension .nochrM.bam
+#     # B. remove all reads mapping to mitochondrial scaffold/s and index
+#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/'); samtools idxstats $bam_file | cut -f1 | $grepscaff | xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done #samtools view -h $bam_file | grep ${scaffarray[0]} | wc -l # you can type this to test
+#     # 7. Calculate fragment length count for each
+#     frag_length=$(echo $bam_file_nochrM | sed -e 's/.bam/_frag_length_count.txt/')
+#     samtools view $bam_file_nochrM | awk '$9>0' | cut -f9 | sort | uniq -c | sort -b -k2,2n | sed -e 's/^[ \t]*//' > $frag_length
+#     # 8. Plot fragment length count in R
+#     source R-3.5.2
+#     R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
+#     mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
+# else
+#     echo "$mtscaff DOES NOT exist; creating a non-chrM_filtered BAM file and plotting fragment length count"
+#     # A. assign non-mtDNA filtered bam to new file with extension .nochrM.bam (for complete naming conventions)
+#     for bam_file in $readalign/*.bam; do bam_file_nochrM=$(echo $bam_file | sed -e 's/.bam/.nochrM.bam/'); xargs samtools view -b $bam_file > $bam_file_nochrM; samtools index $bam_file_nochrM; done
+#     # B. Plot fragment length count in R
+#     source R-3.5.2
+#     R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
+#     mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
+# fi
 
 echo '# -- 3a.'$spID' mitochondrial genome downloaded: '$mtID' -- #'
 
@@ -436,7 +486,6 @@ echo '#!/bin/bash -e' > 4.postalign_filt.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
 echo '#SBATCH -N 1 # number of nodes' >> 4.postalign_filt.sh
 echo '#SBATCH -C 1 # number of cores' >> 4.postalign_filt.sh
-echo '#SBATCH -T 2 # number of threads per core' >> 4.postalign_filt.sh
 echo '#SBATCH --mem 24000' >> 4.postalign_filt.sh
 echo '#SBATCH -t 0-05:59' >> 4.postalign_filt.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 4.postalign_filt.sh
