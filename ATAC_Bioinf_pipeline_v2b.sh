@@ -417,7 +417,7 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 echo '# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B.sh
 echo "bam_file_nochrM=($spID.nochrM.bam)" >> 3.mtfilt_fragcount_B.sh
 echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B.sh
-echo "R CMD BATCH --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
+echo "Rscript --no-save --no-restore --args "'$bam_file_nochrM '"$scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B.sh
 echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B.sh
 
 # ml samtools/1.7
@@ -456,7 +456,7 @@ echo 'mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # renam
 # 8. Plot fragment length count in R
 # source R-3.5.2
 # bam_file_nochrM=($spID.nochrM.bam)
-# R CMD BATCH --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
+# Rscript --no-save --no-restore --args $bam_file_nochrM $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf
 # mv Rplots.pdf "$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
 
 echo '# -- 3a.'$spID' mitochondrial genome downloaded: '$mtID' -- #'
