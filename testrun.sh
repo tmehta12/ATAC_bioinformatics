@@ -123,5 +123,7 @@ done < $prefixATAC
 cd $WD/Ab5_L_gDNA
 sbatch ATAC_Bioinf_pipeline_v2b_gDNA.sh -s Ab5_L_gDNA -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta # started 09/05/2020 09:52 - completed at 11:02 (1hr10m)
 
+cp ATAC_Bioinf_pipeline_v2b_TEST.sh $WD/Ab5_L_ATAC
 cd $WD/Ab5_L_ATAC
-sbatch ATAC_Bioinf_pipeline_v2b.sh -s Ab5_L_ATAC -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta -m NC_027289.1 -u mehtat -a /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Annotatation/protein_coding/gtf/Astatotilapia_burtoni.BROADAB2.gtf.gz
+# sbatch ATAC_Bioinf_pipeline_v2b.sh -s Ab5_L_ATAC -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta -m NC_027289.1 -u mehtat -a /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Annotatation/protein_coding/gtf/Astatotilapia_burtoni.BROADAB2.gtf.gz
+sbatch ATAC_Bioinf_pipeline_v2b_TEST.sh -s Ab5_L_ATAC -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/HapBur1.0/H_burtoni_v1.assembly.fasta -m NC_027289.1 -u mehtat -a /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Annotatation/protein_coding/gtf/Astatotilapia_burtoni.BROADAB2.gtf.gz
