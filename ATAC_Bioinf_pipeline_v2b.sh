@@ -389,7 +389,7 @@ echo "blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignm
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-10; then pident>75% according to BLAST hit and alignment length to mitochondrial genome' >> 3.mtfilt_fragcount_B.sh
 echo 'ml python/3.5' >> 3.mtfilt_fragcount_B.sh
-echo "python $WD/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable "'$mtscaff at top' >> 3.mtfilt_fragcount_B.sh
+echo "python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable "'$mtscaff at top' >> 3.mtfilt_fragcount_B.sh
 printf '\n' >> 3.mtfilt_fragcount_B.sh
 echo '# 5. Store the genome scaffolds names that are mitochondrial genome under variable $scaffarray and create grep command $grepscaff' >> 3.mtfilt_fragcount_B.sh
 echo "IFS=$'\\\n' scaffarray=("'$(cut -f2 '$mtscaff" | awk ""'"'!x[$0]++'"'))" '# this takes the $mtscaff as input, takes unique genome scaffolds (col2) that match mtDNA (using awk instead of sort -u so top hit ordering retained) and then assigns to the variable $scaffarray. Accessed using ${scaffarray[0]}..${scaffarray[2]}' >> 3.mtfilt_fragcount_B.sh
@@ -550,7 +550,7 @@ echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";pri
 echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1"
 printf '\n' >> 5.peakcall.sh
 echo '# 5b. TSS enrichment plotting' >> 5.peakcall.sh
-echo '# This calls two python scripts - make sure in they are in the same folder' >> 5.peakcall.sh
+echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# create a 2kb window around TSS (+/- 1kb) bed file e.g.' >> 5.peakcall.sh
 echo '# chr1	134210701	134214701	+' >> 5.peakcall.sh
@@ -588,8 +588,8 @@ echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakca
 printf '\n' >> 5.peakcall.sh
 echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
 echo 'ml python/3.5' >> 5.peakcall.sh
-echo "python3 ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-echo "python3 ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen # usage: python3 ATAC_Bioinf_pipeline_v2b_part5bD.py 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
+echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
+echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5c. Tn5 shifting of tagaligns' >> 5.peakcall.sh
 echo "zcat $tagalign_test1 | awk -F "'$"\\t" '"'BEGIN {OFS = FS}{ if ("'$6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}'"' | gzip -c > $shifted_tag" >> 5.peakcall.sh
