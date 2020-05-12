@@ -505,28 +505,28 @@ echo 'ml zlib/1.2.8' >> 4.postalign_filt.sh
 echo 'ml glib/2.40' >> 4.postalign_filt.sh
 echo 'ml java/8.45' >> 4.postalign_filt.sh
 echo 'ml picard/1.140' >> 4.postalign_filt.sh
-echo 'ml bedtools/2.26.0' >> 4.postalign_filt.sh
+echo 'ml bedtools/2.25.0' >> 4.postalign_filt.sh
 echo 'ml zlib/1.2.8' >> 4.postalign_filt.sh
 echo 'ml glib/2.40' >> 4.postalign_filt.sh
 echo 'ml R/3.2.3' >> 4.postalign_filt.sh
 printf '\n' >> 4.postalign_filt.sh
 echo "for bam_file in ${mtfilt}/*.nochrM.bam; do" >> 4.postalign_filt.sh
-echo '\t# variables for output files' >> 4.postalign_filt.sh
-echo '\tbam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.sorted.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
-echo '\tbam_file_dup=$(echo $bam_file | sed -e '"'s/.bam/.sorted.dup.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_index_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.flagstat.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # QC file" >> 4.postalign_filt.sh
-echo '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
-echo '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
-echo '\t# Filter reads' >> 4.postalign_filt.sh
-echo "\tsambamba sort -m 24G -t 2 -o $filtdir/"'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
-echo "\tsambamba markdup -l 0 -t 10 $filtdir/"'$bam_file_sorted '"$filtdir/"'$bam_file_dup' >> 4.postalign_filt.sh
-echo "\tsamtools view -F 1804 -f 2 -q 30 -b $filtdir/"'$bam_file_dup > '"$filtdir/"'$nodup_filt_bam_file' >> 4.postalign_filt.sh
-echo "\tsamtools index $filtdir/"'$nodup_filt_bam_file '"$filtdir/"'$nodup_filt_bam_index_file' >> 4.postalign_filt.sh
-echo "\tsamtools flagstat $filtdir/"'$nodup_filt_bam_file > '"$filtdir/"'$nodup_filt_bam_file_mapstats' >> 4.postalign_filt.sh
-echo '\t# Plotting the fragment length distribution' >> 4.postalign_filt.sh
-echo "\tjava -Xmx2g -jar /tgac/software/production/picardtools/1.84/x86_64/bin/CollectInsertSizeMetrics.jar \R=$gFA \I=$filtdir/"'$nodup_filt_bam_file \O="'"$filtdir/"'${nodup_filt_bam_file}_PicardInsertMetrics.jar.txt" \H="'"$filtdir/"'${nodup_filt_bam_file}_insert_size_histogram.pdf" \M=0.5' >> 4.postalign_filt.sh
+echo -e '\t# variables for output files' >> 4.postalign_filt.sh
+echo -e '\tbam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.sorted.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
+echo -e '\tbam_file_dup=$(echo $bam_file | sed -e '"'s/.bam/.sorted.dup.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g')" >> 4.postalign_filt.sh
+echo -e '\tnodup_filt_bam_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file" >> 4.postalign_filt.sh
+echo -e '\tnodup_filt_bam_index_file=$(echo $bam_file | sed -e '"'s/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file" >> 4.postalign_filt.sh
+echo -e '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.flagstat.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # QC file" >> 4.postalign_filt.sh
+echo -e '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
+echo -e '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
+echo -e '\t# Filter reads' >> 4.postalign_filt.sh
+echo -e "\tsambamba sort -m 24G -t 2 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
+echo -e "\tsambamba markdup -l 0 -t 10 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
+echo -e "\tsamtools view -F 1804 -f 2 -q 30 -b "'$bam_file_dup > '""'$nodup_filt_bam_file' >> 4.postalign_filt.sh
+echo -e "\tsamtools index "'$nodup_filt_bam_file '""'$nodup_filt_bam_index_file' >> 4.postalign_filt.sh
+echo -e "\tsamtools flagstat "'$nodup_filt_bam_file > '""'$nodup_filt_bam_file_mapstats' >> 4.postalign_filt.sh
+echo -e '\t# Plotting the fragment length distribution' >> 4.postalign_filt.sh
+echo -e "\tjava -Xmx2g -jar /tgac/software/production/picardtools/1.84/x86_64/bin/CollectInsertSizeMetrics.jar \R=$gFA \I="'$nodup_filt_bam_file \O="'""'${nodup_filt_bam_file}_PicardInsertMetrics.jar.txt" \H="'""'${nodup_filt_bam_file}_insert_size_histogram.pdf" \M=0.5' >> 4.postalign_filt.sh
 echo 'done' >> 4.postalign_filt.sh
 
 # for bam_file in ${mtfilt}/*.nochrM.bam; do
@@ -539,13 +539,13 @@ echo 'done' >> 4.postalign_filt.sh
 #   pbc_file_qc=$(echo $bam_file | sed -e 's/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity
 #   nodup_filt_bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)
 #   # Filter reads
-#   sambamba sort -m 24G -t 2 -o $filtdir/$bam_file_sorted -u $bam_file
-#   sambamba markdup -l 0 -t 10 $filtdir/$bam_file_sorted $filtdir/$bam_file_dup
-#   samtools view -F 1804 -f 2 -q 30 -b $filtdir/$bam_file_dup > $filtdir/$nodup_filt_bam_file
-#   samtools index $filtdir/$nodup_filt_bam_file $filtdir/$nodup_filt_bam_index_file
-#   samtools flagstat $filtdir/$nodup_filt_bam_file > $filtdir/$nodup_filt_bam_file_mapstats
+#   sambamba sort -m 24G -t 2 -o $bam_file_sorted -u $bam_file
+#   sambamba markdup -l 0 -t 10 $bam_file_sorted $bam_file_dup
+#   samtools view -F 1804 -f 2 -q 30 -b $bam_file_dup > $nodup_filt_bam_file
+#   samtools index $nodup_filt_bam_file $nodup_filt_bam_index_file
+#   samtools flagstat $nodup_filt_bam_file > $nodup_filt_bam_file_mapstats
 #   # Plotting the fragment length distribution
-#   java -Xmx2g -jar /tgac/software/production/picardtools/1.84/x86_64/bin/CollectInsertSizeMetrics.jar \R=$gFA \I=$filtdir/$nodup_filt_bam_file \O="$filtdir/${nodup_filt_bam_file}_PicardInsertMetrics.jar.txt" \H="$filtdir/${nodup_filt_bam_file}_insert_size_histogram.pdf" \M=0.5
+#   java -Xmx2g -jar /tgac/software/production/picardtools/1.84/x86_64/bin/CollectInsertSizeMetrics.jar \R=$gFA \I=$nodup_filt_bam_file \O="${nodup_filt_bam_file}_PicardInsertMetrics.jar.txt" \H="${nodup_filt_bam_file}_insert_size_histogram.pdf" \M=0.5
 # done
 
 echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot completed -- #'
