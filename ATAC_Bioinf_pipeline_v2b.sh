@@ -155,7 +155,7 @@ genebedtss2=($peakcall/$spG'_refGene.tss.padded.filt.bed') # BED file of protein
 fastqr1=($rawreaddir/*_R1.fastq.merged.gz)
 read_len=($peakcall/*_read_length.txt)
 Test1=$filtdir/$spID'.nochrM.nodup.filt.bam'
-Control1=$(echo $Test1 | sed -e 's/_ATAC/_gDNA/g' | sed 's/.nochrM.nodup.filt//' | sed 's/4.postalign_filt/2.read_alignment/') 
+Control1=$(echo $Test1 | sed -e 's/_ATAC/_gDNA/g' | sed 's/.nochrM.nodup.filt//' | sed 's/4.postalign_filt/2.read_alignment/')
 # MACS2 parameters
 Macs2PvalThresh="0.05"  # The p-value threshold for calling peaks
 Macs2SmoothWindow=150  # The window size to smooth alignment signal over
@@ -615,8 +615,8 @@ echo 'source bedops-2.4.28' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
 echo "case $annot in" >> 5.peakcall.sh
-echo "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-echo "\t*.bed) awk '{"'print $1,$2,$3,$4,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
+echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
+echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
 echo "esac" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 # # below is the same as what is echoed above
