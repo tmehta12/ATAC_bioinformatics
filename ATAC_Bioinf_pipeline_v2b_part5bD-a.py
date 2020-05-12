@@ -3,6 +3,7 @@
 # Get read length (as integer) from fastq for TSS enrichment calculation
 # Usage: python3
 
+import sys
 import os
 import gzip
 import re
