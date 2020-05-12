@@ -154,8 +154,8 @@ scafflen=($peakcall/$spG'_scaffbounds.bed') # scaffold length boundaries of inpu
 genebedtss2=($peakcall/$spG'_refGene.tss.padded.filt.bed') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
 fastqr1=($rawreaddir/*_R1.fastq.merged.gz)
 read_len=($peakcall/*_read_length.txt)
-Test1=$filtdir/$spID'.nodup.filt.bam' # the filename needs checking!!
-Control1=$(echo $Test1 | sed -e 's/ATAC/gDNA/g' | sed 's/.nodup.filt//' | sed 's/4.postalign_filt/2.read_alignment/') # the filename needs checking - does it pick up the corresponding gDNA dir AND file!
+Test1=$filtdir/$spID'.nochrM.nodup.filt.bam'
+Control1=$(echo $Test1 | sed -e 's/_ATAC/_gDNA/g' | sed 's/.nochrM.nodup.filt//' | sed 's/4.postalign_filt/2.read_alignment/') 
 # MACS2 parameters
 Macs2PvalThresh="0.05"  # The p-value threshold for calling peaks
 Macs2SmoothWindow=150  # The window size to smooth alignment signal over
