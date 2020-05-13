@@ -159,7 +159,6 @@ Control1=$(echo $Test1 | sed -e 's/_ATAC/_gDNA/g' | sed 's/.nochrM.nodup.filt//'
 # MACS2 parameters
 Macs2PvalThresh="0.05"  # The p-value threshold for calling peaks
 Macs2SmoothWindow=150  # The window size to smooth alignment signal over
-ml python/3.5
 Macs2ShiftSize=$(python -c "print(int(${Macs2SmoothWindow}/2))") # This uses --extsize 75; DNA wrapped around the nucleosome is ~147bp, however in ATAC-seq, we cut (using transposase) at 'any' open chromatin region so average fragment length can be < 150
 output_prefix="$peakcall/$spID"
 tagalign_test1=$peakcall/$(echo $(basename $Test1) | sed -e 's/.bam/.tagAlign.gz/')
@@ -639,7 +638,7 @@ echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print
 echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-echo 'ml python/3.5' >> 5.peakcall.sh
+# echo 'ml python/3.5' >> 5.peakcall.sh
 echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
 echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
