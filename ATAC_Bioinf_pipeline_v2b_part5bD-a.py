@@ -37,5 +37,5 @@ def get_read_length(fastq):
 read_len = get_read_length(sys.argv[1])
 
 out_file = open(sys.argv[1] + '_read_length.txt', 'w')
-out_file.write(read_len)
+out_file.write(str(read_len))
 out_file.close()
