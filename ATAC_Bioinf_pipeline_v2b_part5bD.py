@@ -10,17 +10,42 @@ import os
 from matplotlib import mlab
 import logging
 import pybedtools
-import metaseq
+# import metaseq
 from matplotlib import pyplot as plt
 import numpy as np
+import plotutils
 
-os.environ['QT_QPA_PLATFORM']='offscreen'
+# os.environ['QT_QPA_PLATFORM']='offscreen'
 
 FINAL_BAM = sys.argv[1]
 TSS = sys.argv[2]
 OUTPUT_PREFIX = sys.argv[3]
-read_len = int(sys.argv[4]) # this will take the read lengths as a single integer as calculated in main script
-CHROMSIZES = 'PIPELINES/REFERENCES/rn6/motrpac_rn6.chrom.sizes'
+read_len = sys.argv[4] # this will take the read lengths as a single integer as calculated in main script
+CHROMSIZES = sys.argv[5]
+
+# store the read length as an integer
+for line in open(read_len):
+   if line.strip():           # line contains eol character(s)
+       read_length = int(line)          # assuming single integer on each line
+
+def data_dir():
+    """
+    Returns the data directory that contains example files for tests and
+    documentation.
+    """
+    return os.path.join(os.path.dirname(__file__), 'test', 'data')
+
+
+def example_filename(fn):
+    """
+    Return a bed file from the pybedtools examples directory.  Use
+    :func:`list_example_files` to see a list of files that are included.
+    """
+    fn = os.path.join(data_dir(), fn)
+    if not os.path.exists(fn):
+        raise ValueError("%s does not exist" % fn)
+    return fn
+
 
 def make_tss_plot(bam_file, tss, prefix, chromsizes, read_len, bins=400, bp_edge=2000,
                   processes=8, greenleaf_norm=True):
@@ -39,7 +64,8 @@ def make_tss_plot(bam_file, tss, prefix, chromsizes, read_len, bins=400, bp_edge
     tss_ext = tss.slop(b=bp_edge, g=chromsizes)
 
     # Load the bam file
-    bam = metaseq.genomic_signal(bam_file, 'bam') # Need to shift reads and just get ends, just load bed file?
+    bam = genomic_signal(bam_file, 'bam') # Need to shift reads and just get ends, just load bed file?
+    # bam = metaseq.genomic_signal(bam_file, 'bam') # Need to shift reads and just get ends, just load bed file?
     bam_array = bam.array(tss_ext, bins=bins, shift_width = -read_len/2, # Shift to center the read on the cut site
                           processes=processes, stranded=True)
 
@@ -85,30 +111,42 @@ def make_tss_plot(bam_file, tss, prefix, chromsizes, read_len, bins=400, bp_edge
     fig.savefig(tss_plot_file)
 
     # Print a more complicated plot with lots of info
-
     # Find a safe upper percentile - we can't use X if the Xth percentile is 0
     upper_prct = 99
     if mlab.prctile(bam_array.ravel(), upper_prct) == 0.0:
         upper_prct = 100.0
 
     plt.rcParams['font.size'] = 8
-    fig = metaseq.plotutils.imshow(bam_array,
+    fig = plotutils.imshow(bam_array,
                                    x=x,
                                    figsize=(5, 10),
                                    vmin=5, vmax=upper_prct, percentile=True,
                                    line_kwargs=dict(color='k', label='All'),
                                    fill_kwargs=dict(color='k', alpha=0.3),
                                    sort_by=bam_array.mean(axis=1))
+    # fig = metaseq.plotutils.imshow(bam_array,
+    #                                x=x,
+    #                                figsize=(5, 10),
+    #                                vmin=5, vmax=upper_prct, percentile=True,
+    #                                line_kwargs=dict(color='k', label='All'),
+    #                                fill_kwargs=dict(color='k', alpha=0.3),
+    #                                sort_by=bam_array.mean(axis=1))
 
     # And save the file
     fig.savefig(tss_plot_large_file)
-
     return tss_plot_file, tss_plot_large_file, tss_point_val
 
-if __name__=='__main__':
-    tss_plot_file, tss_plot_large_file, tss_point_val = make_tss_plot(FINAL_BAM, # Use final to avoid duplicates
-                                                                      TSS,
-                                                                      OUTPUT_PREFIX,
-                                                                      CHROMSIZES,
-                                                                      read_len)
-    print '{0}  {1}'.format(FINAL_BAM, str(tss_point_val))
+# run and generate the plots
+tss_plot_file, tss_plot_large_file, tss_point_val = make_tss_plot(FINAL_BAM, # Use final to avoid duplicates
+                                                                  TSS,
+                                                                  OUTPUT_PREFIX,
+                                                                  CHROMSIZES,
+                                                                  read_length)
+
+# if __name__=='__main__':
+#     tss_plot_file, tss_plot_large_file, tss_point_val = make_tss_plot(FINAL_BAM, # Use final to avoid duplicates
+#                                                                       TSS,
+#                                                                       OUTPUT_PREFIX,
+#                                                                       CHROMSIZES,
+#                                                                       read_length)
+#     print '{0}  {1}'.format(FINAL_BAM, str(tss_point_val))
