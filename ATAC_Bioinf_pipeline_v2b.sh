@@ -153,7 +153,7 @@ genebedtss=($peakcall/$spG'_refGene.tss.padded.bed') # BED file of protein codin
 scafflen=($peakcall/$spG'_scaffbounds.bed') # scaffold length boundaries of input genome assembly (col1=scaff; col2=0; col3=scaffold_length)
 genebedtss2=($peakcall/$spG'_refGene.tss.padded.filt.bed') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
 fastqr1=($rawreaddir/*_R1.fastq.merged.gz)
-read_len=($peakcall/*_read_length.txt)
+read_len=($rawreaddir/*_read_length.txt)
 Test1=$filtdir/$spID'.nochrM.nodup.filt.bam'
 Control1=$(echo $Test1 | sed -e 's/_ATAC/_gDNA/g' | sed 's/.nochrM.nodup.filt//' | sed 's/4.postalign_filt/2.read_alignment/')
 # MACS2 parameters
@@ -641,7 +641,7 @@ printf '\n' >> 5.peakcall.sh
 echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
 echo 'ml python/3.5' >> 5.peakcall.sh
 echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
+echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5c. Tn5 shifting of tagaligns' >> 5.peakcall.sh
 echo "zcat $tagalign_test1 | awk -F "'$"\\t" '"'BEGIN {OFS = FS}{ if ("'$6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}'"' | gzip -c > $shifted_tag" >> 5.peakcall.sh
