@@ -629,9 +629,9 @@ printf '\n' >> 5.peakcall.sh
 #   *.bed) awk '{print $1,$2,$3,$4,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
 # esac
 echo '# 5bB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
-echo "awk '("'$5 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5  }'"' > $genebed'.tss.for.padded.bed'" >> 5.peakcall.sh
-echo "awk '("'$5 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5  }'"' > $genebed'.tss.rev.padded.bed'" >> 5.peakcall.sh
-echo "bedops --everything $genebed'.tss.for.padded.bed' $genebed'.tss.rev.padded.bed' > $genebedtss" >> 5.peakcall.sh
+echo "awk '("'$5 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
+echo "awk '("'$5 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
+echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5bC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
 echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\\t" > '"$scafflen" >> 5.peakcall.sh
@@ -677,19 +677,16 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $
 
 
 
-## NEED TO ADD ANOTHER SCRIPT TO IDENTIFY THE INTERSECTION BETWEEN MACS2 AND GENRICH - BEDTOOLS?
 
 ################################################################################################################
 
-### 6. IDR on all pairs of replicates, self-pseudoreplicates and pooled pseudoreplicates - IDR is optional. The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
-# 	6a. IDR of true replicates
-# 	6b. Compute Fraction of Reads in Peaks (FRiP)
+### 6. Identifying peak calling interesection between MACS2 and Genrich - bedtools?
 
 ## ~ INSERT CODE HERE ~ ##
 
 # echo '# -- 5.'$spID' Peak calling completed -- #'
 #
-# echo '# -- 6.'$spID' IDR started -- #'
+# echo '# -- 6.'$spID' Peak calling intersection started -- #'
 #
 # JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} XX.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
 
@@ -701,7 +698,7 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $
 
 ## ~ INSERT CODE HERE ~ ##
 
-# echo '# -- 6.'$spID' IDR completed -- #'
+# echo '# -- 6.'$spID' Peak calling intersection completed -- #'
 #
 # echo '# -- 7.'$spID' Creating signal tracks has started -- #'
 #
@@ -725,9 +722,19 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $
 
 ################################################################################################################
 
+### 8. Differential analysis of peaks
+
 ### NOTE: be careful when considering differential peaks as some may be only offset by a few bases. In this secnario, consider the average number of mapped reads over a window.
 
-## FOR DIFFERENTIAL ANALYSIS OF PEAKS, USE HOMER; SOME CODE HERE: https://dtc-coding-dojo.github.io/main//blog/Analysing_ATAC_and_CHIPseq_data/
+## FOR SIMPLE DIFFERENTIAL ANALYSIS OF PEAKS, USE HOMER; SOME CODE HERE: https://dtc-coding-dojo.github.io/main//blog/Analysing_ATAC_and_CHIPseq_data/
+## Then use DiffBind to:
+  # A. Determine tissue-specific peaks in each species
+    # Tissue-specificity of ATAC-seq peaks was determined using DiffBind (https://www.bioconductor.org/packages/release/bioc/ html/DiffBind.html),
+    # This provided the peak coordinates for each of the biological replicates of all tissues profiled as input, plus the mapped and shifted sequencing reads (parameters ‘method = DBA_EDGER, bFullLibrarySize = FALSE, bSubControl = FALSE, bTagwise = FALSE’).
+    # All peaks identified with a log2 fold change equal or greater than 1 in one tissue compared to all others were selected as tissue-specific.
+  # B. Determine tissue-specific peaks between species same tissues e.g. Ab5_L vs Nb5_L
+    # you need to find a way to compare different species - use association to orthologous genes?
+
 
 ## ~ INSERT CODE HERE ~ ##
 
