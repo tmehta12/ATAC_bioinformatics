@@ -573,17 +573,16 @@ mkdir -p $peakcall
 cd $peakcall
 
 echo '#!/bin/bash -e' > 5.peakcall.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
+echo '#SBATCH -p ei-largemem # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
-echo '#SBATCH --mem 24000' >> 5.peakcall.sh
-echo '#SBATCH -t 0-05:59' >> 5.peakcall.sh
+echo '#SBATCH --mem 512GB' >> 5.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5.peakcall.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo 'ml MACS' >> 5.peakcall.sh
-echo 'ml python/3.5' >> 5.peakcall.sh
+# echo 'ml python/3.5' >> 5.peakcall.sh
 echo 'ml bedtools/2.25.0' >> 5.peakcall.sh
 echo 'ml GCC' >> 5.peakcall.sh
 echo 'ml zlib' >> 5.peakcall.sh
@@ -638,7 +637,6 @@ echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print
 echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-# echo 'ml python/3.5' >> 5.peakcall.sh
 echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
 echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
