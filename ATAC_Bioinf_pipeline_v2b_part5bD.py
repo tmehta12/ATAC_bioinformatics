@@ -41,6 +41,13 @@ for line in open(read_len):
    if line.strip():           # line contains eol character(s)
        read_length = int(line)          # assuming single integer on each line
 
+print('----------\nBAM file is:\t' + sys.argv[1])
+print('TSS file is:\t' + sys.argv[2])
+print('Output prefix has been set to:\t' + sys.argv[3])
+print('Read length file is:\t' + sys.argv[4] + '\tread lengths are: ' + str(read_length))
+print('Chromosome size file is:\t' + sys.argv[5])
+print('----------\n1. All files successfully loaded and read length stored')
+
 ####################################################################################################
 ## Define classes
 
@@ -252,6 +259,8 @@ class BedSignal(IntervalSignal):
         IntervalSignal.__init__(self, fn)
         self.adapter = filetype_adapters.BedAdapter(fn)
 
+print('----------\n2. All script classes defined')
+
 ####################################################################################################
 ## Define registry for extension identification
 
@@ -264,6 +273,8 @@ _registry = {
     'bigwig': BigWigSignal,
     'bigbed': BigBedSignal,
 }
+
+print('----------\n3. Registry of input files have been defined')
 
 ####################################################################################################
 ## Define internal functions for file format identifiers
@@ -308,6 +319,7 @@ def example_filename(fn):
         raise ValueError("%s does not exist" % fn)
     return fn
 
+print('----------\n4. Internal functions for file format identifiers have been defined')
 
 ####################################################################################################
 ## Define functions for doing the TSS enrichment plot
@@ -401,14 +413,20 @@ def make_tss_plot(bam_file, tss, prefix, chromsizes, read_len, bins=400, bp_edge
     fig.savefig(tss_plot_large_file)
     return tss_plot_file, tss_plot_large_file, tss_point_val
 
+print('----------\n5. Function for TSS enrichment plot has been defined')
+
 ####################################################################################################
 ## Run and generate the plots
+
+print('----------\n6a. Starting to generate TSS enrichment plot/s')
 
 tss_plot_file, tss_plot_large_file, tss_point_val = make_tss_plot(FINAL_BAM, # Use final to avoid duplicates
                                                                   TSS,
                                                                   OUTPUT_PREFIX,
                                                                   CHROMSIZES,
                                                                   read_length)
+
+print('----------\n6b. Completed generation of TSS enrichment plot/s')
 
 # if __name__=='__main__':
 #     tss_plot_file, tss_plot_large_file, tss_point_val = make_tss_plot(FINAL_BAM, # Use final to avoid duplicates
