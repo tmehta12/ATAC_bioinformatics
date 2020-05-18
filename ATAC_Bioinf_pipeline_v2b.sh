@@ -162,8 +162,12 @@ Macs2SmoothWindow=150  # The window size to smooth alignment signal over
 Macs2ShiftSize=$(python -c "print(int(${Macs2SmoothWindow}/2))") # This uses --extsize 75; DNA wrapped around the nucleosome is ~147bp, however in ATAC-seq, we cut (using transposase) at 'any' open chromatin region so average fragment length can be < 150
 output_prefix="$peakcall/$spID"
 tagalign_test1=$peakcall/$(echo $(basename $Test1) | sed -e 's/.bam/.tagAlign.gz/')
-tagalign_control1=$peakcall/$(echo $(basename $Control1) | sed -e 's/.bam/.tagAlign.gz/')
+tagalign_control1=$(echo $readalign | sed -e 's/_ATAC/_gDNA/g')/$(echo $(basename $Control1) | sed -e 's/.bam/.tagAlign.gz/')
 shifted_tag="$peakcall/$spID"'.tn5.tagAlign.gz'
+Test2=$spID'.nochrM.nodup.filt.querysorted.bam'
+Control2=$(echo $spID'.bam' | sed -e 's/_ATAC/_gDNA.querysorted/g')
+Test1index=$filtdir/$spID'.nochrM.nodup.filt.bam.bai'
+Geninfo='genome.info'
 
 ################################################################################################################
 
@@ -566,8 +570,9 @@ JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} 4.postalign_filt.sh | awk '{p
   # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
   # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
 # 	5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
-# 	5d. peak calling - macs2
-#   5e. peak calling using another program - Genrich) and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
+# 	5d. count-based peak calling using Poisson distribution - macs2
+#   5e. count-based peak calling using another program - Genrich
+#   5f. markov model based peak calling specific for ATAC-seq data - HMMRATAC
 
 mkdir -p $peakcall
 cd $peakcall
@@ -593,12 +598,12 @@ printf '\n' >> 5.peakcall.sh
 echo '# Sum total length of all scaffolds in assembly - needed as input for Macs2' >> 5.peakcall.sh
 echo 'source bioawk-1.0' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo 'Gensz=$(bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk "'-F"\\t" '"'{print;x+="'$2}END{print "Total " x}'"' | tail -1 | sed 's/Total //g') # this will output the sum length of scaffolds and assign to variable "'$Gensz' >> 5.peakcall.sh
+echo 'GenSz=$(bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk "'-F"\t" '"'{print;x+="'$2}END{print "Total " x}'"' | tail -1 | sed 's/Total //g') # this will output the sum length of scaffolds and assign to variable "'$Gensz' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo "# 5a. Convert each bam to a .tagAlign - contains the start/end positions of each read:" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c  > $tagalign_test1" >> 5.peakcall.sh
-echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1" >> 5.peakcall.sh
+echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\t"}{$4="N";$5="1000";print $0}'"' | gzip -c  > $tagalign_test1" >> 5.peakcall.sh
+echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5b. TSS enrichment plotting' >> 5.peakcall.sh
 echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
@@ -614,38 +619,38 @@ echo 'source bedops-2.4.28' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
 echo "case $annot in" >> 5.peakcall.sh
-echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
+echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
+echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
 echo "esac" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 # # below is the same as what is echoed above
 # case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
+#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
+#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
 # esac
 # # the below is for either a gtf file from ensembl etc. and your own bed file
 # case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
+#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
+#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
 # esac
 echo '# 5bB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
-echo "awk '("'$5 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
-echo "awk '("'$5 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
+echo "awk '("'$6 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
+echo "awk '("'$6 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
 echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5bC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
-echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\\t" > '"$scafflen" >> 5.peakcall.sh
+echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
 echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
+# echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
+# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
+# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
 echo '# 5c. Tn5 shifting of tagaligns' >> 5.peakcall.sh
-echo "zcat $tagalign_test1 | awk -F "'$"\\t" '"'BEGIN {OFS = FS}{ if ("'$6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}'"' | gzip -c > $shifted_tag" >> 5.peakcall.sh
+echo "zcat $tagalign_test1 | awk -F "'$"\t" '"'BEGIN {OFS = FS}{ if ("'$6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}'"' | gzip -c > $shifted_tag" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo '# 5d. Run MACS2:' >> 5.peakcall.sh
-echo "macs2 callpeak -t $shifted_tag -c $tagalign_control1 -f BED -n $output_prefix -g $GenSz -p $Macs2PvalThresh --nomodel --shift -$Macs2ShiftSize --extsize $Macs2SmoothWindow -B --SPMR --keep-dup all --call-summits" >> 5.peakcall.sh
+echo "macs2 callpeak -t $shifted_tag -c $tagalign_control1 -f BED -n $output_prefix -g "'$GenSz -p '"$Macs2PvalThresh --nomodel --shift -$Macs2ShiftSize --extsize $Macs2SmoothWindow -B --SPMR --keep-dup all --call-summits" >> 5.peakcall.sh
 echo '# --nomodel and --extsize 150 tells MACS2 to use 150bp as fragment size to pileup sequencing reads.' >> 5.peakcall.sh
 echo '# -g XX lets MACS2 consider a genome size as background.' >> 5.peakcall.sh
 echo '# -B --SPMR ask MACS2 to generate pileup signal file of fragment pileup per million reads in bedGraph format.' >> 5.peakcall.sh
@@ -654,8 +659,11 @@ echo '# Generate a fold change file comparing the sample to the control and logL
 echo "macs2 bdgcmp -t $output_prefix\_treat_pileup.bdg -c $output_prefix\_control_lambda.bdg -o $output_prefix\_FE.bdg -m FE" >> 5.peakcall.sh
 echo "macs2 bdgcmp -t $output_prefix\_treat_pileup.bdg -c $output_prefix\_control_lambda.bdg -o $output_prefix\_logLR.bdg -m logLR -p 0.00001" >> 5.peakcall.sh
 echo '# 5e. peak calling using another program - Genrich (installed on HPC by CiS) and take the intersection' >> 5.peakcall.sh
+echo 'ml samtools/1.3' >> 5.peakcall.sh
+echo "samtools sort -o $Test2 -O bam -n $Test1" >> 5.peakcall.sh
+echo "samtools sort -o $Control2 -O bam -n $Control1" >> 5.peakcall.sh
 echo 'source package 8bf6d6cb-b9e9-4215-a3d8-b17a76fec816 # sources Genrich on HPC - guidance: https://informatics.fas.harvard.edu/atac-seq-guidelines.html#another-peak-caller-why; https://github.com/jsh58/Genrich' >> 5.peakcall.sh
-echo "Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalThresh -j -y -r -v # output is ENCODE narrowPeak format" >> 5.peakcall.sh
+echo "Genrich -t $Test2 -c $Control2 -o $output_prefix'_Genrich.peaks' -p $Macs2PvalThresh -j -y -r -v # output is ENCODE narrowPeak format" >> 5.peakcall.sh
 
 # ENCODE narrowPeak format
 # 1. chrom 	Name of the chromosome
@@ -669,18 +677,36 @@ echo "Genrich -t $Test1 -c $Control1 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
+echo '#!/bin/bash -e' > 5f.peakcall.sh
+echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
+echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
+echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
+echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
+echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
+echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh
+echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
+printf '\n' >> 5f.peakcall.sh
+echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
+printf '\n' >> 5f.peakcall.sh
+echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > $Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file" >> 5f.peakcall.sh
+echo "HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
+echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
+echo 'awk -v OFS="\t" '"'"'$5>=10 {print}'"' $spID"'_summits.bed > '"$spID.filteredSummits.bed # filter the summit file by the same threshold" >> 5f.peakcall.sh
+
 echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
 echo '# -- 5.'$spID' Peak calling started -- #'
 
 JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
-
-
+JOBID9=$( sbatch -W --dependency=afterok:${JOBID7} 5f.peakcall.sh | awk '{print $4}' ) # JOB9 depends on JOB7 completing successfully
 
 
 ################################################################################################################
 
-### 6. Identifying peak calling interesection between MACS2 and Genrich - bedtools?
+### 6. Identifying peak calling interesection between MACS2, Genrich and HMMRATAC - bedtools?
+
+## Also, for analysis only consider open-chromatin so filter based on that?
 
 ## ~ INSERT CODE HERE ~ ##
 
