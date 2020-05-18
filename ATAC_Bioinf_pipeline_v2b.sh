@@ -689,6 +689,8 @@ echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
 printf '\n' >> 5f.peakcall.sh
 echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
 printf '\n' >> 5f.peakcall.sh
+echo 'source hmmratac-1.2.10' >> 5f.peakcall.sh
+echo 'ml samtools/1.3' >> 5f.peakcall.sh
 echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > $Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file" >> 5f.peakcall.sh
 echo "HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
 echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
