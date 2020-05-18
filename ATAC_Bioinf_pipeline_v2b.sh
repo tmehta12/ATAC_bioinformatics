@@ -578,10 +578,10 @@ mkdir -p $peakcall
 cd $peakcall
 
 echo '#!/bin/bash -e' > 5.peakcall.sh
-echo '#SBATCH -p ei-largemem # partition (queue)' >> 5.peakcall.sh
+echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
-echo '#SBATCH -c 16 # number of cores' >> 5.peakcall.sh
-echo '#SBATCH --mem 512GB' >> 5.peakcall.sh
+echo '#SBATCH --mem 48000' >> 5.peakcall.sh
+echo '#SBATCH -t 0-04:59' >> 5.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5.peakcall.sh
