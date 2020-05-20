@@ -629,31 +629,31 @@ echo "Genrich -t $Test2 -c $Control2 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
-echo '#!/bin/bash -e' > 5f.peakcall.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
-echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
-echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
-echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
-echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
-echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
-echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh
-echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
-printf '\n' >> 5f.peakcall.sh
-echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
-printf '\n' >> 5f.peakcall.sh
-echo 'source hmmratac-1.2.10' >> 5f.peakcall.sh
-echo 'ml samtools/1.3' >> 5f.peakcall.sh
-echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > $Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file" >> 5f.peakcall.sh
-echo "HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
-echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
-echo 'awk -v OFS="\t" '"'"'$5>=10 {print}'"' $spID"'_summits.bed > '"$spID.filteredSummits.bed # filter the summit file by the same threshold" >> 5f.peakcall.sh
+# echo '#!/bin/bash -e' > 5f.peakcall.sh
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
+# echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
+# echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
+# echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
+# echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
+# printf '\n' >> 5f.peakcall.sh
+# echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
+# printf '\n' >> 5f.peakcall.sh
+# echo 'source hmmratac-1.2.10' >> 5f.peakcall.sh
+# echo 'ml samtools/1.3' >> 5f.peakcall.sh
+# echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > "'$Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file' >> 5f.peakcall.sh
+# echo "HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
+# echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
+# echo 'awk -v OFS="\t" '"'"'$5>=10 {print}'"' $spID"'_summits.bed > '"$spID.filteredSummits.bed # filter the summit file by the same threshold" >> 5f.peakcall.sh
 
 echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
 echo '# -- 5.'$spID' Peak calling started -- #'
 
 JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
-JOBID9=$( sbatch -W --dependency=afterok:${JOBID7} 5f.peakcall.sh | awk '{print $4}' ) # JOB9 depends on JOB7 completing successfully
+# JOBID9=$( sbatch -W --dependency=afterok:${JOBID7} 5f.peakcall.sh | awk '{print $4}' ) # JOB9 depends on JOB7 completing successfully
 
 ## Ran three peakcallers for the following purpose:
 # 1. We will ultimately use the MACS2 narrow peak file for peaks since this is what is recommended by:
