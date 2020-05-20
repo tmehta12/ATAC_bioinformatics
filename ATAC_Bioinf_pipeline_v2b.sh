@@ -27,8 +27,6 @@
 # 2. Scripts:
   # ATAC_Bioinf_pipeline_v2b_part3a.py
   # ATAC_Bioinf_pipeline_v2b_part3b.R
-  # ATAC_Bioinf_pipeline_v2b_part5bD-a.py
-  # ATAC_Bioinf_pipeline_v2b_part5bD.py
 # 3. Run as an sbatch script with 8Gb memory and ~3 days runtime - will spawn off other jobs
 
 ################################################################################################################
@@ -50,16 +48,11 @@
 #   4a. Filter reads (Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates) - samtools > final bam
 # 5. ATAC peak-calling
 # 	5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
-#   5b. TSS enrichment - plot
-# 	5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
-# 	5d. peak calling - macs2 NOTE: consider running another peak-calling program and take the intersection. Also, for analysis only consider open-chromatin so filter based on that?
-# 6. IDR on all pairs of replicates, self-pseudoreplicates and pooled pseudoreplicates - IDR is optional. The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
-# 	6a. IDR of true replicates
-# 	6b. Compute Fraction of Reads in Peaks (FRiP)
-# 7. Create signal tracks - bedtools
-# 8. Annotation:
-# 	8a. TSS enrichment
-# 	8b. Fraction of Reads in annotated regions
+# 	5b. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
+# 	5c. count-based peak calling using Poisson distribution - macs2
+#   5d. count-based peak calling using another program - Genrich
+#   5e. markov model based peak calling specific for ATAC-seq data - HMMRATAC
+# 6. bed to bigbed conversion for narrowpeaks - bedClip and bedToBigbed from ucsc_tools
 
 ################################################################################################################
 
@@ -168,6 +161,12 @@ Test2=$spID'.nochrM.nodup.filt.querysorted.bam'
 Control2=$(echo $spID'.bam' | sed -e 's/_ATAC/_gDNA.querysorted/g')
 Test1index=$filtdir/$spID'.nochrM.nodup.filt.bam.bai'
 Geninfo='genome.info'
+
+### 6. bed to bigbed conversion
+bigbed=${spID}_peaks.narrowPeak.bb
+peak=${spID}_peaks.narrowPeak
+peakgz=${spID}_peaks.narrowPeak.gz
+scafflen2=($peakcall/$spG'_scaffbounds.txt')
 
 ################################################################################################################
 
@@ -563,16 +562,10 @@ JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} 4.postalign_filt.sh | awk '{p
 
 ### 5. ATAC peak calling (test vs control)
 # 	5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
-#   5b. TSS enrichment - plot
-  # The TSS enrichment calculation is a signal to noise calculation.
-  # The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp).
-  # This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth.
-  # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
-  # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
-# 	5c. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
-# 	5d. count-based peak calling using Poisson distribution - macs2
-#   5e. count-based peak calling using another program - Genrich
-#   5f. markov model based peak calling specific for ATAC-seq data - HMMRATAC
+# 	5b. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
+# 	5c. count-based peak calling using Poisson distribution - macs2
+#   5d. count-based peak calling using another program that considers properly paired, unpaired and secondary alignments (unlike MACS2) - Genrich
+#   5e. markov model based peak calling specific for ATAC-seq data - HMMRATAC
 
 mkdir -p $peakcall
 cd $peakcall
@@ -605,47 +598,6 @@ printf '\n' >> 5.peakcall.sh
 echo "bedtools bamtobed -i $Test1 | awk 'BEGIN{OFS="'"\t"}{$4="N";$5="1000";print $0}'"' | gzip -c  > $tagalign_test1" >> 5.peakcall.sh
 echo "bedtools bamtobed -i $Control1 | awk 'BEGIN{OFS="'"\t"}{$4="N";$5="1000";print $0}'"' | gzip -c > $tagalign_control1" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
-echo '# 5b. TSS enrichment plotting' >> 5.peakcall.sh
-echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# create a 2kb window around TSS (+/- 1kb) bed file e.g.' >> 5.peakcall.sh
-echo '# chr1	134210701	134214701	+' >> 5.peakcall.sh
-echo '# chr1	33724603	33728603	-' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# 5bA. Protein-coding genes GTF > BED: variable $annot of gzipped GTF file (*gtf.gz); or 2) longest protein-coding gene annotations as 6-column BED: col1-scaff,col2-start,col3-end,col4-geneID,col5-XX,col6-strand' >> 5.peakcall.sh
-echo '# output is genebed=($peakcall/$spG'_refGene.bed') defined as variable at top' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo 'source bedops-2.4.28' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
-echo "case $annot in" >> 5.peakcall.sh
-echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
-echo "esac" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-# # below is the same as what is echoed above
-# case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# esac
-# # the below is for either a gtf file from ensembl etc. and your own bed file
-# case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# esac
-echo '# 5bB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
-echo "awk '("'$6 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
-echo "awk '("'$6 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
-echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# 5bC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
-echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
-echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-# echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
 echo '# 5c. Tn5 shifting of tagaligns' >> 5.peakcall.sh
 echo "zcat $tagalign_test1 | awk -F "'$"\t" '"'BEGIN {OFS = FS}{ if ("'$6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}'"' | gzip -c > $shifted_tag" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
@@ -703,72 +655,51 @@ echo '# -- 5.'$spID' Peak calling started -- #'
 JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
 JOBID9=$( sbatch -W --dependency=afterok:${JOBID7} 5f.peakcall.sh | awk '{print $4}' ) # JOB9 depends on JOB7 completing successfully
 
+## Ran three peakcallers for the following purpose:
+# 1. We will ultimately use the MACS2 narrow peak file for peaks since this is what is recommended by:
+  # A. ENCODE project’s “ATAC-seq Data Standards and Prototype Processing Pipeline”
+  # B. https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1929-3
+# 2. Will perform (in a separate script), IDR as per ENCODE project’s “ATAC-seq Data Standards and Prototype Processing Pipeline” for true replicated data
+# 3. The three peak callers we used are two count-based (MACS2 and Genrich, developed by the ATAC-seq experts) and a Markov Model based caller developed specifically for ATAC-seq data
+# 4. We will keep data of peaks from all three peak callers for test purposes and can call intersections for reviewers if required - maybe ensure that peaks that are focused on are at least present in 2/3 sets.
 
 ################################################################################################################
 
-### 6. Identifying peak calling interesection between MACS2, Genrich and HMMRATAC - bedtools?
+### 6. bed to bigbed conversion for narrowpeaks - bedClip and bedToBigbed from ucsc_tools
 
-## Also, for analysis only consider open-chromatin so filter based on that?
+# Peaks have been called with MACS2 > narrow peaks file: This is the basic dataset
 
-## ~ INSERT CODE HERE ~ ##
+cd $peakcall
 
-# echo '# -- 5.'$spID' Peak calling completed -- #'
-#
-# echo '# -- 6.'$spID' Peak calling intersection started -- #'
-#
-# JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} XX.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
+gzip $peak # gzip compress the narrowPeak file
 
+source ucsc_utils-v333
 
+echo 'table narrowPeak' > narrowPeak.as
+echo '"BED6+4 Peaks of signal enrichment based on pooled, normalized (interpreted) data."' >> narrowPeak.as
+echo '(' >> narrowPeak.as
+echo -e '\tstring chrom;        "Reference sequence chromosome or scaffold"' >> narrowPeak.as
+echo -e '\tuint   chromStart;   "Start position in chromosome"' >> narrowPeak.as
+echo -e '\tuint   chromEnd;     "End position in chromosome"' >> narrowPeak.as
+echo -e '\tstring name;	 "Name given to a region (preferably unique). Use . if no name is assigned"' >> narrowPeak.as
+echo -e '\tuint   score;        "Indicates how dark the peak will be displayed in the browser (0-1000) "' >> narrowPeak.as
+echo -e '\tchar[1]  strand;     "+ or - or . for unknown"' >> narrowPeak.as
+echo -e '\tfloat  signalValue;  "Measurement of average enrichment for the region"' >> narrowPeak.as
+echo -e '\tfloat  pValue;       "Statistical significance of signal value (-log10). Set to -1 if not used."' >> narrowPeak.as
+echo -e '\tfloat  qValue;       "Statistical significance with multiple-test correction applied (FDR -log10). Set to -1 if not used."' >> narrowPeak.as
+echo -e '\tint   peak;         "Point-source called for this peak; 0-based offset from chromStart. Set to -1 if no point-source called."' >> narrowPeak.as
+echo ')' >> narrowPeak.as
 
-################################################################################################################
+cut -f1,3 ${scafflen} > ${scafflen2}
+zcat ${peakgz} | sort -k1,1 -k2,2n > ${bigbed}.tmp
+bedClip ${bigbed}.tmp ${scafflen2} ${bigbed}.tmp2
 
-### 7. Create signal tracks - bedtools
+bedToBigBed -type=bed6+4 -as=narrowPeak.as ${bigbed}.tmp2 ${scafflen2} ${bigbed}
+rm -f ${bigbed}.tmp ${bigbed}.tmp2
 
-## ~ INSERT CODE HERE ~ ##
+echo '# -- 5.'$spID' Peak calling completed -- #'
 
-# echo '# -- 6.'$spID' Peak calling intersection completed -- #'
-#
-# echo '# -- 7.'$spID' Creating signal tracks has started -- #'
-#
-# JOBID10=$( sbatch -W --dependency=afterok:${JOBID9} XX.sh | awk '{print $4}' ) # JOB10 depends on JOB9 completing successfully
-
-
-################################################################################################################
-
-### 8. Annotation:
-# 	8a. TSS enrichment
-# 	8b. Fraction of Reads in annotated regions
-
-## ~ INSERT CODE HERE ~ ##
-
-# echo '# -- 7.'$spID' Creating signal tracks has completed -- #'
-#
-# echo '# -- 8.'$spID' Peak annotation has started -- #'
-#
-# JOBID11=$( sbatch -W --dependency=afterok:${JOBID10} XX.sh | awk '{print $4}' ) # JOB11 depends on JOB10 completing successfully
-
-
-################################################################################################################
-
-### 8. Differential analysis of peaks
-
-### NOTE: be careful when considering differential peaks as some may be only offset by a few bases. In this secnario, consider the average number of mapped reads over a window.
-
-## FOR SIMPLE DIFFERENTIAL ANALYSIS OF PEAKS, USE HOMER; SOME CODE HERE: https://dtc-coding-dojo.github.io/main//blog/Analysing_ATAC_and_CHIPseq_data/
-## Then use DiffBind to:
-  # A. Determine tissue-specific peaks in each species
-    # Tissue-specificity of ATAC-seq peaks was determined using DiffBind (https://www.bioconductor.org/packages/release/bioc/ html/DiffBind.html),
-    # This provided the peak coordinates for each of the biological replicates of all tissues profiled as input, plus the mapped and shifted sequencing reads (parameters ‘method = DBA_EDGER, bFullLibrarySize = FALSE, bSubControl = FALSE, bTagwise = FALSE’).
-    # All peaks identified with a log2 fold change equal or greater than 1 in one tissue compared to all others were selected as tissue-specific.
-  # B. Determine tissue-specific peaks between species same tissues e.g. Ab5_L vs Nb5_L
-    # you need to find a way to compare different species - use association to orthologous genes?
-
-
-## ~ INSERT CODE HERE ~ ##
-
-# echo '# -- 8.'$spID' Peak annotation has completed -- #'
-#
-# JOBID12=$( sbatch -W --dependency=afterok:${JOBID11} XX.sh | awk '{print $4}' ) # JOB12 depends on JOB11 completing successfully
+echo '# -- 6.'$spID' Bed to BigBed conversion started -- #'
 
 ################################################################################################################
 
