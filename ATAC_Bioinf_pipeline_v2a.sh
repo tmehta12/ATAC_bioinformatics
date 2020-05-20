@@ -128,6 +128,8 @@ done < $libids2
 
 # Add each ATAC_Bioinf_pipeline_v2b_gDNA.sh script to each gDNA folder and ATAC_Bioinf_pipeline_v2b.sh to each ATAC folder
 
+cd $WD
+
 grep 'gDNA' $prefix > $prefixgDNA
 grep 'ATAC' $prefix > $prefixATAC
 
