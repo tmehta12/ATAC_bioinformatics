@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 0-15:00 # time (D-HH:MM)
+#SBATCH -t 0-23:59 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -163,9 +163,9 @@ Test1index=$filtdir/$spID'.nochrM.nodup.filt.bam.bai'
 Geninfo='genome.info'
 
 ### 6. bed to bigbed conversion
-bigbed=${spID}_peaks.narrowPeak.bb
-peak=${spID}_peaks.narrowPeak
-peakgz=${spID}_peaks.narrowPeak.gz
+bigbed=($peakcall/${spID}_peaks.narrowPeak.bb)
+peak=($peakcall/${spID}_peaks.narrowPeak)
+peakgz=($peakcall/${spID}_peaks.narrowPeak.gz)
 scafflen2=($peakcall/$spG'_scaffbounds.txt')
 
 ################################################################################################################
@@ -373,7 +373,7 @@ echo '#!/bin/bash -e' > 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -n 1 # number of tasks' >> 3.mtfilt_fragcount_B.sh
-echo '#SBATCH --mem 24000' >> 3.mtfilt_fragcount_B.sh
+echo '#SBATCH --mem 48000' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -t 0-23:59' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 3.mtfilt_fragcount_B.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 3.mtfilt_fragcount_B.sh
@@ -478,7 +478,6 @@ printf '\n' >> 3.mtfilt_fragcount_B_a.sh
 echo '# 8. Plot fragment length count in R' >> 3.mtfilt_fragcount_B_a.sh
 echo 'source R-3.5.2' >> 3.mtfilt_fragcount_B_a.sh
 echo "R CMD BATCH --no-save --no-restore '--args $bam_file_nochrM' $scripts/ATAC_Bioinf_pipeline_v2b_part3b.R ATAC_Bioinf_pipeline_v2b_part3b.Rout # this creates two files - Rplots.pdf (which has the image!) and another (empty) image file with the actual filename. Simply rename Rplots.pdf" >> 3.mtfilt_fragcount_B_a.sh
-echo 'mv Rplots.pdf "$(basename "'$bam_file_nochrM'" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf' >> 3.mtfilt_fragcount_B_a.sh
 
 JOBID6a=$( sbatch -W --dependency=afterok:${JOBID6} 3.mtfilt_fragcount_B_a.sh | awk '{print $4}' ) # JOB6a depends on JOB6 completing successfully - NOTE: this will not be used as a dependency since it spits out a ggplot error despite running fine!
 
@@ -487,13 +486,14 @@ JOBID6a=$( sbatch -W --dependency=afterok:${JOBID6} 3.mtfilt_fragcount_B_a.sh | 
 ### 4. Post alignment filtering
 #   4a. Filter reads (Sort, Map and remove duplicates, Remove reads unmapped, not primary alignment, reads failing platform, duplicates) - samtools > final bam
 
+
 mkdir -p $filtdir
 cd $filtdir
 
 echo '#!/bin/bash -e' > 4.postalign_filt.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
 echo '#SBATCH -N 1 # number of nodes' >> 4.postalign_filt.sh
-echo '#SBATCH --mem 24000' >> 4.postalign_filt.sh
+echo '#SBATCH --mem 88000' >> 4.postalign_filt.sh
 echo '#SBATCH -t 0-05:59' >> 4.postalign_filt.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 4.postalign_filt.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 4.postalign_filt.sh
@@ -522,8 +522,8 @@ echo -e '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.fla
 echo -e '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
 echo -e '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
 echo -e '\t# Filter reads' >> 4.postalign_filt.sh
-echo -e "\tsambamba sort -m 24G -t 2 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
-echo -e "\tsambamba markdup -l 0 -t 10 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
+echo -e "\tsambamba sort -m 54G -t 2 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
+echo -e "\tsambamba markdup -l 0 -t 2 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
 echo -e "\tsamtools view -F 1804 -f 2 -q 30 -b "'$bam_file_dup > '""'$nodup_filt_bam_file' >> 4.postalign_filt.sh
 echo -e "\tsamtools index "'$nodup_filt_bam_file '""'$nodup_filt_bam_index_file' >> 4.postalign_filt.sh
 echo -e "\tsamtools flagstat "'$nodup_filt_bam_file > '""'$nodup_filt_bam_file_mapstats' >> 4.postalign_filt.sh
@@ -541,8 +541,8 @@ echo 'done' >> 4.postalign_filt.sh
 #   pbc_file_qc=$(echo $bam_file | sed -e 's/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity
 #   nodup_filt_bam_file_sorted=$(echo $bam_file | sed -e 's/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)
 #   # Filter reads
-#   sambamba sort -m 24G -t 2 -o $bam_file_sorted -u $bam_file
-#   sambamba markdup -l 0 -t 10 $bam_file_sorted $bam_file_dup
+#   sambamba sort -m 54G -t 2 -o $bam_file_sorted -u $bam_file
+#   sambamba markdup -l 0 -t 2 $bam_file_sorted $bam_file_dup
 #   samtools view -F 1804 -f 2 -q 30 -b $bam_file_dup > $nodup_filt_bam_file
 #   samtools index $nodup_filt_bam_file $nodup_filt_bam_index_file
 #   samtools flagstat $nodup_filt_bam_file > $nodup_filt_bam_file_mapstats
@@ -552,11 +552,11 @@ echo 'done' >> 4.postalign_filt.sh
 
 echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot completed -- #'
 
+mv $mtfilt/Rplots.pdf $mtfilt/"$(basename "$bam_file_nochrM" .bam).fraglength.pdf" # rename Rplots.pdf to *.fraglength.pdf
+
 echo '# -- 4.'$spID' Post alignment filtering started -- #'
 
 JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} 4.postalign_filt.sh | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
-
-
 
 ################################################################################################################
 
@@ -592,6 +592,7 @@ echo '# Sum total length of all scaffolds in assembly - needed as input for Macs
 echo 'source bioawk-1.0' >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo 'GenSz=$(bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk "'-F"\t" '"'{print;x+="'$2}END{print "Total " x}'"' | tail -1 | sed 's/Total //g') # this will output the sum length of scaffolds and assign to variable "'$Gensz' >> 5.peakcall.sh
+echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
 echo "# 5a. Convert each bam to a .tagAlign - contains the start/end positions of each read:" >> 5.peakcall.sh
 printf '\n' >> 5.peakcall.sh
