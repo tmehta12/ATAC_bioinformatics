@@ -522,8 +522,8 @@ echo -e '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.fla
 echo -e '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
 echo -e '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
 echo -e '\t# Filter reads' >> 4.postalign_filt.sh
-echo -e "\tsambamba sort -m 54G -t 2 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
-echo -e "\tsambamba markdup -l 0 -t 2 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
+echo -e "\tsambamba sort -m 88G -t 1 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
+echo -e "\tsambamba markdup -l 0 -t 1 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
 echo -e "\tsamtools view -F 1804 -f 2 -q 30 -b "'$bam_file_dup > '""'$nodup_filt_bam_file' >> 4.postalign_filt.sh
 echo -e "\tsamtools index "'$nodup_filt_bam_file '""'$nodup_filt_bam_index_file' >> 4.postalign_filt.sh
 echo -e "\tsamtools flagstat "'$nodup_filt_bam_file > '""'$nodup_filt_bam_file_mapstats' >> 4.postalign_filt.sh
