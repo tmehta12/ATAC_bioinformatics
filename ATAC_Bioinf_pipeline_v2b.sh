@@ -672,6 +672,10 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} 5.peakcall.sh | awk '{print $
 
 cd $peakcall
 
+echo '# -- 5.'$spID' Peak calling completed -- #'
+
+echo '# -- 6.'$spID' Bed to BigBed conversion started -- #'
+
 gzip $peak # gzip compress the narrowPeak file
 
 source ucsc_utils-v333
@@ -698,11 +702,11 @@ bedClip ${bigbed}.tmp ${scafflen2} ${bigbed}.tmp2
 bedToBigBed -type=bed6+4 -as=narrowPeak.as ${bigbed}.tmp2 ${scafflen2} ${bigbed}
 rm -f ${bigbed}.tmp ${bigbed}.tmp2
 
-echo '# -- 5.'$spID' Peak calling completed -- #'
-
-echo '# -- 6.'$spID' Bed to BigBed conversion started -- #'
+echo '# -- 6.'$spID' Bed to BigBed conversion completed -- #'
 
 ################################################################################################################
 
 ### Finish the script
+echo -e '# --------------------\nEXITING SCRIPT - all completed\n# --------------------'
+
 exit 0
