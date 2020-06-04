@@ -630,30 +630,6 @@ echo "Genrich -t $Test2 -c $Control2 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
-
-############## TESTING
-
-spID=Ab5_L_ATAC
-spG=AstBur1.0
-
-ml samtools/1.3
-ml perl
-samtools view -H /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam | perl -ne 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print $1,"\t",$2,"\n"}' > genome.info
-
-# normal run is below - however, this only invokes starting heap size of 512 MB and maximum heap size of 1 GB, which is too small
-# HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID
-# run with starting heap size of 20 GB and a maximum heap size of 80 GB
-HMMRATAC -Xms20g -Xmx80g -XX:ParallelGCThreads=2 -b /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam -i /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam.bai -g /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/5.peak_calling/AstBur1.0_scaffbounds.bed -o Ab5_L_ATAC # Run HMMRATAC
-
-
-awk -v OFS="\t" '$13>=10 {print}' Ab5_L_ATAC_peaks.gappedPeak > Ab5_L_ATAC.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:
-awk -v OFS="\t" '$5>=10 {print}' Ab5_L_ATAC_summits.bed > Ab5_L_ATAC.filteredSummits.bed # filter the summit file by the same threshold
-
-
-####################
-
-
-
 echo '#!/bin/bash -e' > 5f.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
