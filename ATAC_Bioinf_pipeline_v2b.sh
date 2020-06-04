@@ -160,13 +160,13 @@ shifted_tag="$peakcall/$spID"'.tn5.tagAlign.gz'
 Test2=$spID'.nochrM.nodup.filt.querysorted.bam'
 Control2=$(echo $spID'.bam' | sed -e 's/_ATAC/_gDNA.querysorted/g')
 Test1index=$filtdir/$spID'.nochrM.nodup.filt.bam.bai'
-Geninfo='genome.info'
+scafflen2=($peakcall/$spG'_scaffbounds.txt')
 
 ### 6. bed to bigbed conversion
 bigbed=($peakcall/${spID}_peaks.narrowPeak.bb)
 peak=($peakcall/${spID}_peaks.narrowPeak)
 peakgz=($peakcall/${spID}_peaks.narrowPeak.gz)
-scafflen2=($peakcall/$spG'_scaffbounds.txt')
+
 
 ################################################################################################################
 
@@ -630,24 +630,49 @@ echo "Genrich -t $Test2 -c $Control2 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 9. qValue 	Summit -log10(q-value), or -1 if not available (e.g. without -q)
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
-# echo '#!/bin/bash -e' > 5f.peakcall.sh
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
-# echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
-# echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
-# echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
-# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
-# echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
-# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh
-# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
-# printf '\n' >> 5f.peakcall.sh
-# echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
-# printf '\n' >> 5f.peakcall.sh
-# echo 'source hmmratac-1.2.10' >> 5f.peakcall.sh
-# echo 'ml samtools/1.3' >> 5f.peakcall.sh
-# echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > "'$Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file' >> 5f.peakcall.sh
-# echo "HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
-# echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
-# echo 'awk -v OFS="\t" '"'"'$5>=10 {print}'"' $spID"'_summits.bed > '"$spID.filteredSummits.bed # filter the summit file by the same threshold" >> 5f.peakcall.sh
+
+############## TESTING
+
+spID=Ab5_L_ATAC
+spG=AstBur1.0
+
+ml samtools/1.3
+ml perl
+samtools view -H /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam | perl -ne 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print $1,"\t",$2,"\n"}' > genome.info
+
+# normal run is below - however, this only invokes starting heap size of 512 MB and maximum heap size of 1 GB, which is too small
+# HMMRATAC -b $Test1 -i $Test1index -g $scafflen -o $spID
+# run with starting heap size of 20 GB and a maximum heap size of 80 GB
+HMMRATAC -Xms20g -Xmx80g -XX:ParallelGCThreads=2 -b /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam -i /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/4.postalign_filt/Ab5_L_ATAC.nochrM.nodup.filt.bam.bai -g /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/5.peak_calling/AstBur1.0_scaffbounds.bed -o Ab5_L_ATAC # Run HMMRATAC
+
+
+awk -v OFS="\t" '$13>=10 {print}' Ab5_L_ATAC_peaks.gappedPeak > Ab5_L_ATAC.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:
+awk -v OFS="\t" '$5>=10 {print}' Ab5_L_ATAC_summits.bed > Ab5_L_ATAC.filteredSummits.bed # filter the summit file by the same threshold
+
+
+####################
+
+
+
+echo '#!/bin/bash -e' > 5f.peakcall.sh
+echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
+echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
+echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
+echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
+echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
+echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh
+echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 5f.peakcall.sh
+printf '\n' >> 5f.peakcall.sh
+echo '# 5f. Markov model based peak caller: HMMRATAC - a three-state semi-supervised hidden Markov model (HMM) to simultaneously segment the genome into open chromatin regions with high signal, nucleosomal regions with moderate signals, and background regions with low signals, respectively' >> 5f.peakcall.sh
+printf '\n' >> 5f.peakcall.sh
+echo 'source package 3352c4a6-04ca-4bcd-a3e6-9ace9fa757b9' >> 5f.peakcall.sh
+echo 'ml samtools/1.3' >> 5f.peakcall.sh
+echo '# samtools view -H $Test1 | perl -ne'" 'if(/^@SQ.*?SN:(\w+)\s+LN:(\d+)/){print "'$1,"\t",$2,"\n"}'"' > "'$Geninfo # Make genome information (chromosome sizes) from the BAM file to get a genome.info file' >> 5f.peakcall.sh
+echo "cut -f1,3 ${scafflen} > ${scafflen2}" >> 5f.peakcall.sh
+echo "HMMRATAC -Xms20g -Xmx80g -XX:ParallelGCThreads=2 -b $Test1 -i $Test1index -g $scafflen2 -o $spID # Run HMMRATAC" >> 5f.peakcall.sh
+echo 'awk -v OFS="'"\t"'" '"'"'$13>=10 {print}'"' $spID"'_peaks.gappedPeak'" > $spID.filteredPeaks.gappedPeak # Filter HMMRATAC output by the score, if desired. Score threshold will depend on dataset, score type and user preference. A threshold of 10 would be:" >> 5f.peakcall.sh
+echo 'awk -v OFS="\t" '"'"'$5>=10 {print}'"' $spID"'_summits.bed > '"$spID.filteredSummits.bed # filter the summit file by the same threshold" >> 5f.peakcall.sh
 
 echo '# -- 4.'$spID' Post alignment filtering completed -- #'
 
@@ -695,7 +720,7 @@ echo -e '\tfloat  qValue;       "Statistical significance with multiple-test cor
 echo -e '\tint   peak;         "Point-source called for this peak; 0-based offset from chromStart. Set to -1 if no point-source called."' >> narrowPeak.as
 echo ')' >> narrowPeak.as
 
-cut -f1,3 ${scafflen} > ${scafflen2}
+# cut -f1,3 ${scafflen} > ${scafflen2}
 zcat ${peakgz} | sort -k1,1 -k2,2n > ${bigbed}.tmp
 bedClip ${bigbed}.tmp ${scafflen2} ${bigbed}.tmp2
 
