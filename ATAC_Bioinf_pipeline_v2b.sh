@@ -50,7 +50,7 @@
 # 	5a. Convert PE Bam to tagalign (start/end positions of each read) - bedtools
 # 	5b. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
 # 	5c. count-based peak calling using Poisson distribution - macs2
-#   5d. count-based peak calling using another program - Genrich
+#   5d. count-based peak calling using a program that considers properly paired, unpaired and secondary alignments (unlike MACS2) - Genrich
 #   5e. markov model based peak calling specific for ATAC-seq data - HMMRATAC
 # 6. bed to bigbed conversion for narrowpeaks - bedClip and bedToBigbed from ucsc_tools
 
