@@ -71,11 +71,9 @@ ACCEPTABLE=0.2
 
 ### 2. TF footprinting and creation of signal tracks
 tffprdir=$scripts/2.TFfprint_SignalTrack
-splitmeme=$scripts/split_meme.py # ensure split meme python script is in scripts folder
-
-
+splitmeme=$scripts/split_meme.py # ensure split meme python script is in scripts folder (although this is supressed to run here!)
 ## AS OF 25/06 - WHEN MOVED TO EI PROJECTS, REPLACE PATHS
-# genome folders
+# genome folders - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
 Mzg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Mzebra)
 Png=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Pnyererei)
 Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
@@ -92,31 +90,35 @@ for gf in "${!FA@}"; do
   # echo "$gf is set to ${!gf}"
   echo "${!gf}" >> $genfastas
 done
-
-# chromosome sizes
+# chromosome sizes - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
 Mzgchr=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa.chrom.sizes
 Pngchr=$Png/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa.chrom.sizes
 Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
 Nbgchr=$Nbg/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa.chrom.sizes
 Ongchr=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa.chrom.sizes
 # annotation files •.gtf - assign annotations here with annot* variables, and a list of paths will be created for while loops (so for adding own or other species, just change or add to variables here)
-annotMzg=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.gtf.gz
-annotPng=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.gtf.gz
-annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf.gz
-annotNbg=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.gtf.gz
-annotOng=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf.gz
+annotMzg=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.gtf
+annotPng=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.gtf
+annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf
+annotNbg=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.gtf
+annotOng=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf
 antfiles=(path_annot.txt)
 for af in "${!annot@}"; do
   # echo "$af is set to ${!af}"
   echo "${!af}" >> $antfiles
 done
-
+processggenaltsv2=(processggenaltsvpath2.txt)
 # gene regions •.bed
-Mzggen=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.generegions.bed
-Pnggen=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.generegions.bed
-Abggen=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions.bed
-Nbggen=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.generegions.bed
-Onggen=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.generegions.bed
+MzggenGC=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.generegions_Gencode.bed
+PnggenGC=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.generegions_Gencode.bed
+AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
+NbggenGC=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.generegions_Gencode.bed
+OnggenGC=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.generegions_Gencode.bed
+MzggenRS=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.generegions_RefSeq.bed
+PnggenRS=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.generegions_RefSeq.bed
+AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_RefSeq.bed
+NbggenRS=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.generegions_RefSeq.bed
+OnggenRS=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.generegions_RefSeq.bed
 # assign the species you require for downloading BioMart gene alias annotations here - for my pipeline there are five species (but only four have biomart entries - for other species, check the biomart identifier for the database e.g. mzebra_gene_ensembl, and amend below)
 # this will then use the variables below to add to a file 'biomart_sp.txt' - this will then be read, line by line to download and process the biomart databases
 sp1=mzebra_gene_ensembl
@@ -142,6 +144,7 @@ Abggenal=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.10
 Nbggenal=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.genealias.txt
 Onggenal=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.genealias.txt
 Usr='mehtat'
+export PATH="$PATH:/hpc-home/mehtat/.local/bin/" # this is to run RGT (supress here and footprinting script in part D if not required)
 processggenaltsv=(processggenaltsvpath.txt)
 biomartfiles=(biomartfilepaths.txt)
 removesp=(neolamprologus_brichardi)
@@ -152,6 +155,23 @@ rgtidsp2='[PunNye1.0]'
 rgtidsp3='[AstBur1.0]'
 rgtidsp4='[NeoBri1.0]'
 rgtidsp5='[OniloticusUMD]'
+rgtidsp1a='MzebraUMD2a'
+rgtidsp2a='PunNye1.0'
+rgtidsp3a='AstBur1.0'
+rgtidsp4a='NeoBri1.0'
+rgtidsp5a='OniloticusUMD'
+fpsp1=Mz
+fpsp2=Pn
+fpsp3=Ab
+fpsp4=Nb
+fpsp5=On
+e=1 # amend this for subtraction from number of files for array (as array starts from 0) default=1
+pwmsp1=mz
+pwmsp2=pn
+pwmsp3=ab
+pwmsp4=nb
+pwmsp5=on
+
 
 ################################################################################################################
 
@@ -481,9 +501,23 @@ rm $FRIP.temp
 # source ~/.bashrc
 # ml gcc
 # ml zlib
+# pip install --user cython numpy scipy
+# pip install --user RGT --no-binary RGT
 # conda install -c bioconda pybigwig
-# pip install --user RGT
-
+## Local installations of RGT are here:
+# /hpc-home/mehtat/.local/bin/bedGraphToBigWig
+# /hpc-home/mehtat/.local/bin/bedToBigBed
+# /hpc-home/mehtat/.local/bin/bigBedToBed
+# /hpc-home/mehtat/.local/bin/bigWigMerge
+# /hpc-home/mehtat/.local/bin/rgt-TDF
+# /hpc-home/mehtat/.local/bin/rgt-THOR
+# /hpc-home/mehtat/.local/bin/rgt-filterVCF
+# /hpc-home/mehtat/.local/bin/rgt-hint
+# /hpc-home/mehtat/.local/bin/rgt-motifanalysis
+# /hpc-home/mehtat/.local/bin/rgt-viz
+# /hpc-home/mehtat/.local/bin/wigToBigWig
+# /hpc-home/mehtat/.local/lib/python3.7/site-packages/RGT-0.13.0-py3.7.egg-info
+# /hpc-home/mehtat/.local/lib/python3.7/site-packages/rgt
 
 # CHECK THAT THE INPUT OF OUTPUT FROM ABOVE (*.final.narrowPeak) IS OK
 
@@ -505,16 +539,30 @@ done < $genfastas
 # bioawk -c fastx '{ print $name, length($seq) }' < $NbgFA | awk '{print $1,$2}' OFS="\t" > $Nbgchr
 # bioawk -c fastx '{ print $name, length($seq) }' < $OngFA | awk '{print $1,$2}' OFS="\t" > $Ongchr
 
-# Ab. gene regions file in bed format
+# Ab. Two gene regions file in bed format
+## 1. For the genes_Gencode file use ensemblIDS
 while read -r b; do
-  zcat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $(echo "${b}" | sed 's/.gtf.gz/.generegions.bed/g')
+  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $(echo "${b}" | sed 's/100.gtf/100.generegions_Gencode.bed/g')
 done < $antfiles
 
-# zcat $Abgannot | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $Abggen
-# zcat $Mzgannot | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $Mzggen
-# zcat $Pngannot | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $Pnggen
-# zcat $Nbgannot | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $Nbggen
-# zcat $Ongannot | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$10,$7}}' | tr -d '";' > $Onggen
+# cat $annotAbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $AbggenGC
+# cat $annotMzg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $MzggenGC
+# cat $annotPng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $PnggenGC
+# cat $annotNbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $NbggenGC
+# cat $annotOng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $OnggenGC
+
+## 2. For the genes_RefSeq file use gene symbol
+while read -r b; do
+  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $(echo "${b}" | sed 's/100.gtf/100.generegions_RefSeq.bed/g')
+done < $antfiles
+
+# cat $annotAbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $AbggenRS
+# cat $annotMzg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $MzggenRS
+# cat $annotPng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $PnggenRS
+# cat $annotNbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $NbggenRS
+# cat $annotOng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $OnggenRS
+
+
 
 # Ac. gene alias file in text format - prepare from the gtf and BioMart
 
@@ -522,13 +570,13 @@ done < $antfiles
 printf 'ensembl_gene_id\tensembl_gene_symbol\n' > tmpgenealias_header.txt
 while read -r c; do
 # for i in "$Mzgannot" "$Pngannot" "$Abgannot" "$Nbgannot" "$Ongannot"; do
-  zcat ${c} | awk 'OFS="\t" {if ($3=="gene") {print $0}}' |
+  cat ${c} | awk 'OFS="\t" {if ($3=="gene") {print $0}}' |
   awk '{print $10,$14}' OFS='\t' |
   sed 's/"//g' | sed 's/;//g' |
   awk '{$2=tolower($2);print}' OFS='\t' |
-  sed 's/ensembl/NA/g' > $(echo "${c}" | sed 's/.gtf.gz/.genealias.txt.tmp0/g')
-  cat tmpgenealias_header.txt $(echo "${c}" | sed 's/.gtf.gz/.genealias.txt.tmp0/g') > $(echo "${c}" | sed 's/.gtf.gz/.genealias.txt.tmp1/g')
-  rm $(echo "${c}" | sed 's/.gtf.gz/.genealias.txt.tmp0/g')
+  sed 's/ensembl/NA/g' > $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g')
+  cat tmpgenealias_header.txt $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g') > $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp1/g')
+  rm $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g')
 done < $antfiles
 
 # Ac-2. Download the following for each genome from BIOMART (below are the col headers)
@@ -719,7 +767,7 @@ echo "done < $biomartspecies" >> 2.2_biomart_dl.sh
 # Ac-3. awk match files '$file1' and '$file2' above to create two files:
 
 # Ac-3a. One tab delimited file WITH HEADERS > ${Mz,Pn,Ab,Nb,On}ggenaltsv (these are stored in the species gtf dir), and
-sed 's/.gtf.gz/.genealias.txt.tmp1/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv
+sed 's/.gtf/.genealias.txt.tmp1/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv
 
 while read -r i; do
   echo ${i}_biomart.txt >> $biomartfiles.tmp
@@ -731,7 +779,7 @@ do
   awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA";}}' ${file2} ${file1} | awk '{print $1,$14,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12}' OFS='\t' > $(echo "${file2}" | sed 's/.txt.tmp1/.tsv/g')
 done 3<$biomartfiles 4<$processggenaltsv
 
-Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/.gtf.gz/.genealias.txt.tmp1/g'); cp $Nbggenaltsvtmp $Nbggenaltsv # just copy the tmp1 file and rename for this (since no biomart db exists)
+Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/.gtf/.genealias.txt.tmp1/g'); cp $Nbggenaltsvtmp $Nbggenaltsv # just copy the tmp1 file and rename for this (since no biomart db exists)
 
 # Ac-3b. Using the file from 'Ac-3a' above, prepare the gene alias files with correct format (plus ensure to exclude any NA/na columns)
 # example format (3 col, tab delimited)
@@ -741,8 +789,7 @@ Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/.gtf.gz/.genealias.txt.tmp1/g'); cp $
 awk 'NR>1 {print $1,$2,$1"&"$2}' OFS='\t' $Nbggenaltsv | sed 's/\&NA//g' > $Nbggenal
 
 # merge rows with same first column (ensembl_gene_id) and obtain unique cells in each row only for the output
-processggenaltsv2=(processggenaltsvpath2.txt)
-sed 's/.gtf.gz/.genealias.tsv/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv2
+sed 's/.gtf/.genealias.tsv/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv2
 
 while read -r i; do
   awk -F'\t' 'NF>1{a[$1] = a[$1]"\t"$0};END{for(i in a)print i"\t"a[i]}' ${i} |
@@ -759,7 +806,7 @@ echo $(ls -1 $Nbggenal) >> $genalpaths
 
 while read -r d; do
 # for d in "$Mzgannot" "$Pngannot" "$Abgannot" "$Nbgannot" "$Ongannot"; do
-  rm $(echo "${d}" | sed 's/.gtf.gz/.genealias.txt.tmp1/g')
+  rm $(echo "${d}" | sed 's/.gtf/.genealias.txt.tmp1/g')
 done < $antfiles
 
 # B. Create data.config.user file with species specific entries
@@ -770,7 +817,8 @@ done < $antfiles
 echo "$rgtidsp1" >> $rgtdatapath/data.config.user
 echo "genome: $FAMzg" >> $rgtdatapath/data.config.user
 echo "chromosome_sizes: $Mzgchr" >> $rgtdatapath/data.config.user
-echo "gene_regions: $Mzggen" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $MzggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $MzggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotMzg" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Mzggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
@@ -778,7 +826,8 @@ printf '\n' >> $rgtdatapath/data.config.user
 echo "$rgtidsp2" >> $rgtdatapath/data.config.user
 echo "genome: $FAPng" >> $rgtdatapath/data.config.user
 echo "chromosome_sizes: $Pngchr" >> $rgtdatapath/data.config.user
-echo "gene_regions: $Pnggen" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $PnggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $PnggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotPng" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Pnggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
@@ -786,7 +835,8 @@ printf '\n' >> $rgtdatapath/data.config.user
 echo "$rgtidsp3" >> $rgtdatapath/data.config.user
 echo "genome: $FAAbg" >> $rgtdatapath/data.config.user
 echo "chromosome_sizes: $Abgchr" >> $rgtdatapath/data.config.user
-echo "gene_regions: $Abggen" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $AbggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $AbggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotAbg" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Abggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
@@ -794,7 +844,8 @@ printf '\n' >> $rgtdatapath/data.config.user
 echo "$rgtidsp4" >> $rgtdatapath/data.config.user
 echo "genome: $FANbg" >> $rgtdatapath/data.config.user
 echo "chromosome_sizes: $Nbgchr" >> $rgtdatapath/data.config.user
-echo "gene_regions: $Nbggen" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $NbggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $NbggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotNbg" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Nbggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
@@ -802,25 +853,15 @@ printf '\n' >> $rgtdatapath/data.config.user
 echo "$rgtidsp5" >> $rgtdatapath/data.config.user
 echo "genome: $FAOng" >> $rgtdatapath/data.config.user
 echo "chromosome_sizes: $Ongchr" >> $rgtdatapath/data.config.user
-echo "gene_regions: $Onggen" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $OnggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $OnggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotOng" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Onggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
 
-########## TESTING
-
 # C. Create an array to work on files of each species
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # already inserted at top
-tffprdir=$scripts/2.TFfprint_SignalTrack # already inserted at top
-Abpeaks=$tffprdir/abpeakpaths.txt # already inserted at top
-cd $tffprdir
 
 # Create narrowPeak file paths for each species - can change species IDs for footprinting here
-fpsp1=Mz
-fpsp2=Pn
-fpsp3=Ab
-fpsp4=Nb
-fpsp5=On
 for Afpsp in "${!fpsp@}"; do
   # echo "$Afpsp is set to ${!Afpsp}"
   ls -1 $idrdir/"${!Afpsp}"*.final.narrowPeak >> $tffprdir/"${!Afpsp}"peakpaths.txt
@@ -835,144 +876,364 @@ done
 # get the total number of files for array and assign to variables e.g. $Abpeararrayend for each species, and then assign script variables for running footprinting e.g. $AbFPscript
 for Cfpsp in "${!fpsp@}"; do
   # echo "$Cfpsp is set to ${!Cfpsp}"
-  eval "${!Cfpsp}"peararrayend=$(wc -l "${!Cfpsp}"peakpaths.txt | awk '{print $1}')
+  eval "${!Cfpsp}"peaks=${tffprdir}/"${!Cfpsp}"peakpaths.txt
+  eval "${!Cfpsp}"peararrayend=$(wc -l "${!Cfpsp}"peakpaths.txt | awk -v e="$e" '{print ($1 - e)}')
   eval "${!Cfpsp}"FPscript="${!Cfpsp}"_TFfp.sh
 done
 
 # D. run TF footprinting and creating signal tracks e.g. https://www.regulatory-genomics.org/hint/tutorial/
-# all gtf are zipped (.gz) so check that is ok
 
 # Da. Prepare PWM files/folders and data.config.user to use own motifs and genome info
 
-## Daa. Prepare and move pwm's to specfic path - NOTE: this is relatively hardcoded and thus needs changing for future work
-
-# split to create multiple meme files
-
-pwmsp1=mz
-pwmsp2=pn
-pwmsp3=ab
-pwmsp4=nb
-pwmsp5=on
-for Apwmsp in "${!pwmsp@}"; do
-  # echo "$Apwmsp is set to ${!Apwmsp}"
-  mkdir -p $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp
-  # python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2a_CS_"${!Apwmsp}".meme -o $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp/tmp -t CS -s "${!Apwmsp}"
-  # rm $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp/tmp/MEME_CS_"${!Apwmsp}".meme
-done
-
-mkdir -p $rgtdatapath/motifs/cichlidCW
-# python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2b_CW_mz.meme -o $rgtdatapath/motifs/cichlidCW/tmp -t CW -s CW
-# rm $rgtdatapath/motifs/cichlidCW/tmp/MEME_CW_CW.meme
-
-mkdir -p $rgtdatapath/motifs/cichlidJASPAR
-# python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2c_JASPAR_mz.meme -o $rgtdatapath/motifs/cichlidJASPAR/tmp -t CJP -s CJP
-# rm $rgtdatapath/motifs/cichlidJASPAR/tmp/MEME_CJP_CJP.meme
-
-# .. Need to convert meme format to JASPAR2016 format - use R universal matrix
-for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW,JP}/{mz,pn,ab,nb,on}/*.meme; do
-  Rscript ~/github/ATAC_bioinformatics/meme2jaspar.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')"
-done
-
-# .. convert JASPAR 2016 CFM PWM to JASPAR OLD PFM format by removing header, nucleotides and square brackets
-for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW}/{mz,pn,ab,nb,on}/*.tmp.pwm; do
-  awk '!/^>/' ${i} | sed 's/A \[  //g' | sed 's/T \[  //g' | sed 's/C \[  //g' | sed 's/G \[  //g' | sed 's/ \]//g' | grep . > "$(echo ${i} | sed 's/.tmp.pwm/.pwm/g')"
-  rm ${i}
-done
-for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/JP/mz/*.tmp.pwm; do
-  awk '!/^>/' ${i} | sed 's/A \[  //g' | sed 's/T \[  //g' | sed 's/C \[  //g' | sed 's/G \[  //g' | sed 's/ \]//g' | grep . > "$(echo ${i} | sed 's/.tmp.pwm/.pwm/g')"
-  rm ${i}
-done
-
-# .. move the created PWM to HPC
-for i in mz pn ab nb on; do
-  cp * $rgtdatapath/motifs/cichlid"${i}"CSsp
-done
-
-cp * $rgtdatapath/motifs/cichlidCW
-cp * $rgtdatapath/motifs/cichlidJASPAR
-
-
-
-# .. Consider making the *.mtf file: see https://www.regulatory-genomics.org/motif-analysis/additional-motif-data/
-
-
-# mappings here
-/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/May2019_ReviewerComments/1.1b.RetinaMotifDivergence/JASPAR_Vertebrates_2018_motifname.OGID.txt
-
-
-## Dab. generate logos of above
-python $rgtdatapath/setupLogoData.py --all # generate logos for all motifs subdirs
-
-echo '[MotifData]' >> $rgtdatapath/data.config.user
-echo "pwm_dataset: motifs" >> $rgtdatapath/data.config.user # Contains the path to the motif position weight matrices (PWM) repositories.
-echo "logo_dataset: logos" >> $rgtdatapath/data.config.user # Contains the path to the logo graphs (graphical depiction of PWMs). Look here: http://www.regulatory-genomics.org/additional-motif-data/
-echo "repositories: cichlidsp, jaspar_vertebrates, hocomoco" >> $rgtdatapath/data.config.user #  	The PWM repositories that will be used in the analyses. It is a comma-separated list of folders inside <pwm_dataset> (see this option above) folder.
+# ## Daa. Prepare and move pwm's to specfic path - NOTE: this is relatively hardcoded and thus needs changing for future work
+#
+# # split to create multiple meme files
+#
+# for Apwmsp in "${!pwmsp@}"; do
+#   # echo "$Apwmsp is set to ${!Apwmsp}"
+#   mkdir -p $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp
+#   # python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2a_CS_"${!Apwmsp}".meme -o $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp/tmp -t CS -s "${!Apwmsp}"
+#   # rm $rgtdatapath/motifs/cichlid"${!Apwmsp}"CSsp/tmp/MEME_CS_"${!Apwmsp}".meme
+# done
+#
+# mkdir -p $rgtdatapath/motifs/cichlidCW
+# # python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2b_CW_mz.meme -o $rgtdatapath/motifs/cichlidCW/tmp -t CW -s CW
+# # rm $rgtdatapath/motifs/cichlidCW/tmp/MEME_CW_CW.meme
+#
+# mkdir -p $rgtdatapath/motifs/cichlidJASPAR
+# # python3 $splitmeme -i /tgac/workarea/group-vh/Tarang/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/2c_JASPAR_mz.meme -o $rgtdatapath/motifs/cichlidJASPAR/tmp -t CJP -s CJP
+# # rm $rgtdatapath/motifs/cichlidJASPAR/tmp/MEME_CJP_CJP.meme
+#
+# # .. Need to convert meme format to JASPAR2016 format - use R universal matrix
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW,JP}/{mz,pn,ab,nb,on}/*.meme; do
+#   Rscript ~/github/ATAC_bioinformatics/meme2jaspar.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')"
+# done
+#
+# # .. convert JASPAR 2016 CFM PWM to JASPAR OLD PFM format by removing header, nucleotides and square brackets
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW}/{mz,pn,ab,nb,on}/*.tmp.pwm; do
+#   awk '!/^>/' ${i} | sed 's/A \[  //g' | sed 's/T \[  //g' | sed 's/C \[  //g' | sed 's/G \[  //g' | sed 's/ \]//g' | grep . > "$(echo ${i} | sed 's/.tmp.pwm/.pwm/g')"
+#   rm ${i}
+# done
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/JP/mz/*.tmp.pwm; do
+#   awk '!/^>/' ${i} | sed 's/A \[  //g' | sed 's/T \[  //g' | sed 's/C \[  //g' | sed 's/G \[  //g' | sed 's/ \]//g' | grep . > "$(echo ${i} | sed 's/.tmp.pwm/.pwm/g')"
+#   rm ${i}
+# done
+#
+# # .. move new PWMs to sub dirs
+# mkdir -p /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW}/{mz,pn,ab,nb,on}/JPoldPWMformat
+# mkdir -p /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/JP/mz/JPoldPWMformat
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CS,CW}/{mz,pn,ab,nb,on}; do
+#   mv ${i}/*.pwm ${i}/JPoldPWMformat
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/JP/mz; do
+#   mv ${i}/*.pwm ${i}/JPoldPWMformat
+# done
+#
+#
+# # .. move the created PWM to HPC
+# for i in mz pn ab nb on; do
+#   cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/CS/${i}/JPoldPWMformat/* $rgtdatapath/motifs/cichlid"${i}"CSsp
+# done
+#
+# cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/CW/mz/JPoldPWMformat/* $rgtdatapath/motifs/cichlidCW
+# cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/JP/mz/JPoldPWMformat/* $rgtdatapath/motifs/cichlidJASPAR
+#
+# # .. convert preexisting *.eps logos to *.png for cichlid PWMs and move to $rgtdatapath/motifs/logos
+# # use imagemagick: 'brew install imagemagick'; 'brew install ghostscript'
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/{mz,pn,ab,nb,on}/logos; do
+#   mkdir ${i}/png
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/{mz,pn,ab,nb,on}/logos/*.eps; do
+#   convert -density 150 ${i} $(echo ${i} | sed 's/.eps/.png/g')
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/{mz,pn,ab,nb,on}/logos; do
+#   mv ${i}/*.png ${i}/png
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CW,JP}/mz/logos; do
+#   mkdir ${i}/png
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CW,JP}/mz/logos/*.eps; do
+#   convert -density 150 ${i} $(echo ${i} | sed 's/.eps/.png/g')
+# done
+#
+# for i in /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/{CW,JP}/mz/logos; do
+#   mv ${i}/*.png ${i}/png
+# done
+#
+# # copy to group workarea on HPC and then to $rgtdatapath/logos (once logo generation has ran)
+# for i in mz pn ab nb on; do
+#   mkdir -p $rgtdatapath/logos/cichlid"${i}"CSsp
+#   cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/CS/${i}/logos/* $rgtdatapath/logos/cichlid"${i}"CSsp
+# done
+#
+# mkdir -p $rgtdatapath/logos/cichlidCW; cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/CW/mz/logos/* $rgtdatapath/logos/cichlidCW
+# mkdir -p $rgtdatapath/logos/cichlidJASPAR; cp -r /tgac/workarea/group-vh/Tarang/ATACseq/motifs/JP/mz/logos/* $rgtdatapath/logos/cichlidJASPAR
+#
+#
+# # .. Consider making the tab delimited *.mtf files for selected motifs: see https://www.regulatory-genomics.org/motif-analysis/additional-motif-data/
+# # AHR	AHR_HUMAN.H11MO.0.B	0.B	AHR	PAS domain factors	P35869	Integrative	vertebrates	Homo sapiens	2.8475,6.6065,8.544,11.1115,11.6185,12.7235
+# # The first field simply the clean “name” of the motif.
+# # The second field is the full, unique, original name of the motif.
+# # The third field is the version of this motif (it changes slightly across different repositories)
+# # The fourth field is the TF gene name, the so-called “gene symbol”
+# # The fifth field is the so-called “motif family”, a description that varies a lot across repositories. CHANGED THIS FOR ENSMUS ID
+# # The sixth field is one or more Uniprot identifiers
+# # The seventh field is the data source (Chip-Seq, Selex, Integrative)
+# # The eight field is the taxonomic group
+# # The ninth field is the species (usually the full name, eg “Home sapiens”, not “hs”)
+# # The tenth field is a list of precomputed thresholds for several FPR values: 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001
+# # NOTE: The good news is that you don’t need to set them all. Any field you do not want to set you can replace with a single dot.
+#
+# # .. cichlid{mz,pn,ab,nb,on}CSsp mtf files
+# cichlidmeta=/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/cichlid_allMm_motifs_meta_info.txt
+# JPv2018map=/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/May2019_ReviewerComments/1.1b.RetinaMotifDivergence/JASPAR_Vertebrates_2018_motifname.OGID.txt
+# ogids=/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/OGIDS.txt5
+#
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/mz/JPoldPWMformat
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidmzCSsp.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidmzCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","."}' OFS='\t' > cichlidmzCSsp.mtf.tmp2
+#
+# # # pull out all gene symbols in $cichlidmeta file using ensemblID
+# # while read -r a b c d e f g h i j k; do
+# #   # echo $e
+# #   grep -A 25 -B 3 -wiF ${f} $cichlidmeta | grep 'Gene symbol\|Ensembl id' >> cichlidmzCSsp.mtf.tmp3
+# # done < cichlidmzCSsp.mtf.tmp2
+# # # convert the above output from rows to two columns
+# # {
+# # awk -F: 'BEGIN{ sl="Gene symbol"}
+# #          $1~sl && head == 1 { head=0; exit 0}
+# #          $1~sl && head == 0 { head=1; }
+# #          head == 1 {
+# #              gsub(/^[ \t]+/,"",$1);   # remove leading  spaces
+# #              gsub(/[ \t]+$/,"",$1);   # remove trailing spaces
+# #              printf( "%s\t", $1)
+# #          }
+# #          ' cichlidmzCSsp.mtf.tmp3
+# # #echo
+# # awk -F: 'BEGIN { sl="Gene symbol"}
+# #          $1~sl { printf( "%s\n", "") }
+# #          {
+# #              gsub(/^[ \t]+/,"",$2);   # remove leading  spaces
+# #              gsub(/[ \t]+$/,"",$2);   # remove trailing spaces
+# #              printf( "%s\t", $2)
+# #          }
+# #          ' cichlidmzCSsp.mtf.tmp3
+# # echo
+# # } | column -t -s "$(printf '%b' '\t')" > cichlidmzCSsp.mtf.tmp4
+# #
+# # awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$5]){print $0,a[$5];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".","NO","NO";}}' cichlidmzCSsp.mtf.tmp4 cichlidmzCSsp.mtf.tmp2 | awk '{print $4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","."}' OFS='\t' > cichlidmzCSsp.mtf.tmp5
+#
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidmzCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidmzCSsp.mtf
+# rm cichlidmzCSsp.mtf.tmp*
+#
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/pn/JPoldPWMformat
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidpnCSsp.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidpnCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Pundamilia_nyererei","."}' OFS='\t' > cichlidpnCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$3]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidpnCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidpnCSsp.mtf
+# rm cichlidpnCSsp.mtf.tmp*
+#
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/ab/JPoldPWMformat
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidabCSsp.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidabCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Astatotilapia_burtoni","."}' OFS='\t' > cichlidabCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidabCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidabCSsp.mtf
+# rm cichlidabCSsp.mtf.tmp*
+#
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/nb/JPoldPWMformat
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidnbCSsp.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$7]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidnbCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Neolamprologus_brichardi","."}' OFS='\t' > cichlidnbCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidnbCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidnbCSsp.mtf
+# rm cichlidnbCSsp.mtf.tmp*
+#
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/on/JPoldPWMformat
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidonCSsp.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$8]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidonCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Oreochromis_niloticus","."}' OFS='\t' > cichlidonCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidonCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidonCSsp.mtf
+# rm cichlidonCSsp.mtf.tmp*
+#
+# cp /tgac/workarea/group-vh/Tarang/ATACseq/motifs/cichlid*CSsp.mtf $rgtdatapath/motifs/
+#
+#
+# # .. cichlidCW mtf file
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CW/mz/JPoldPWMformat
+# JPv2018map=/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/May2019_ReviewerComments/1.1b.RetinaMotifDivergence/JASPAR_Vertebrates_2018_motifname.OGID.txt
+# ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$20}' OFS='\t' | awk '{print $1,$3}' OFS='\t' > cichlidCW.mtf.tmp1
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$18]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidCW.mtf.tmp1 | awk '{print $4"_CW_"$2,$1,"CW_v1",$4,".",".","Integrative","vertebrates","Cichlidae","."}' OFS='\t' > cichlidCW.mtf
+# rm cichlidCW.mtf.tmp1
+# # fill in some blanks manually by searching in other mapping file:
+# # for i in ENSMUSG00000025025 ENSMUSG00000028023 ENSMUSG00000030087 ENSMUSG00000061911; do grep -A 25 -B 3 ${i} $cichlidmeta | grep 'Gene symbol\|Ensembl id'; done
+# cp /tgac/workarea/group-vh/Tarang/ATACseq/motifs/cichlidCW.mtf $rgtdatapath/motifs/
+#
+#
+#
+# # .. cichlid JASPAR 2018 mtf file
+# cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/JP/mz/JPoldPWMformat
+# JPv2018map=/Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/May2019_ReviewerComments/1.1b.RetinaMotifDivergence/JASPAR_Vertebrates_2018_motifname.OGID.txt
+# awk '{print $1,$1,"JPv2018",$2,".",".","Integrative","vertebrates","Mus musculus","."}' OFS='\t' $JPv2018map > cichlidJASPAR.mtf
+# cp /tgac/workarea/group-vh/Tarang/ATACseq/motifs/cichlidJASPAR.mtf $rgtdatapath/motifs/
+#
+#
+# ## Dab. generate logos of above
+# cd $rgtdatapath
+#
+#
+# nano setuplogo.sh
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-short # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --array=0-4
+# #SBATCH --mem-per-cpu 12000
+# #SBATCH -t 0-00:45
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# echo 'hocomoco' > motiflist
+# echo 'jaspar_plants' >> motiflist
+# echo 'jaspar_vertebrates' >> motiflist
+# echo 'uniprobe_primary' >> motiflist
+# echo 'uniprobe_secondary' >> motiflist
+#
+# mapfile -t motiflist < motiflist
+#
+# # NOTE: the python script requires an active internet connection to access weblogo
+# USERNAME=mehtat
+# HOSTNAME="software"
+# PWD=$(pwd)
+# SCRIPT="cd ${PWD}; python3 setupLogoData.py ${motiflist[${SLURM_ARRAY_TASK_ID}]}; exit" # generate logos for all motifs subdirs
+# ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"
+#
+# # run the above
+# sbatch setuplogo.sh
+#
+# # insert above data to config file
+# echo '[MotifData]' >> $rgtdatapath/data.config.user
+# echo "pwm_dataset: motifs" >> $rgtdatapath/data.config.user # Contains the path to the motif position weight matrices (PWM) repositories.
+# echo "logo_dataset: logos" >> $rgtdatapath/data.config.user # Contains the path to the logo graphs (graphical depiction of PWMs). Look here: http://www.regulatory-genomics.org/additional-motif-data/
+# echo "repositories: cichlidmzCSsp, cichlidpnCSsp, cichlidabCSsp, cichlidnbCSsp, cichlidonCSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco, jaspar_plants, uniprobe_primary, uniprobe_secondary" >> $rgtdatapath/data.config.user #  	The PWM repositories that will be used in the analyses. It is a comma-separated list of folders inside <pwm_dataset> (see this option above) folder.
 
 
 # Db. Prepare scripts for footprinting
-
-## Put the echo of script in a for loop below
 for Dfpsp in "${!fpsp@}"; do
   # echo "$Dfpsp is set to ${!Dfpsp}"
-  "${!Dfpsp}"
+  echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -n 1 # number of tasks' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"peararrayend")" >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --mem-per-cpu 32000' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -t 0-05:59' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "ml samtools/1.7" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'export PATH="$PATH:/hpc-home/mehtat/.local/bin/"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 0. mapfile the narrowPeak files' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "mapfile -t ${!Dfpsp}peakarray < $(eval "echo \$"${!Dfpsp}peaks) # assign files to variable for array" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 0. mapfile the narrowPeak files ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 1. prepare a prefix file using the peaks file e.g. $Abpeaks' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "${!Dfpsp}prefix=(${!Dfpsp}prefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "awk -F'/' ' { print "'$NF } '"' $(eval "echo \$"${!Dfpsp}peaks) | sed 's/_peaks.final.narrowPeak//g' > \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 1. prepare a prefix file using the peaks file e.g. $Abpeaks ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 2. mapfile the above file' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "mapfile -t ${!Dfpsp}prefixes < \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 2. mapfile the above file ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "${!Dfpsp}BAM=(${!Dfpsp}inputBAM.txt)" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$scripts/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling|g" | sed '"'s/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder) ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 4. mapfile the file from above' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "mapfile -t ${!Dfpsp}BAM < \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 4. mapfile the file from above ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# 5. run samtools sort and index and drop in this folder' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'samtools sort '"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]} -o "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'samtools index "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# 5. run samtools sort and index and drop in this folder ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "mkdir -p $tffprdir/${pwmsp3}_fp" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location=$tffprdir/$(eval echo $output)_fp"' --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# B. outputs signals for visualization in a genome browser' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "${!Dfpsp}signalprefix=(${!Dfpsp}signalprefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "sed 's"'/$/_BC/'"g' \$${!Dfpsp}prefix > \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "mapfile -t ${!Dfpsp}signalprefix < \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) "'"$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# B. outputs signals for visualization in a genome browser ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '# C. find associated TFs' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-motifanalysis matching --filter "database:cichlid'"$(eval echo $output)CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco"'" --organism='"$(eval echo $organism) --input-files $tffprdir/$(eval echo $output)_fp"'/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bed' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
-echo '#!/bin/bash -e' > $AbFPscript
-echo '#SBATCH -p ei-medium # partition (queue)' >> $AbFPscript
-echo '#SBATCH -N 1 # number of nodes' >> $AbFPscript
-echo '#SBATCH -n 1 # number of tasks' >> $AbFPscript
-echo '#SBATCH --array=0-'"$Abpeararrayend" >> $AbFPscript
-echo '#SBATCH --mem-per-cpu 12000' >> $AbFPscript
-echo '#SBATCH -t 0-23:59' >> $AbFPscript
-echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> $AbFPscript
-echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> $AbFPscript
-echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> $AbFPscript
-echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> $AbFPscript
-printf '\n' >> $AbFPscript
-
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2)
-ml samtools/1.7
-# idrdir=($scripts/1.IDR)
-idrdir=($scripts/idr_test) # THIS NEEDS CHANGING TO ABOVE PATH FOR FINAL SCRIPT
-
-# 0. mapfile the narrowPeak files
-mapfile -t Abpeakarray < $Abpeaks # assign files to variable for array
-
-# 1. prepare a prefix file using the peaks file e.g. $Abpeaks
-Abprefix=(Abprefixes.txt)
-awk -F'/' ' { print $NF } ' $Abpeaks | sed 's/_peaks.final.narrowPeak//g' > $Abprefix
-
-# 2. mapfile the above file
-mapfile -t Abprefix < $Abprefix
-
-# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the Abpeakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
-# $scripts/Ab5_L_ATAC/5.peak_calling/Ab5_L_ATAC.nochrM.nodup.filt.querysorted.bam # this is an example of the input BAM
-# /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/idr_test/Ab5_L_ATAC_peaks.final.narrowPeak # this is what the $Abpeaks file is like
-
-AbBAM=(AbinputBAM.txt)
-cat ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$scripts/${Abprefix[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g' >> $AbBAM
-# echo "${Abpeakarray[0]}" | sed "s|$idrdir|$scripts/${Abprefix[0]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g'
-
-# 4, mapfile the file from above
-mapfile -t AbBAM < $AbBAM
-
-# 5. run samtools sort and index and drop in this folder
-samtools sort "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" -o "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
-samtools index "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
-
-
-# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed
-mkdir -p $tffprdir/${pwmsp3}_fp
-rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3 --output-location=$tffprdir/${pwmsp3}_fp/"$(basename "${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}" .final.narrowPeak)FP" --output-prefix=${Abprefix[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
-
-# B. outputs signals for visualization in a genome browser
-Absignalprefix=(Absignalprefixes.txt)
-sed 's/^/_BC/g' $Abprefix > $Absignalprefix
-mapfile -t Absignalprefix < $Absignalprefix
-rgt-hint tracks --bc --bigWig --organism=$rgtidsp3 "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Absignalprefix[${SLURM_ARRAY_TASK_ID}]}
-
-# C. find associated TFs
-rgt-motifanalysis matching --filter "database:cichlid${pwmsp3}CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$rgtidsp3 --input-files $tffprdir/${pwmsp3}_fp/"$(basename "${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}" .final.narrowPeak)FP"/${Abprefix[${SLURM_ARRAY_TASK_ID}]}.bed
+# scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2)
+# ml samtools/1.7
+# # idrdir=($scripts/1.IDR)
+# idrdir=($scripts/idr_test) # THIS NEEDS CHANGING TO ABOVE PATH FOR FINAL SCRIPT
+#
+# # 0. mapfile the narrowPeak files
+# mapfile -t Abpeakarray < $Abpeaks # assign files to variable for array
+#
+# # 1. prepare a prefix file using the peaks file e.g. $Abpeaks
+# Abprefix=(Abprefixes.txt)
+# awk -F'/' ' { print $NF } ' $Abpeaks | sed 's/_peaks.final.narrowPeak//g' > $Abprefix
+#
+# # 2. mapfile the above file
+# mapfile -t Abprefixes < $Abprefix
+#
+# # 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the Abpeakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
+# AbBAM=(AbinputBAM.txt)
+# echo ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$scripts/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g' >> $AbBAM
+# # echo "${Abpeakarray[0]}" | sed "s|$idrdir|$scripts/${Abprefixes[0]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g'
+#
+# # 4, mapfile the file from above
+# mapfile -t AbBAM < $AbBAM
+#
+# # 5. run samtools sort and index and drop in this folder
+# samtools sort "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" -o "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
+# samtools index "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
+#
+#
+# # A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-TDF"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-THOR"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-filterVCF"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-hint"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-motifanalysis"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/rgt-viz"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/bin/wigToBigWig"
+# # export PATH="$PATH:/hpc-home/mehtat/.local/lib/python3.7/site-packages/rgt"
+# # RGTDATA=(~/rgtdata)
+# export PATH="$PATH:/hpc-home/mehtat/.local/bin/"
+# mkdir -p $tffprdir/${pwmsp3}_fp
+# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
+#
+# # B. outputs signals for visualization in a genome browser
+# Absignalprefix=(Absignalprefixes.txt)
+# sed 's/$/_BC/g' $Abprefix > $Absignalprefix
+# mapfile -t Absignalprefix < $Absignalprefix
+# rgt-hint tracks --bc --bigWig --organism=$rgtidsp3a "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Absignalprefix[${SLURM_ARRAY_TASK_ID}]}
+#
+# # C. find associated TFs
+# rgt-motifanalysis matching --filter "database:cichlid${pwmsp3}CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$rgtidsp3a --input-files $tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}.bed
 
 
 
@@ -994,7 +1255,7 @@ echo '# -- 3a. TF footprinting preparation has completed - bioMart alias, annota
 echo '# -- 3b. TF footprinting and creation of signal tracks started -- #'
 
 JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} xx.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
-
+## This will need five jobs - put in a while loop using fpsp
 
 
 ################################################################################################################
