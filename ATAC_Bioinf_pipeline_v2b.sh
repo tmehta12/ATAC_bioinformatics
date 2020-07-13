@@ -463,7 +463,7 @@ echo '# -- 3b.'$spID' mitochondrial removed and fragment dist plot started -- #'
 
 JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 
-# 3b-A. Plot fragment lengthd - note that this will produce a ggplot error and there is no STDOUT but the file will be Rplots.pdf
+# 3b-A. Plot fragment lengths - note that this will produce a ggplot error and there is no STDOUT but the file will be Rplots.pdf
 echo '#!/bin/bash -e' > 3.mtfilt_fragcount_B_a.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 3.mtfilt_fragcount_B_a.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.mtfilt_fragcount_B_a.sh
