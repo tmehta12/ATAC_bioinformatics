@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 0-15:00 # time (D-HH:MM)
+#SBATCH -t 1-23:59 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -34,7 +34,7 @@
 # 1. IDR on all pairs of replicates (optional) - The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
 # 	1a. IDR of true replicates
 # 	1b. Compute Fraction of Reads in Peaks (FRiP) - bedtools and awk
-# 2. TF footprinting and creation of signal tracks - RGT (HINT-ATAC)
+# 2. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
 # 3. Peak annotation - bedops and bioawk
 # 	3a. TSS enrichment
 # 	3b. Fraction of reads in annotated regions
@@ -69,9 +69,14 @@ FRIP=($idrdir/FRiPvalues.txt)
 PASS=0.3
 ACCEPTABLE=0.2
 
-### 2. TF footprinting and creation of signal tracks
-tffprdir=$scripts/2.TFfprint_SignalTrack
-splitmeme=$scripts/split_meme.py # ensure split meme python script is in scripts folder (although this is supressed to run here!)
+### 2. Peak annotation
+
+
+
+### 3. TF footprinting and creation of signal tracks
+tffprdir=$scripts/3.TFfprint_SignalTrack
+mkdir -p $tffprdir # make the directory here as files will be added
+cd $tffprdir
 ## AS OF 25/06 - WHEN MOVED TO EI PROJECTS, REPLACE PATHS
 # genome folders - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
 Mzg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Mzebra)
@@ -131,6 +136,7 @@ for var in "${!sp@}"; do
   # echo "$var is set to ${!var}"
   echo "${!var}" >> $biomartspecies
 done
+splitmeme=$scripts/split_meme.py # ensure split meme python script is in scripts folder (although this is supressed to run here!)
 # tab delimited gene alias file - not required for pipeline but good for downstream analyses
 Mzggenaltsv=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.genealias.tsv
 Pnggenaltsv=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.genealias.tsv
@@ -171,6 +177,14 @@ pwmsp2=pn
 pwmsp3=ab
 pwmsp4=nb
 pwmsp5=on
+j=6 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
+
+
+
+
+
+### 4. Differential analysis of peaks
+
 
 
 ################################################################################################################
@@ -228,7 +242,7 @@ done
 awk -F'\t' '!seen[$1>$2 ? $1 FS $2 : $2 FS $1]++' $prefixpairs.temp > $prefixpairs # this removes duplicate pairs that are simply in a different order
 rm $prefixpairs.temp
 
-awk -F'\t' '{print "/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs > $idrpairs
+awk '{print "/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
 
 # Run a file check to ensure the pairs exist and continue if they do, else, echo that they do not exist
 
@@ -284,7 +298,7 @@ while read -r r1 r2; do
     echo "awk '{print"' $1"_"$2}'"' $prefixpairs > $idrprefix" >> 1a.IDR.sh
     echo "mapfile -t idrprefix < $idrprefix" >> 1a.IDR.sh
     printf '\n' >> 1a.IDR.sh
-    echo 'cat ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak'
+    echo 'cat ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak' >> 1a.IDR.sh
     echo '# 1aCb. Perform IDR analysis.' >> 1a.IDR.sh
     echo '# Generate a plot and IDR output with additional columns including IDR scores.' >> 1a.IDR.sh
     echo 'srun idr --samples ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} --peak-list ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak --input-file-type narrowPeak --output-file ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1output --rank p.value --soft-idr-threshold '"${IDR_THRESH} --plot --use-best-multisummit-IDR" >> 1a.IDR.sh
@@ -292,12 +306,12 @@ while read -r r1 r2; do
     echo '# IDR QC to report and using the IDR output' >> 1a.IDR.sh
     echo '# 1. For each biological replicate pair, filter the IDR peaks based on the ${IDR_THRESH_TRANSFORMED} and sort descending based on signal.value (col7)' >> 1a.IDR.sh
     printf '\n' >> 1a.IDR.sh
-    echo "awk 'BEGIN{OFS="'"\t"} $12>='"'"'"${IDR_THRESH_TRANSFORMED}"'"' {print "'$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}'"' "'${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1output | sort | uniq | sort -k7,7rn > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Transf.narrowPeak' >> 1a.IDR.sh
+    echo "awk 'BEGIN{OFS="'"\t"} $12>='"'"${IDR_THRESH_TRANSFORMED}"' {print "'$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}'"' "'${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1output | sort | uniq | sort -k7,7rn > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Transf.narrowPeak' >> 1a.IDR.sh
     printf '\n' >> 1a.IDR.sh
     echo '# 2. For each biological replicate pair, count the number of lines passing ${IDR_THRESH_TRANSFORMED} - this is where IDR finds the threshold to separate real peaks from noise' >> 1a.IDR.sh
-    echo 'wc -l ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Trans.narrowPeak >>'" $npeaks_idr # Number of peaks passing IDR thresholds of 10%" >> 1a.IDR.sh
+    echo 'wc -l ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Transf.narrowPeak >>'" $npeaks_idr # Number of peaks passing IDR thresholds of 10%" >> 1a.IDR.sh
     echo '# 3. For each biological replicate in a pair, assign the wc -l as max_numPeaks_Rep peaks' >> 1a.IDR.sh
-    awk -F'.' '{print $1}' $npeaks_idr | awk -F'_' '{print $1"_"$2"_"$3" "$4"_"$5"_"$6}' | sed 's/ /\t/g' > $npeaks_idr.tmp
+    echo "awk -F'.' '{print "'$1}'"' $npeaks_idr | awk -F'_' '{print"' $1"_"$2"_"$3" "$4"_"$5"_"$6}'"' | sed 's/ /\t/g' > $npeaks_idr.tmp" >> 1a.IDR.sh
     echo "cut -f1,2 $npeaks_idr.tmp > $npeaks_idrrep1" >> 1a.IDR.sh
     echo "cut -f1,3 $npeaks_idr.tmp > $npeaks_idrrep2" >> 1a.IDR.sh
     echo '# cat $npeaks_idr.tmp2 $npeaks_idr.tmp3 | sort -k2,2 > $npeaks_idr2' >> 1a.IDR.sh
@@ -312,11 +326,11 @@ while read -r r1 r2; do
     #
     #
     echo '#!/bin/bash -e' > 1aB.IDR.sh
-    echo '#SBATCH -p tgac-medium # partition (queue)' >> 1aB.IDR.sh
+    echo '#SBATCH -p tgac-short # partition (queue)' >> 1aB.IDR.sh
     echo '#SBATCH -N 1 # number of nodes' >> 1aB.IDR.sh
     echo '#SBATCH -n 1 # number of tasks' >> 1aB.IDR.sh
     echo '#SBATCH --mem-per-cpu 8000' >> 1aB.IDR.sh
-    echo '#SBATCH -t 0-02:45' >> 1aB.IDR.sh
+    echo '#SBATCH -t 0-00:45' >> 1aB.IDR.sh
     echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1aB.IDR.sh
     echo "#SBATCH --mail-user=$email # send-to address" >> 1aB.IDR.sh
     echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1aB.IDR.sh
@@ -340,10 +354,10 @@ while read -r r1 r2; do
     echo -e '\t# echo $out' >> 1aB.IDR.sh
     echo -e '\t# echo $inprefix' >> 1aB.IDR.sh
     echo -e '\tif [[ $peakprefix = $inprefix ]]; then # check that the peaks passing IDR and narrowPeak file match' >> 1aB.IDR.sh
-    echo -e '\t\techo "peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"'
+    echo -e '\t\t"peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"'
     echo -e '\t\tsort -k7,7rn ${reppeak} | awk -v peakline="$peakline" '"'{if(NR>=1 && NR<=peakline)print "'$0,"T";else print $0,"F";}'"' OFS='\t' > "'${out} # check with awk '"'FNR>=103003 && FNR<=103006'" >> 1aB.IDR.sh
     echo -e '\telse' >> 1aB.IDR.sh
-    echo -e '\t\techo "peakcount>> $peakprefix != $inprefix <<narrowPeaks_file: npeaks and peaks file NOT matched"' >> 1aB.IDR.sh
+    echo -e '\t\t"peakcount>> $peakprefix != $inprefix <<narrowPeaks_file: npeaks and peaks file NOT matched"' >> 1aB.IDR.sh
     echo -e '\tfi' >> 1aB.IDR.sh
     echo "done 3<$idrpair1a 4<$npeaks_idrrep1" >> 1aB.IDR.sh
   else
@@ -416,7 +430,7 @@ done < idrpairpaths.txt
 
 # =============================
 
-echo '# -- 1. IDR started -- #'
+echo '# -- 1a. IDR started -- #'
 
 JOBID1=$( sbatch -W --array=$IDRarray 1a.IDR.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
 
@@ -444,9 +458,9 @@ printf '\n' >> 1bA.FRIPawk.sh
 echo 'awk -F'"'\t' '{print "'$1,"/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
 
 
-echo '# -- 1. IDR has completed -- #'
+echo '# -- 1a. IDR has completed -- #'
 
-echo '# -- 2. FRiP calculation has started -- #'
+echo '# -- 1b. FRiP calculation has started -- #'
 
 JOBID3=$( sbatch -W --dependency=afterok:${JOBID2} 1bA.FRIPawk.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
 
@@ -490,7 +504,323 @@ rm $FRIP.temp
 
 ################################################################################################################
 
-### 2. TF footprinting and creation of signal tracks
+### 2. Annotation:
+# 	2a. TSS enrichment - plot
+  # The TSS enrichment calculation is a signal to noise calculation.
+  # Fragments from the nucleosome-free regions (NFR) (< 100 bp) are expected to be enriched around the transcription start site (TSS) of genes, while fragments from nucleosome-bound regions e.g. mono-, di-, and tri-nucleosomes (~ 200, 400, 600 bp, respectively) are expected to be depleted at TSS with a slight enrichment of flanking regions around TSS. These can be evaluated with the tool ATACseqQC.
+  # The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp).
+  # This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth.
+  # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
+  # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
+
+# 	2b. Fraction of Reads in annotated regions
+
+######################## TESTING (as of 23/07/2020) ####################################
+## To do:
+
+annotdir=($scripts/2.Annotation) # assign raw reads dir
+mkdir -p $annotdir
+cd $annotdir
+
+# 0. USE ATACSEQQC HERE (ensure input BAM is indexed) TO 1) CREATE A SHIFTED BAM, AND 2) RUN TSS ENRICHMENT
+
+## For ATACseqQC we need to use BSgenome objects
+## Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
+
+mkdir splitfasta
+cd splitfasta
+
+# 1. Split a genome fasta into multiple .fa files (one for each scaffold) and create a tar ball of the files
+awk '{print $1}' ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa > ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal_edit.fa # edit the header
+awk -F "|" '/^>/ {close(F) ; F = substr($1,2,length($1)-1)".fa"} {print >> F}' ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal_edit.fa # split
+
+
+# 2. Prepare the seedfiles to forge a BSgenome data package
+cd ../
+
+BSsp1a='Abur' # BSgenome package ID part 1
+BSsp1b='AstBur1.0' # BSgenome package ID part 2
+BSsp1c='Astatotilapia burtoni' # Species name
+BSsp1d='1.0' # Assembly version
+BSsp1e='Ensembl' # Genome provider
+BSsp1f='Dec. 2011' # Release date
+BSsp1g='ftp://ftp.ensembl.org/pub/current_fasta/haplochromis_burtoni' # Source URL
+BSsp1h='Astatotilapia_burtoni' # Species_biocview
+BSsp1i=`echo "paste(c($(echo splitfasta/*.fa | sed 's/splitfasta\///g' | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp1j='/Users/mehtat/github/ATAC_bioinformatics/test_data/splitfasta' # sequences dir
+
+echo "Package: BSgenome.$BSsp1a.$BSsp1e.$BSsp1b" > $BSsp1b.seedfile
+echo "Title: Full genome sequences for $BSsp1c (version $BSsp1b)" >> $BSsp1b.seedfile
+echo "Description: Full genome sequences for $BSsp1c as provided by $BSsp1e ($BSsp1b, $BSsp1f) and stored in Biostrings objects." >> $BSsp1b.seedfile
+echo "Version: $BSsp1d" >> $BSsp1b.seedfile
+echo "organism: $BSsp1c" >> $BSsp1b.seedfile
+echo "common_name: $BSsp1c" >> $BSsp1b.seedfile
+echo "provider: $BSsp1e" >> $BSsp1b.seedfile
+echo "provider_version: $BSsp1b" >> $BSsp1b.seedfile
+echo "release_date: $BSsp1f" >> $BSsp1b.seedfile
+echo "release_name: $BSsp1b" >> $BSsp1b.seedfile
+echo "source_url: $BSsp1g" >> $BSsp1b.seedfile
+echo "organism_biocview: $BSsp1h" >> $BSsp1b.seedfile
+echo "BSgenomeObjname: $BSsp1a" >> $BSsp1b.seedfile
+echo "seqnames: $BSsp1i" >> $BSsp1b.seedfile
+echo "seqs_srcdir: $BSsp1j" >> $BSsp1b.seedfile
+
+echo '#BiocManager::install("BSgenome")' > forgeBSgenome.R
+echo 'library("BSgenome")' >> forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp1b'.seedfile")' >> forgeBSgenome.R
+
+## installed required modules to R-3.5.2
+# software # enter a node with internet connection
+# mkdir -p ~/R-3.5.2/library
+# export R_LIBS_USER="~/R/3.5.2/library"
+# source R-3.5.2
+# R
+# install.packages(c("BiocManager"))
+# BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","devtools", "Rgraphviz", "edgeR", "AnnotationDbi", "impute", "GO.db", "preprocessCore", "DESeq2", "RedeR", "rhdf5", "tximportData", "tximport","ggplot2"))
+
+
+source R-3.5.2
+export R_LIBS_USER="~/R/3.5.2/library"
+
+Rscript forgeBSgenome.R # this will forge the BS genome {DONE}
+R CMD build BSgenome.Abur.Ensembl.AstBur1.0 # this will build the BSgenome {DONE}
+R CMD check BSgenome.Abur.Ensembl.AstBur1.0_1.0.tar.gz # this will check the package {DONE}
+R CMD INSTALL BSgenome.Abur.Ensembl.AstBur1.0_1.0.tar.gz # this will install the package for loading {DONE}
+
+Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')"
+make_option(c("-i", "--input"), action="store", default=NA, type='character',
+            help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
+make_option(c("-g", "--gtf"), action="store", default=NA, type='character',
+            help="input *.gtf file"),
+make_option(c("-s", "--shiftbam"), action="store", default=NA, type='character',
+            help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
+make_option(c("-p", "--ptp"), action="store", default=NA, type='character',
+            help="output *.tiff filename for Promoter-Transcript score plot"),
+make_option(c("-n", "--nfrp"), action="store", default=NA, type='character',
+            help="output *.tiff filename for NFR score plot"),
+make_option(c("-b", "--bsgenome"), action="store", default=NA, type='character',
+            help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
+make_option(c("-t", "--tssscore"), action="store", default=NA, type='character',
+            help="output *.txt filename for TSS enrichment score summary"),
+make_option(c("-c", "--cpp"), action="store", default=NA, type='character',
+            help="output *.tiff filename for cumulative percentage plot"),
+make_option(c("-h", "--hmp"), action="store", default=NA, type='character',
+            help="output *.tiff filename for log-transformed signal around TSSs"),
+make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
+            help="output *.tiff filename for rescaled signal around TSSs")
+
+
+
+
+
+
+
+
+## IGNORE this and DELETE once ATACseqQC works
+# 1. check script from point 8 to 9
+# 2. if that is ok, then test plotting with old python script/s
+# 3. if that works then great, if not, look at other ideas: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1929-3
+  # A. TSS plotting - look at the script employed in ATACseqQC - R script in bioconductor
+  # B. check out whether YOU NEED TO SPLIT READS INTO NUCLEOSOME-FREE, MONOBOUND ETC. - LOOK AT atacseqQC?!?!
+# 4. Change the whole thing so that it can be run for each species tissues (while loop?) and echo into SBATCH script
+
+
+annotdir=($scripts/2.Annotation) # assign raw reads dir
+mkdir -p $annotdir
+cd $annotdir
+
+peakcall=($WD/5.peak_calling) # ATAC peak calling directory
+
+## THESE VARIABLES WILL NEED UPDATING SO THAT THEY ARE NOT SPECIES SPECIFIC - use a while loop
+spG=Ab
+Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
+FAAbg=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
+Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
+Abgchr2=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes.v2
+annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf
+AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
+# AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_RefSeq.bed
+Abggenaltsv=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.tsv
+Abggenal=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.txt
+
+genebedtss=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.bed/') # BED file of protein coding genes with TSS +/- 1kb
+genebedtss2=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed/') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
+genebedtss2saf=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed.saf/') # SAF file of above
+genebedtss3=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.flanks_100_up_down.bed/') # BED file of protein coding genes with TSS 100bp -/+ regions (with the exclusion of the TSS region)
+genebedtss3saf=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.flanks_100_up_down.bed.saf/') # SAF file of above
+
+
+inbam=$tffprdir/Ab5_L_ATAC.nochrM.nodup.filt.sorted.bam # DONT USE THIS BAM BUT USE A SHIFTED BAM INSTEAD
+
+###### DELETE ALL OF SUPRESSED BELOW IF ATACSEQQC WORKS
+# source bedops-2.4.28
+#
+# # 1. Create a suitable scaffold length boundaries of input genome assembly (col1=scaff; col2=0; col3=scaffold_length)
+# awk '{print $1,"0",$2}' $Abgchr > $Abgchr2
+#
+# # case $annotAbg in
+# #   *.gtf.gz) gunzip -c $annotAbg | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # gzipped GTF > 0-based BED of protein_coding
+# #   *.gtf) awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # unzipped GTF > 0-based BED of protein_coding
+# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annotAbg > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
+# # esac
+#
+# # 2. Split gene regions by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)
+# awk '($6 == "+") { print $0 }' $AbggenGC | awk 'BEGIN{ OFS="\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }' > $(basename "$AbggenGC" _Gencode.bed)_ensembl.tss.for.padded.bed
+# awk '($6 == "-") { print $0 }' $AbggenGC | awk 'BEGIN{ OFS="\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }' > $(basename "$AbggenGC" _Gencode.bed)_ensembl.tss.rev.padded.bed
+# bedops --everything $(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.for.padded.bed/') $(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.rev.padded.bed/') > $genebedtss
+#
+# # 3. Keep only TSS regions within chromosomal bounds
+# bedops --element-of 100% $genebedtss $Abgchr2 > $genebedtss2
+#
+# # 4. Convert to SAF
+# awk 'BEGIN{FS=OFS="\t"; print "GeneID\tChr\tStart\tEnd\tStrand"}{print $4, $1, $2+1, $3, $6}' $genebedtss2 > $genebedtss2saf
+#
+# # 5. Count reads using FeatureCounts and record number of successful alignments to the TSS
+# source subread-1.6.0
+#
+# featureCounts -T 6 -a $genebedtss2saf -F SAF -o $(echo $(basename $inbam) | sed -e 's/.bam/.TSS.readCountInPeaks.txt/') $inbam
+#
+# # Second part is to do the same thing but on different regions (100bp -/+ of TSS regions)
+# # 6. Use flank from bedtools to get these 100bp -/+ regions (with the exclusion of the TSS region)
+# ml bedtools/2.25.0
+# bedtools flank -i $genebedtss2 -g $Abgchr -b 100 > $genebedtss3
+#
+# # 7. Convert to SAF file
+# awk 'BEGIN{FS=OFS="\t"; print "GeneID\tChr\tStart\tEnd\tStrand"}{print $4, $1, $2+1, $3, $6}' $genebedtss3 > $genebedtss3saf
+#
+# # 8. Count reads using FeatureCounts and record number of successful alignments to the 100bp -/+
+# # THIS ONE IS THROWING OUT AN ERROR - still doesn't work when reducing to 2bp flanks?!?!
+# # Is the problem that there is +/- for each gene so two entries for each?!?!
+# # LOOK UP THE ACTUAL TSS CALCULATION - maybe this is wrong and 100bp +/- is not required
+# # featureCounts: readSummary.c:1169: register_reverse_table: Assertion `this_block_min_start <= this_block_max_end' failed.
+# featureCounts -T 6 -a $genebedtss3saf -F SAF -o $(echo $(basename $inbam) | sed -e 's/.bam/.TSS100bp.readCountInPeaks.txt/') $inbam
+#
+# # 9. To get TSS Enrichment score divide total number of successful alignments to the TSS by total number of successful alignments to the 100bp -/+
+# tsscount=$(grep 'Assigned' $(echo $(basename $inbam) | sed -e 's/.bam/.TSS.readCountInPeaks.txt.summary/') | cut -f2)
+# tss100count=$(grep 'Assigned' $(echo $(basename $inbam) | sed -e 's/.bam/.TSS100bp.readCountInPeaks.txt.summary/') | cut -f2)
+# tssenrich=`expr $tsscount / $tss100count`
+#
+# # 10. Write out the TSS enrichment scores
+# # Transcription start site (TSS) enrichment values are dependent on the reference files used; cutoff values for high quality data are listed below.
+# # GRCh38 Refseq TSS annotation
+# #     below 5: Concerning
+# #     5 - 7: Acceptable
+# #     Above 7: Ideal
+# tssenrichmentscores=($annotdir/TSSenrichmentscores.txt)
+# echo -e "$(echo $(basename $inbam) | sed -e 's/.nochrM.nodup.filt.sorted.bam//')\t$(echo $tssenrich)" >> $tssenrichmentscores.tmp
+# awk '{if($2 < 5)print $1, $2, "Concerning";if($2 > 7)print $1, $2, "Ideal"; else print $1, $2, "Acceptable";}' OFS='\t' $tssenrichmentscores.tmp > $tssenrichmentscores
+# rm $tssenrichmentscores.tmp
+#
+# # 11.
+#
+# ### HAVE A LOOK AT THE NOTES NEAR THE END OF THE testrun.sh SCRIPT FOR OTHER IDEAS ON PLOTTING ETC.
+# # 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py
+# python3 /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/ATAC_Bioinf_pipeline_v2b_part5bD-a.py /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/0.rawreads/PRO1563_S1_lib_CAGAATGC-GAACTGAG_L001_R1.fastq.merged.gz # input fastq can be native or gzipped
+#
+# nano test_TSSplot.sh
+#
+# #!/bin/bash -e
+# #SBATCH -p ei-largemem # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -c 2 # number of cores
+# #SBATCH --mem 512GB # memory pool for all cores
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+#
+# ml bedtools/2.25.0
+# ml GCC
+# ml zlib
+#
+# spG=Ab
+# spID=Ab5_L_ATAC
+# Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
+# AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
+#
+# genebedtss=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.bed/') # BED file of protein coding genes with TSS +/- 1kb
+# genebedtss2=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed/') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
+# Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
+# read_len=($rawreaddir/*_read_length.txt)
+# Test1=$tffprdir/$spID'.nochrM.nodup.filt.sorted.bam'
+#
+# # python $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen
+# #
+# #
+# # # subsample the BAM file (to make it smaller) and test the python script
+# ml samtools/1.3
+# Test2=$filtdir/$spID'.nochrM.nodup.filt.subsample.bam'
+# # samtools view -s 0.05 -b $Test1 > $Test2
+# python $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test2 $genebedtss2 $spID $read_len $Abgchr
+#
+#
+# ###### THIS IS THE OLD SCRIPT
+# echo '# 3a. TSS enrichment plotting' >> 5.peakcall.sh
+# # echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# echo '# create a 2kb window around TSS (+/- 1kb) bed file e.g.' >> 5.peakcall.sh
+# echo '# chr1	134210701	134214701	+' >> 5.peakcall.sh
+# echo '# chr1	33724603	33728603	-' >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# echo '# 3aA. Protein-coding genes GTF > BED: variable $annot of gzipped GTF file (*gtf.gz); or 2) longest protein-coding gene annotations as 6-column BED: col1-scaff,col2-start,col3-end,col4-geneID,col5-XX,col6-strand' >> 5.peakcall.sh
+# echo '# output is genebed=($peakcall/$spG'_refGene.bed') defined as variable at top' >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# echo 'source bedops-2.4.28' >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
+# echo "case $annot in" >> 5.peakcall.sh # NOTE: FILES AREN'T ZIPPED ANYMORE!!
+# echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | grep 'protein_coding' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
+# echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
+# echo "esac" >> 5.peakcall.sh
+# # below is for the old annotations that are a little odd
+# # echo "case $annot in" >> 5.peakcall.sh
+# # echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
+# # echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
+# # echo "esac" >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# # # below is the same as what is echoed above
+# # case $annot in
+# #   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
+# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
+# # esac
+# # # the below is for either a gtf file from ensembl etc. and your own bed file
+# # case $annot in
+# #   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
+# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
+# # esac
+# echo '# 3aB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
+# echo "awk '("'$6 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
+# echo "awk '("'$6 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
+# echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# echo '# 3aC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
+# echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
+# echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
+# printf '\n' >> 5.peakcall.sh
+# # echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
+# # echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
+# # echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
+# # printf '\n' >> 5.peakcall.sh
+
+
+
+echo '# -- 1b. FRiP calculation has completed -- #'
+
+echo '# -- 2a. Peak annotation has started -- #'
+
+JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} XX.sh | awk '{print $4}' ) # JOB7 depends on JOB6-10 completing successfully
+
+echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
+
+################################################################################################################
+
+### 3. TF footprinting and creation of signal tracks
+
+######### TO DO
+# 1. MOVE THIS AS POINT 3
+# 2. IN POINT 2 USING ATACSEQQC, CREATE A SHIFTED BAM AND USE THIS FOR FOOTPRINTING!!!!
+# 3. CHANGE ALL PATHS TO THE NEW BAM TO USE BELOW IN THIS SECTION!!
+# 4. Ensure all echo of started, completed and job numbers are ok
 
 # Signal tracks are generated from BAM file (Raw) and bias corrected by HINT-ATAC
 # This is rolled in with TF footprinting using HINT-ATAC, see this: https://www.regulatory-genomics.org/hint/tutorial/
@@ -519,11 +849,9 @@ rm $FRIP.temp
 # /hpc-home/mehtat/.local/lib/python3.7/site-packages/RGT-0.13.0-py3.7.egg-info
 # /hpc-home/mehtat/.local/lib/python3.7/site-packages/rgt
 
-# CHECK THAT THE INPUT OF OUTPUT FROM ABOVE (*.final.narrowPeak) IS OK
-
 # 1. Customise RGT data folder and data.config.user file for own genome files etc.: http://www.regulatory-genomics.org/rgt/rgt-data-folder/
 
-mkdir -p $tffprdir
+# mkdir -p $tffprdir
 cd $tffprdir
 
 # A. For each genome, the following is required:
@@ -561,8 +889,6 @@ done < $antfiles
 # cat $annotPng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $PnggenRS
 # cat $annotNbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $NbggenRS
 # cat $annotOng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $OnggenRS
-
-
 
 # Ac. gene alias file in text format - prepare from the gtf and BioMart
 
@@ -605,11 +931,11 @@ done < $antfiles
   # oniloticus_gene_ensembl
 
 echo '#!/bin/bash -e' > 2.2_biomart_dl.sh
-echo '#SBATCH -p ei-medium # partition (queue)' >> 2.2_biomart_dl.sh
+echo '#SBATCH -p tgac-short # partition (queue)' >> 2.2_biomart_dl.sh
 echo '#SBATCH -N 1 # number of nodes' >> 2.2_biomart_dl.sh
 echo '#SBATCH -c 1 # number of cores' >> 2.2_biomart_dl.sh
 echo '#SBATCH --mem 8000 # memory pool for all cores' >> 2.2_biomart_dl.sh
-echo '#SBATCH -t 0-2:59 # time (D-HH:MM)' >> 2.2_biomart_dl.sh
+echo '#SBATCH -t 0-00:45 # time (D-HH:MM)' >> 2.2_biomart_dl.sh
 echo '#SBATCH -o slurm.%j.out # STDOUT' >> 2.2_biomart_dl.sh
 echo '#SBATCH -e slurm.%j.err # STDERR' >> 2.2_biomart_dl.sh
 echo '#SBATCH --mail-type=END,FAIL,TIME_LIMIT_75 # notifications for job done & fail' >> 2.2_biomart_dl.sh
@@ -645,6 +971,14 @@ echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$
 echo -e '\tcat biomart_headers ${i}_biomart.tmp.txt | awk '"'{print "'$1,$2,$3,$4,$5,$6,$8,$9,$11,$12,$14,$15}'"' OFS='\t' | awk '{print "'$5,$6,$1,$7,$8,$2,$3,$4,$9,$10,$11,$12}'"' OFS='\t' > "'${i}_biomart.txt' >> 2.2_biomart_dl.sh
 echo -e '\trm ${i}_biomart.tmp.txt' >> 2.2_biomart_dl.sh
 echo "done < $biomartspecies" >> 2.2_biomart_dl.sh
+
+echo '# -- 2a. Peak annotation has completed -- #'
+
+echo '# -- 2b. Fraction of Reads in annotated regions has completed -- #'
+
+echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
+
+JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
 
 
 # # while loop original placed in script above, and a while loop version of the longer version below
@@ -762,7 +1096,6 @@ echo "done < $biomartspecies" >> 2.2_biomart_dl.sh
 # printf 'ensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > biomart_headers # NOTE - many of these cols will get removed later
 # # printf 'ensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > biomart_headers
 # cat biomart_headers on_biomart.tmp.txt | awk '{print $1,$2,$3,$4,$5,$6,$8,$9,$11,$12,$14,$15}' OFS='\t' | awk '{print $5,$6,$1,$7,$8,$2,$3,$4,$9,$10,$11,$12}' OFS='\t' > on_biomart.txt
-
 
 # Ac-3. awk match files '$file1' and '$file2' above to create two files:
 
@@ -1169,18 +1502,18 @@ for Dfpsp in "${!fpsp@}"; do
   echo "mkdir -p $tffprdir/${pwmsp3}_fp" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp.sh'
-  echo "rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location=$tffprdir/$(eval echo $output)_fp"' --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# B. outputs signals for visualization in a genome browser' >> "${!Dfpsp}"'_TFfp.sh'
   echo "${!Dfpsp}signalprefix=(${!Dfpsp}signalprefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
   echo "sed 's"'/$/_BC/'"g' \$${!Dfpsp}prefix > \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
   echo "mapfile -t ${!Dfpsp}signalprefix < \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
-  echo "rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) "'"$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) $(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# B. outputs signals for visualization in a genome browser ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# C. find associated TFs' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-motifanalysis matching --filter "database:cichlid'"$(eval echo $output)CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco"'" --organism='"$(eval echo $organism) --input-files $tffprdir/$(eval echo $output)_fp"'/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bed' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-motifanalysis matching --filter "database:cichlid$(eval echo $output)CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$(eval echo $organism) --input-files '"$tffprdir"'/$(eval echo $output)'"_fp"'/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bed' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
@@ -1235,96 +1568,21 @@ done
 # # C. find associated TFs
 # rgt-motifanalysis matching --filter "database:cichlid${pwmsp3}CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$rgtidsp3a --input-files $tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}.bed
 
-
-
-
-
-
-
-## ~ INSERT CODE HERE ~ ##
-
-echo '# -- 2. FRiP calculation has completed -- #'
-
-echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
-
-
-JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
-
 echo '# -- 3a. TF footprinting preparation has completed - bioMart alias, annotations and data.config prep -- #'
 
 echo '# -- 3b. TF footprinting and creation of signal tracks started -- #'
 
-JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} xx.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
+
+# JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} xx.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 ## This will need five jobs - put in a while loop using fpsp
 
-
-################################################################################################################
-
-### 3. Annotation:
-# 	3a. TSS enrichment - plot
-  # The TSS enrichment calculation is a signal to noise calculation.
-  # The reads around a reference set of TSSs are collected to form an aggregate distribution of reads centered on the TSSs and extending to 1000 bp in either direction (for a total of 2000bp).
-  # This distribution is then normalized by taking the average read depth in the 100 bps at each of the end flanks of the distribution (for a total of 200bp of averaged data) and calculating a fold change at each position over that average read depth.
-  # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
-  # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
-
-# 	3b. Fraction of Reads in annotated regions
-
-## ~ INSERT CODE HERE ~ ##
-
-echo '# 3a. TSS enrichment plotting' >> 5.peakcall.sh
-echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# create a 2kb window around TSS (+/- 1kb) bed file e.g.' >> 5.peakcall.sh
-echo '# chr1	134210701	134214701	+' >> 5.peakcall.sh
-echo '# chr1	33724603	33728603	-' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# 3aA. Protein-coding genes GTF > BED: variable $annot of gzipped GTF file (*gtf.gz); or 2) longest protein-coding gene annotations as 6-column BED: col1-scaff,col2-start,col3-end,col4-geneID,col5-XX,col6-strand' >> 5.peakcall.sh
-echo '# output is genebed=($peakcall/$spG'_refGene.bed') defined as variable at top' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo 'source bedops-2.4.28' >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
-echo "case $annot in" >> 5.peakcall.sh # NOTE: FILES AREN'T ZIPPED ANYMORE!!
-echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | grep 'protein_coding' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
-echo "esac" >> 5.peakcall.sh
-# below is for the old annotations that are a little odd
-# echo "case $annot in" >> 5.peakcall.sh
-# echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-# echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
-# echo "esac" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-# # below is the same as what is echoed above
-# case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# esac
-# # the below is for either a gtf file from ensembl etc. and your own bed file
-# case $annot in
-#   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-#   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# esac
-echo '# 3aB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
-echo "awk '("'$6 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
-echo "awk '("'$6 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
-echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-echo '# 3aC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
-echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
-echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
-printf '\n' >> 5.peakcall.sh
-# echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-# echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-
-
-echo '# -- 3. TF footprinting and creation of signal tracks has completed -- #'
-
-echo '# -- 4. Peak annotation has started -- #'
-
-JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} XX.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
+for Efpsp in "${!fpsp@}"; do
+  jobidadd=$(echo $Efpsp | grep -Eo '[0-9]')
+  jobidadd2=`expr $j + $jobidadd`
+  # echo $jobidadd
+  # echo $jobidadd2
+  JOBID"${jobidadd2}"=$( sbatch -W --dependency=afterok:${JOBID6} "${!Efpsp}"'_TFfp.sh' | awk '{print $4}' ) # JOB7-JOB11
+done
 
 
 ################################################################################################################
@@ -1345,9 +1603,9 @@ JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} XX.sh | awk '{print $4}' ) # 
 
 ## ~ INSERT CODE HERE ~ ##
 
-echo '# -- 4. Peak annotation has completed -- #'
+echo '# -- 3b. TF footprinting and creation of signal tracks has completed -- #'
 
-echo '# -- 5. Differential analysis of peaks has started -- #'
+echo '# -- 4. Differential analysis of peaks has started -- #'
 
 JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} XX.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
 
