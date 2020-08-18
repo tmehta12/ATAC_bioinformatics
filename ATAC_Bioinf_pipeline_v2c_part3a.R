@@ -6,13 +6,12 @@
 # How to run: Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')
 # ----------------------------------------------------------------------------
 
-
 ## Quick start - install ATACseqQC and other packages
 # library(BiocManager)
 # BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2"))
 
 ## load the libraries
-library("RMySQL")
+# library("RMySQL")
 library("rtracklayer")
 library("GenomicFeatures")
 library("GLAD")
@@ -57,11 +56,11 @@ option_list = list(
 )
 opt = parse_args(OptionParser(option_list=option_list))
 
-setwd("/Users/mehtat/github/ATAC_bioinformatics/test_data/")
+# setwd("/Users/mehtat/github/ATAC_bioinformatics/test_data/")
 
 ## input the bamFile from command line (1)
 bamfile <- opt$i
-bamfile <- ("Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam")
+# bamfile <- ("Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam")
 bamfile.labels <- gsub(".bam", "", basename(bamfile))
 
 ## input genome/gtf paths

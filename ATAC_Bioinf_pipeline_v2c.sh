@@ -23,8 +23,7 @@
 ## Place this script and the following files in $WD (created in first script)
 # 1. As used in './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 # 2. Scripts:
-  # ATAC_Bioinf_pipeline_v2b_part5bD-a.py
-  # ATAC_Bioinf_pipeline_v2b_part5bD.py
+  # ATAC_Bioinf_pipeline_v2c_part3a.R
 # 3. Run as an sbatch script with 8Gb memory and ~3 days runtime - will spawn off other jobs
 
 ################################################################################################################
@@ -44,8 +43,8 @@
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately
-# WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$spID) # insert the working directory
+scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+# WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. IDR
@@ -242,7 +241,7 @@ done
 awk -F'\t' '!seen[$1>$2 ? $1 FS $2 : $2 FS $1]++' $prefixpairs.temp > $prefixpairs # this removes duplicate pairs that are simply in a different order
 rm $prefixpairs.temp
 
-awk '{print "/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
+awk '{print "/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
 
 # Run a file check to ensure the pairs exist and continue if they do, else, echo that they do not exist
 
@@ -455,7 +454,7 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1bA.FRIPawk.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1bA.FRIPawk.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1bA.FRIPawk.sh
 printf '\n' >> 1bA.FRIPawk.sh
-echo 'awk -F'"'\t' '{print "'$1,"/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
+echo 'awk -F'"'\t' '{print "'$1,"/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
 
 
 echo '# -- 1a. IDR has completed -- #'
@@ -515,7 +514,7 @@ rm $FRIP.temp
 
 # 	2b. Fraction of Reads in annotated regions
 
-######################## TESTING (as of 23/07/2020) ####################################
+######################## TESTING (as of 28/07/2020 - errors running Rscripts using installed R-4.0.2 (maybe problem with wrapper?!?)) ####################################
 ## To do:
 
 annotdir=($scripts/2.Annotation) # assign raw reads dir
@@ -527,17 +526,22 @@ cd $annotdir
 ## For ATACseqQC we need to use BSgenome objects
 ## Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
 
-mkdir splitfasta
-cd splitfasta
+## UPDATE THIS FOR SPLITTING GENOMES - ADD VARIABLES FOR GENOMES SO THAT THEY CAN BE CHANGED AT TOP
+## ADD NOTE: ensure input FASTA has only a short header e.g. >chr1 or >scaffold001 etc.
+mkdir Ab_splitfasta
+cd Ab_splitfasta
+aburgen=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/dna)
+aburgtf=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/current_gtf)
 
-# 1. Split a genome fasta into multiple .fa files (one for each scaffold) and create a tar ball of the files
-awk '{print $1}' ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa > ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal_edit.fa # edit the header
-awk -F "|" '/^>/ {close(F) ; F = substr($1,2,length($1)-1)".fa"} {print >> F}' ../Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal_edit.fa # split
+
+# 1. Split a genome fasta into multiple .fa files (one for each scaffold)
+awk -F "|" '/^>/ {close(F) ; F = substr($1,2,length($1)-1)".fa"} {print >> F}' $aburgen/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
 
 
 # 2. Prepare the seedfiles to forge a BSgenome data package
 cd ../
 
+## THIS ALL NEEDS UPDATING WITH SPECIES AND CORRECT DIRS (BSsp1i - using variables FOR SPLIT FASTA folder)
 BSsp1a='Abur' # BSgenome package ID part 1
 BSsp1b='AstBur1.0' # BSgenome package ID part 2
 BSsp1c='Astatotilapia burtoni' # Species name
@@ -546,8 +550,8 @@ BSsp1e='Ensembl' # Genome provider
 BSsp1f='Dec. 2011' # Release date
 BSsp1g='ftp://ftp.ensembl.org/pub/current_fasta/haplochromis_burtoni' # Source URL
 BSsp1h='Astatotilapia_burtoni' # Species_biocview
-BSsp1i=`echo "paste(c($(echo splitfasta/*.fa | sed 's/splitfasta\///g' | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
-BSsp1j='/Users/mehtat/github/ATAC_bioinformatics/test_data/splitfasta' # sequences dir
+BSsp1i=`echo "paste(c($(echo Ab_splitfasta/*.fa | sed 's/Ab_splitfasta\///g' | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp1j='/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/2.Annotation/Ab_splitfasta' # sequences dir
 
 echo "Package: BSgenome.$BSsp1a.$BSsp1e.$BSsp1b" > $BSsp1b.seedfile
 echo "Title: Full genome sequences for $BSsp1c (version $BSsp1b)" >> $BSsp1b.seedfile
@@ -567,50 +571,50 @@ echo "seqs_srcdir: $BSsp1j" >> $BSsp1b.seedfile
 
 echo '#BiocManager::install("BSgenome")' > forgeBSgenome.R
 echo 'library("BSgenome")' >> forgeBSgenome.R
-echo 'forgeBSgenomeDataPkg("'$BSsp1b'.seedfile")' >> forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp1b'.seedfile")' >> forgeBSgenome.R # forgeBSgenomeDataPkg("AstBur1.0.seedfile")
 
-## installed required modules to R-3.5.2
-# software # enter a node with internet connection
-# mkdir -p ~/R-3.5.2/library
-# export R_LIBS_USER="~/R/3.5.2/library"
-# source R-3.5.2
-# R
-# install.packages(c("BiocManager"))
-# BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","devtools", "Rgraphviz", "edgeR", "AnnotationDbi", "impute", "GO.db", "preprocessCore", "DESeq2", "RedeR", "rhdf5", "tximportData", "tximport","ggplot2"))
+# NOTE: Installed own version of R-4.0.2 with specific modules on the HPC required to run ATACseqQC
+source R-4.0.2
 
-
-source R-3.5.2
-export R_LIBS_USER="~/R/3.5.2/library"
-
-Rscript forgeBSgenome.R # this will forge the BS genome {DONE}
-R CMD build BSgenome.Abur.Ensembl.AstBur1.0 # this will build the BSgenome {DONE}
-R CMD check BSgenome.Abur.Ensembl.AstBur1.0_1.0.tar.gz # this will check the package {DONE}
-R CMD INSTALL BSgenome.Abur.Ensembl.AstBur1.0_1.0.tar.gz # this will install the package for loading {DONE}
-
-Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')"
-make_option(c("-i", "--input"), action="store", default=NA, type='character',
-            help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
-make_option(c("-g", "--gtf"), action="store", default=NA, type='character',
-            help="input *.gtf file"),
-make_option(c("-s", "--shiftbam"), action="store", default=NA, type='character',
-            help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
-make_option(c("-p", "--ptp"), action="store", default=NA, type='character',
-            help="output *.tiff filename for Promoter-Transcript score plot"),
-make_option(c("-n", "--nfrp"), action="store", default=NA, type='character',
-            help="output *.tiff filename for NFR score plot"),
-make_option(c("-b", "--bsgenome"), action="store", default=NA, type='character',
-            help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
-make_option(c("-t", "--tssscore"), action="store", default=NA, type='character',
-            help="output *.txt filename for TSS enrichment score summary"),
-make_option(c("-c", "--cpp"), action="store", default=NA, type='character',
-            help="output *.tiff filename for cumulative percentage plot"),
-make_option(c("-h", "--hmp"), action="store", default=NA, type='character',
-            help="output *.tiff filename for log-transformed signal around TSSs"),
-make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
-            help="output *.tiff filename for rescaled signal around TSSs")
+Rscript forgeBSgenome.R # this will forge the BS genome required to run ATACseqQC
+######## NOTE: AS OF 28/07/2020 the above is not working and must a problem with your R-4.0.2 installation. When you load R and run the forgeBSgenome code, it works but is not able to pass from command line (so currently useless!)
+## also tried: Rscript forgeBSgenome.R > forgeBSgenome.Rout; R --no-save < forgeBSgenome.R - these don't work either and in some cases just load R
+## wonder if it is related to the shell executable wrapper - look at (which looks very different) /tgac/software/testing/R/3.6.2_jdv/x86_64/bin/R
+## that looks completely different and has command line options e.g. R --help does not work for you.
+## Consider installing local one again?!?! Rememebr, ml gcc, ml zlib
 
 
 
+R CMD build BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b} # this will build the BSgenome
+R CMD check BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b}_${BSsp1d}.tar.gz # this will check the package
+R CMD INSTALL BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b}_${BSsp1d}.tar.gz # this will install the package for loading
+
+mkdir -p $annotdir/Ab5_L
+
+Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam -g Haplochromis_burtoni.AstBur1.0.100.gtf -s $annotdir/Ab5_L -p Ab5_L_1-PTscore.tiff -n Ab5_L_2-NFRscore.tiff -b BSgenome.Abur.Ensembl.AstBur1.0 -t Ab5_L_3-TSSscore.txt -c Ab5_L_4-cumulativepercscore.tiff -h Ab5_L_5-logtransformedTSSsignalheatmap.tiff -r Ab5_L_6-rescaledTSSsignal.tiff
+
+# make_option(c("-i", "--input"), action="store", default=NA, type='character',
+#             help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
+# make_option(c("-g", "--gtf"), action="store", default=NA, type='character',
+#             help="input *.gtf file"),
+# make_option(c("-s", "--shiftbam"), action="store", default=NA, type='character',
+#             help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
+# make_option(c("-p", "--ptp"), action="store", default=NA, type='character',
+#             help="output *.tiff filename for Promoter-Transcript score plot"),
+# make_option(c("-n", "--nfrp"), action="store", default=NA, type='character',
+#             help="output *.tiff filename for NFR score plot"),
+# make_option(c("-b", "--bsgenome"), action="store", default=NA, type='character',
+#             help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
+# make_option(c("-t", "--tssscore"), action="store", default=NA, type='character',
+#             help="output *.txt filename for TSS enrichment score summary"),
+# make_option(c("-c", "--cpp"), action="store", default=NA, type='character',
+#             help="output *.tiff filename for cumulative percentage plot"),
+# make_option(c("-h", "--hmp"), action="store", default=NA, type='character',
+#             help="output *.tiff filename for log-transformed signal around TSSs"),
+# make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
+#             help="output *.tiff filename for rescaled signal around TSSs")
+
+###############
 
 
 
@@ -715,7 +719,7 @@ inbam=$tffprdir/Ab5_L_ATAC.nochrM.nodup.filt.sorted.bam # DONT USE THIS BAM BUT 
 #
 # ### HAVE A LOOK AT THE NOTES NEAR THE END OF THE testrun.sh SCRIPT FOR OTHER IDEAS ON PLOTTING ETC.
 # # 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py
-# python3 /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/ATAC_Bioinf_pipeline_v2b_part5bD-a.py /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/0.rawreads/PRO1563_S1_lib_CAGAATGC-GAACTGAG_L001_R1.fastq.merged.gz # input fastq can be native or gzipped
+# python3 /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/ATAC_Bioinf_pipeline_v2b_part5bD-a.py /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab5_L_ATAC/0.rawreads/PRO1563_S1_lib_CAGAATGC-GAACTGAG_L001_R1.fastq.merged.gz # input fastq can be native or gzipped
 #
 # nano test_TSSplot.sh
 #
@@ -1517,7 +1521,7 @@ for Dfpsp in "${!fpsp@}"; do
   echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
-# scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2)
+# scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2)
 # ml samtools/1.7
 # # idrdir=($scripts/1.IDR)
 # idrdir=($scripts/idr_test) # THIS NEEDS CHANGING TO ABOVE PATH FOR FINAL SCRIPT
