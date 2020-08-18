@@ -20,7 +20,7 @@
 
 ### Script usage
 
-# 1. Create a topmost directory separately, placing this script in there and run from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/2.run2
+# 1. Create a topmost directory separately, placing this script in there and run from that directory e.g. /tgac/workarea/group-vh/Tarang/ATACseq/3.run2
 # 2. sbatch ATAC_Bioinf_pipeline_v2a.sh
 
 ################################################################################################################
@@ -33,7 +33,7 @@
 ################################################################################################################
 
 # Add variables here:
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately and place this script in there too
+scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately and place this script in there too
 
 libids=($scripts/libids.txt) # 2-col space-delimited file where col1 is the *_{R1,R2}.fastq.merged.gz and col2 is the species_tissue_experiment_barcode_{R1,R2}.fastq.merged.gz e.g. Mz_L_ATAC/gDNA
 
@@ -41,7 +41,7 @@ rawreadfolder1=(/tgac/data/reads/TarangMehta_EI_EI_TM_ENQ-1771_A_03/170214_D0050
 rawreadfolder2=(/tgac/data/reads/TarangMehta_EI_EI_TM_ENQ-1771_A_03/170320_D00507_0270_AHHYLLBCXY)
 rawreadfolder3=(/tgac/data/reads/)
 
-WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # insert the working directory
+WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # insert the working directory
 rawreaddir=($WD/0.rawreads)
 
 prefix=($scripts/prefix.txt)
@@ -75,7 +75,7 @@ for lane1 in $rawreadfolder1/*.fastq.gz ; do lane2=$(echo $lane1| sed 's|/tgac/d
 
 ### 1. Create the appropriate directory structure and file paths for downstream analysis (and to run following scripts)
 
-# 1a. Create approporiate directory structure - this uses the space delimited file of 'merged fasta filename' and 'species_tissue_experiment_FASTA_filename' e.g. Mz_L_ATAC/gDNA for creating the symbolic links as per species structure
+# 1a. Create appropriate directory structure - this uses the space delimited file of 'merged fasta filename' and 'species_tissue_experiment_FASTA_filename' e.g. Mz_L_ATAC/gDNA for creating the symbolic links as per species structure
 
 # Example is (note, these are made up examples)
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R1.fastq.merged.gz' > libids.txt

@@ -103,8 +103,8 @@ echo "$annot"
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately
-WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$spID) # insert the working directory
+scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. Trim adaptors and renaming
@@ -423,7 +423,7 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 # ml blast/2.3.0
 # makeblastdb -in $gFA -parse_seqids -dbtype nucl # create a blast database of the genome assembly
 # # 3. blast the mitochondrial genomes against the assembly - output tabular format
-# blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignments 10 -max_hsps 20 -num_threads 5 -out Ab5_L_ATAC.genome_mt.blast -query /tgac/workarea/group-vh/Tarang/ATACseq/2.run2/Ab5_L_ATAC/3.Mtfilt_fragcnt/NC_027289.1.fasta # blast the mitochondrial genome against the input genome assembly, output tabular format
+# blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignments 10 -max_hsps 20 -num_threads 5 -out Ab5_L_ATAC.genome_mt.blast -query /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab5_L_ATAC/3.Mtfilt_fragcnt/NC_027289.1.fasta # blast the mitochondrial genome against the input genome assembly, output tabular format
 # # 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-10; then pident>75% according to BLAST hit and alignment length to mitochondrial genome
 # ml python/3.5
 # python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable $mtscaff at top
