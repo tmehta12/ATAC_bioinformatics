@@ -78,8 +78,8 @@ echo "$gFA"
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2) # place all scripts in the topmost directory - create this separately
-WD=(/tgac/workarea/group-vh/Tarang/ATACseq/2.run2/$spID) # insert the working directory
+scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. Trim adaptors and renaming
