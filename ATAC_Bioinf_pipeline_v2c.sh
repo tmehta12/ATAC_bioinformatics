@@ -34,8 +34,8 @@
 # 	1a. IDR of true replicates
 # 	1b. Compute Fraction of Reads in Peaks (FRiP) - bedtools and awk
 # 2. Peak annotation - bedops and bioawk
-# 	3a. TSS enrichment
-# 	3b. Fraction of reads in annotated regions
+# 	2a. TSS enrichment
+# 	2b. Fraction of reads in annotated regions
 # 3. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
 # 4. Differential analysis of peaks - Homer and DiffBind
 
@@ -824,7 +824,7 @@ echo '# -- 2aBa. Peak annotation has started: forging BSgenomes has completed --
 
 echo '# -- 2aBb. Peak annotation has started: building BSgenomes -- #'
 
-JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2aBb.buildBSgenomes.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2aBb.buildBSgenomes.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 
 # 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
 
@@ -847,7 +847,7 @@ echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $atac
 echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $atacqcscript2
 echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $atacqcscript2
 printf '\n' >> $atacqcscript2
-echo -e 'while read -r i1 i2; do' >> $atacqcscript2
+echo 'while read -r i1 i2; do' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
@@ -880,9 +880,7 @@ echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAcg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome6' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
-"done < $prefixATAC2" # this while loop will run ATAC script in each ATAC folder
-
-
+echo "done < $prefixATAC2" >> $atacqcscript2
 
 
 # while read -r i1 i2; do
@@ -922,7 +920,7 @@ echo '# -- 2aBb. Peak annotation has started: building BSgenomes has completed -
 
 echo '# -- 2aBc. Peak annotation has started: running ATACseqQC -- #'
 
-JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} XX | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
+JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} $atacqcscript2 | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
 
 
 # make_option(c("-i", "--input"), action="store", default=NA, type='character',
@@ -946,9 +944,13 @@ JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} XX | awk '{print $4}' ) # JOB
 # make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
 #             help="output *.tiff filename for rescaled signal around TSSs")
 
-# NEED TO ADD FRACTION OF READS IN ANNOTATE REGIONS SCRIPT Here
+# 2b. Fraction of reads in annotated regions
+
+echo '# -- 2aBc. Peak annotation has completed: ATACseqQC completed -- #'
 
 echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
+
+JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} XX | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
 
 
 ################################################################################################################
