@@ -78,8 +78,8 @@ echo "$gFA"
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
-WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
+scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. Trim adaptors and renaming
@@ -180,6 +180,7 @@ mkdir -p $readalign
 cd $readalign
 
 # 2a. Build genome indexes for bowtie2 alignment - variables assigned on command line input
+# NOTE: Since the pipeline will be ran several times, it is best to not create genome indexes several times over - if running for one species then run here. Otherwise, run ATAC_Bioinf_pipeline_v2aA_gDNAindexes.sh BEFORE this pipeline.
 
 echo '#!/bin/bash -e' > 2a.genomeindex.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 2a.genomeindex.sh
@@ -267,7 +268,7 @@ echo '# -- 2a.'$spID' genome index building completed -- #'
 
 echo '# -- 2b.'$spID' read alignment started -- #'
 
-JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
+JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print $4}' ) # JOB4 depends on JOB2 completing successfully
 
 ################################################################################################################
 

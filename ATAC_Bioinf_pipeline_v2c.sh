@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 1-23:59 # time (D-HH:MM)
+#SBATCH -t 3-23:59 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -33,18 +33,18 @@
 # 1. IDR on all pairs of replicates (optional) - The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
 # 	1a. IDR of true replicates
 # 	1b. Compute Fraction of Reads in Peaks (FRiP) - bedtools and awk
-# 2. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
-# 3. Peak annotation - bedops and bioawk
+# 2. Peak annotation - bedops and bioawk
 # 	3a. TSS enrichment
 # 	3b. Fraction of reads in annotated regions
+# 3. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
 # 4. Differential analysis of peaks - Homer and DiffBind
 
 ################################################################################################################
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
-# WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
+scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+# WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. IDR
@@ -68,9 +68,19 @@ FRIP=($idrdir/FRiPvalues.txt)
 PASS=0.3
 ACCEPTABLE=0.2
 
-### 2. Peak annotation
+### 2. Peak annotation - there are several variables in the section that will need amending
+annotdir=($scripts/2.Annotation) # assign raw reads dir
+prefixATAC2=($scripts/prefixATAC2.txt)
+atacqcscript=(ATAC_Bioinf_pipeline_v2c_part3a.R)
 
+speciesid1=Mz
+speciesid2=Pn
+speciesid3=Ab
+speciesid4=Nb
+speciesid5=On
+speciesid6=Ac
 
+atacqcscript2=(ATAC_Bioinf_pipeline_v2c_part3b.sh) # this will be created in this script so do not need it
 
 ### 3. TF footprinting and creation of signal tracks
 tffprdir=$scripts/3.TFfprint_SignalTrack
@@ -78,17 +88,22 @@ mkdir -p $tffprdir # make the directory here as files will be added
 cd $tffprdir
 ## AS OF 25/06 - WHEN MOVED TO EI PROJECTS, REPLACE PATHS
 # genome folders - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
-Mzg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Mzebra)
-Png=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Pnyererei)
-Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
-Nbg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Nbrichardi)
-Ong=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Oniloticus)
+genomesdir=($scripts/genomes)
+Mzg=($genomesdir/Mzebra)
+Png=($genomesdir/Pnyererei)
+Abg=($genomesdir/Aburtoni)
+Nbg=($genomesdir/Nbrichardi)
+Ong=($genomesdir/Oniloticus)
+Acg=($genomesdir/Acalliptera)
+
 # genome fasta - assign genomes here with FA* variables, and a list of paths will be created for while loops (so for adding own or other species, just change or add to variables here)
+# NOTE: ensure input FASTAs have only a short headers e.g. >chr1 or >scaffold001 etc.
 FAMzg=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa
 FAPng=$Png/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa
 FAAbg=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
 FANbg=$Nbg/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa
 FAOng=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa
+FAAcg=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa
 genfastas=(path_genomes.txt)
 for gf in "${!FA@}"; do
   # echo "$gf is set to ${!gf}"
@@ -100,12 +115,14 @@ Pngchr=$Png/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa.chrom.sizes
 Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
 Nbgchr=$Nbg/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa.chrom.sizes
 Ongchr=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa.chrom.sizes
+Acgchr=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa.chrom.sizes
 # annotation files •.gtf - assign annotations here with annot* variables, and a list of paths will be created for while loops (so for adding own or other species, just change or add to variables here)
-annotMzg=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.gtf
-annotPng=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.gtf
-annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf
-annotNbg=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.gtf
-annotOng=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf
+annotMzg=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.gtf
+annotPng=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.gtf
+annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.gtf
+annotNbg=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.gtf
+annotOng=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.gtf
+annotAcg=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.gtf
 antfiles=(path_annot.txt)
 for af in "${!annot@}"; do
   # echo "$af is set to ${!af}"
@@ -113,23 +130,26 @@ for af in "${!annot@}"; do
 done
 processggenaltsv2=(processggenaltsvpath2.txt)
 # gene regions •.bed
-MzggenGC=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.generegions_Gencode.bed
-PnggenGC=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.generegions_Gencode.bed
-AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
-NbggenGC=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.generegions_Gencode.bed
-OnggenGC=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.generegions_Gencode.bed
-MzggenRS=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.generegions_RefSeq.bed
-PnggenRS=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.generegions_RefSeq.bed
-AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_RefSeq.bed
-NbggenRS=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.generegions_RefSeq.bed
-OnggenRS=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.generegions_RefSeq.bed
+MzggenGC=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.generegions_Gencode.bed
+PnggenGC=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.generegions_Gencode.bed
+AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.generegions_Gencode.bed
+NbggenGC=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.generegions_Gencode.bed
+OnggenGC=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.generegions_Gencode.bed
+AcgenGC=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_Gencode.bed
+MzggenRS=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.generegions_RefSeq.bed
+PnggenRS=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.generegions_RefSeq.bed
+AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.generegions_RefSeq.bed
+NbggenRS=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.generegions_RefSeq.bed
+OnggenRS=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.generegions_RefSeq.bed
+AcgenRS=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_RefSeq.bed
 # assign the species you require for downloading BioMart gene alias annotations here - for my pipeline there are five species (but only four have biomart entries - for other species, check the biomart identifier for the database e.g. mzebra_gene_ensembl, and amend below)
 # this will then use the variables below to add to a file 'biomart_sp.txt' - this will then be read, line by line to download and process the biomart databases
 sp1=mzebra_gene_ensembl
 sp2=pnyererei_gene_ensembl
 sp3=hburtoni_gene_ensembl
-sp4=oniloticus_gene_ensembl
-#sp5=nbrichardi_gene_ensembl
+#sp4=nbrichardi_gene_ensembl
+sp5=oniloticus_gene_ensembl
+sp6=acalliptera_gene_ensembl
 biomartspecies=(biomart_sp.txt)
 for var in "${!sp@}"; do
   # echo "$var is set to ${!var}"
@@ -137,17 +157,19 @@ for var in "${!sp@}"; do
 done
 splitmeme=$scripts/split_meme.py # ensure split meme python script is in scripts folder (although this is supressed to run here!)
 # tab delimited gene alias file - not required for pipeline but good for downstream analyses
-Mzggenaltsv=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.genealias.tsv
-Pnggenaltsv=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.genealias.tsv
-Abggenaltsv=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.tsv
-Nbggenaltsv=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.genealias.tsv
-Onggenaltsv=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.genealias.tsv
+Mzggenaltsv=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.genealias.tsv
+Pnggenaltsv=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.genealias.tsv
+Abggenaltsv=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.genealias.tsv
+Nbggenaltsv=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.genealias.tsv
+Onggenaltsv=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.genealias.tsv
+Acggenaltsv=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.genealias.tsv
 # gene alias files *.txt
-Mzggenal=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.genealias.txt
-Pnggenal=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.genealias.txt
-Abggenal=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.txt
-Nbggenal=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.genealias.txt
-Onggenal=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.genealias.txt
+Mzggenal=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.genealias.txt
+Pnggenal=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.genealias.txt
+Abggenal=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.genealias.txt
+Nbggenal=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.genealias.txt
+Onggenal=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.genealias.txt
+Acggenal=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.genealias.txt
 Usr='mehtat'
 export PATH="$PATH:/hpc-home/mehtat/.local/bin/" # this is to run RGT (supress here and footprinting script in part D if not required)
 processggenaltsv=(processggenaltsvpath.txt)
@@ -160,25 +182,27 @@ rgtidsp2='[PunNye1.0]'
 rgtidsp3='[AstBur1.0]'
 rgtidsp4='[NeoBri1.0]'
 rgtidsp5='[OniloticusUMD]'
+rgtidsp6='[fAstCal1.2]'
 rgtidsp1a='MzebraUMD2a'
 rgtidsp2a='PunNye1.0'
 rgtidsp3a='AstBur1.0'
 rgtidsp4a='NeoBri1.0'
 rgtidsp5a='OniloticusUMD'
+rgtidsp6a='fAstCal1.2'
 fpsp1=Mz
 fpsp2=Pn
 fpsp3=Ab
 fpsp4=Nb
 fpsp5=On
+fpsp6=Ac
 e=1 # amend this for subtraction from number of files for array (as array starts from 0) default=1
 pwmsp1=mz
 pwmsp2=pn
 pwmsp3=ab
 pwmsp4=nb
 pwmsp5=on
-j=6 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
-
-
+pwmsp6=ac
+j=7 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
 
 
 
@@ -241,7 +265,7 @@ done
 awk -F'\t' '!seen[$1>$2 ? $1 FS $2 : $2 FS $1]++' $prefixpairs.temp > $prefixpairs # this removes duplicate pairs that are simply in a different order
 rm $prefixpairs.temp
 
-awk '{print "/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
+awk '{print "/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
 
 # Run a file check to ensure the pairs exist and continue if they do, else, echo that they do not exist
 
@@ -454,7 +478,7 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1bA.FRIPawk.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1bA.FRIPawk.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1bA.FRIPawk.sh
 printf '\n' >> 1bA.FRIPawk.sh
-echo 'awk -F'"'\t' '{print "'$1,"/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
+echo 'awk -F'"'\t' '{print "'$1,"/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
 
 
 echo '# -- 1a. IDR has completed -- #'
@@ -468,7 +492,7 @@ echo '#SBATCH -p tgac-short # partition (queue)' >> 1bB.FRIPok.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1bB.FRIPok.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1bB.FRIPok.sh
 echo '#SBATCH --mem-per-cpu 1000' >> 1bB.FRIPok.sh
-echo '#SBATCH -t 0-00:05' >> 1bB.FRIPok.sh
+echo '#SBATCH -t 0-00:10' >> 1bB.FRIPok.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1bB.FRIPok.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 1bB.FRIPok.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1bB.FRIPok.sh
@@ -512,46 +536,113 @@ rm $FRIP.temp
   # This means that the flanks should start at 1, and if there is high read signal at transcription start sites (highly open regions of the genome) there should be an increase in signal up to a peak in the middle.
   # We take the signal value at the center of the distribution after this normalization as our TSS enrichment metric.
 
-# 	2b. Fraction of Reads in annotated regions
+# 	2b. Fraction of Reads in annotated regions - TO DO
 
-######################## TESTING (as of 28/07/2020 - errors running Rscripts using installed R-4.0.2 (maybe problem with wrapper?!?)) ####################################
-## To do:
+#### Emailed CiS on 28/08/2020 to install R-4.0.2 with the required packages - they have done this: source /ei/software/staging/CISSUPPORT-11716/stagingloader
+## Installed the following packages in R-4.0.2: "RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","DiffBind", "DESeq2", "motifbreakR"
 
-annotdir=($scripts/2.Annotation) # assign raw reads dir
+
 mkdir -p $annotdir
 cd $annotdir
 
-# 0. USE ATACSEQQC HERE (ensure input BAM is indexed) TO 1) CREATE A SHIFTED BAM, AND 2) RUN TSS ENRICHMENT
 
-## For ATACseqQC we need to use BSgenome objects
-## Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
+## 2a. Use ATACseqQC here (ensure input BAM is indexed) TO 1) CREATE A SHIFTED BAM, AND 2) RUN TSS ENRICHMENT
+# For ATACseqQC we need to use BSgenome objects: Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
 
-## UPDATE THIS FOR SPLITTING GENOMES - ADD VARIABLES FOR GENOMES SO THAT THEY CAN BE CHANGED AT TOP
-## ADD NOTE: ensure input FASTA has only a short header e.g. >chr1 or >scaffold001 etc.
-mkdir Ab_splitfasta
-cd Ab_splitfasta
-aburgen=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/dna)
-aburgtf=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/current_gtf)
+## 2aA. Split a genome fasta into multiple .fa files (one for each scaffold)
+
+# Create a file with col1 as species id and col2 as the input genome fasta to create a while loop for the genome split
+splitg=(splitgenomes.txt)
+echo -e "$speciesid1\t$FAMzg" >> $splitg
+echo -e "$speciesid2\t$FAPng" >> $splitg
+echo -e "$speciesid3\t$FAAbg" >> $splitg
+echo -e "$speciesid4\t$FANbg" >> $splitg
+echo -e "$speciesid5\t$FAOng" >> $splitg
+echo -e "$speciesid6\t$FAAcg" >> $splitg
+
+while read -r i1 i2; do
+  mkdir $annotdir/$i1
+  cd $annotdir/$i1
+  awk -F "|" '/^>/ {close(F) ; F = substr($1,2,length($1)-1)".fa"} {print >> F}' $i2
+done < $splitg # this while loop will make the species dirs, change into them and split the genome fasta by chr
 
 
-# 1. Split a genome fasta into multiple .fa files (one for each scaffold)
-awk -F "|" '/^>/ {close(F) ; F = substr($1,2,length($1)-1)".fa"} {print >> F}' $aburgen/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
+## 2aB. Prepare the seedfiles to forge a BSgenome data package
+cd $annotdir
 
-
-# 2. Prepare the seedfiles to forge a BSgenome data package
-cd ../
-
-## THIS ALL NEEDS UPDATING WITH SPECIES AND CORRECT DIRS (BSsp1i - using variables FOR SPLIT FASTA folder)
-BSsp1a='Abur' # BSgenome package ID part 1
-BSsp1b='AstBur1.0' # BSgenome package ID part 2
-BSsp1c='Astatotilapia burtoni' # Species name
-BSsp1d='1.0' # Assembly version
+### DO NOT MOVE THESE BS GENOME VARIABLES TO THE TOP AS IT NEEDS FILES RAN ABOVE
+BSsp1a='Mzeb' # BSgenome package ID part 1
+BSsp1b='M_zebra_UMD2a' # BSgenome package ID part 2
+BSsp1c='Maylandia zebra' # Species name
+BSsp1d='UMD2a' # Assembly version
 BSsp1e='Ensembl' # Genome provider
-BSsp1f='Dec. 2011' # Release date
-BSsp1g='ftp://ftp.ensembl.org/pub/current_fasta/haplochromis_burtoni' # Source URL
-BSsp1h='Astatotilapia_burtoni' # Species_biocview
-BSsp1i=`echo "paste(c($(echo Ab_splitfasta/*.fa | sed 's/Ab_splitfasta\///g' | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
-BSsp1j='/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/2.Annotation/Ab_splitfasta' # sequences dir
+BSsp1f='Apr. 2018' # Release date
+BSsp1g='ftp://ftp.ensembl.org/pub/current_fasta/maylandia_zebra' # Source URL
+BSsp1h='Maylandia_zebra' # Species_biocview
+BSsp1i=`echo "paste(c($(echo ${speciesid1}_splitfasta/*.fa | sed "s/${speciesid1}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp1j="$annotdir/$speciesid1" # sequences dir
+
+BSsp2a='Pnye' # BSgenome package ID part 1
+BSsp2b='PunNye1.0' # BSgenome package ID part 2
+BSsp2c='Pundamilia nyererei' # Species name
+BSsp2d='1.0' # Assembly version
+BSsp2e='Ensembl' # Genome provider
+BSsp2f='Dec. 2011' # Release date
+BSsp2g='ftp://ftp.ensembl.org/pub/current_fasta/pundamilia_nyererei' # Source URL
+BSsp2h='Pundamilia_nyererei' # Species_biocview
+BSsp2i=`echo "paste(c($(echo ${speciesid2}_splitfasta/*.fa | sed "s/${speciesid2}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp2j="$annotdir/$speciesid2" # sequences dir
+
+BSsp3a='Abur' # BSgenome package ID part 1
+BSsp3b='AstBur1.0' # BSgenome package ID part 2
+BSsp3c='Astatotilapia burtoni' # Species name
+BSsp3d='1.0' # Assembly version
+BSsp3e='Ensembl' # Genome provider
+BSsp3f='Dec. 2011' # Release date
+BSsp3g='ftp://ftp.ensembl.org/pub/current_fasta/haplochromis_burtoni' # Source URL
+BSsp3h='Astatotilapia_burtoni' # Species_biocview
+BSsp3i=`echo "paste(c($(echo ${speciesid3}_splitfasta/*.fa | sed "s/${speciesid3}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp3j="$annotdir/$speciesid3" # sequences dir
+
+BSsp4a='Nbri' # BSgenome package ID part 1
+BSsp4b='NeoBri1.0' # BSgenome package ID part 2
+BSsp4c='Neolamprologus brichardi' # Species name
+BSsp4d='1.0' # Assembly version
+BSsp4e='Ensembl' # Genome provider
+BSsp4f='Dec. 2011' # Release date
+BSsp4g='ftp://ftp.ensembl.org/pub/current_fasta/neolamprologus_brichardi' # Source URL
+BSsp4h='Neolamprologus_brichardi' # Species_biocview
+BSsp4i=`echo "paste(c($(echo ${speciesid4}_splitfasta/*.fa | sed "s/${speciesid4}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp4j="$annotdir/$speciesid4" # sequences dir
+
+BSsp5a='Onil' # BSgenome package ID part 1
+BSsp5b='O_niloticus_UMD_NMBU' # BSgenome package ID part 2
+BSsp5c='Oreochromis niloticus' # Species name
+BSsp5d='UMD_NMBU' # Assembly version
+BSsp5e='Ensembl' # Genome provider
+BSsp5f='Jun. 2018' # Release date
+BSsp5g='ftp://ftp.ensembl.org/pub/current_fasta/oreochromis_niloticus' # Source URL
+BSsp5h='Oreochromis_niloticus' # Species_biocview
+BSsp5i=`echo "paste(c($(echo ${speciesid5}_splitfasta/*.fa | sed "s/${speciesid5}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp5j="$annotdir/$speciesid5" # sequences dir
+
+BSsp6a='Acal' # BSgenome package ID part 1
+BSsp6b='fAstCal1.2' # BSgenome package ID part 2
+BSsp6c='Astatotilapia calliptera' # Species name
+BSsp6d='1.2' # Assembly version
+BSsp6e='Ensembl' # Genome provider
+BSsp6f='Jul. 2018' # Release date
+BSsp6g='ftp://ftp.ensembl.org/pub/current_fasta/astatotilapia_calliptera' # Source URL
+BSsp6h='Astatotilapia_calliptera' # Species_biocview
+BSsp6i=`echo "paste(c($(echo ${speciesid6}_splitfasta/*.fa | sed "s/${speciesid6}_splitfasta\///g" | sed 's/.fa//g' | tr '\n' ' ' | sed 's/^/"/g' | sed 's/$/"/g' | sed 's/ /", "/g' | sed 's|, ""||g')))"` # an R expression for all the sequence names e.g. paste("chr", c(1:20, "X", "M", "Un", paste(c(1:20, "X", "Un"), "_random", sep="")), sep="")
+BSsp6j="$annotdir/$speciesid6" # sequences dir
+
+speciesBSgenome1=BSgenome.Mzeb.Ensembl.M_zebra_UMD2a
+speciesBSgenome2=BSgenome.Pnye.Ensembl.PunNye1.0
+speciesBSgenome3=BSgenome.Abur.Ensembl.AstBur1.0
+speciesBSgenome4=BSgenome.Nbri.Ensembl.NeoBri1.0
+speciesBSgenome5=BSgenome.Onil.Ensembl.O_niloticus_UMD_NMBU
+speciesBSgenome6=BSgenome.Acal.Ensembl.fAstCal1.2
 
 echo "Package: BSgenome.$BSsp1a.$BSsp1e.$BSsp1b" > $BSsp1b.seedfile
 echo "Title: Full genome sequences for $BSsp1c (version $BSsp1b)" >> $BSsp1b.seedfile
@@ -568,30 +659,271 @@ echo "organism_biocview: $BSsp1h" >> $BSsp1b.seedfile
 echo "BSgenomeObjname: $BSsp1a" >> $BSsp1b.seedfile
 echo "seqnames: $BSsp1i" >> $BSsp1b.seedfile
 echo "seqs_srcdir: $BSsp1j" >> $BSsp1b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp1a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp1a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp1b'.seedfile")' >> ${BSsp1a}_forgeBSgenome.R
 
-echo '#BiocManager::install("BSgenome")' > forgeBSgenome.R
-echo 'library("BSgenome")' >> forgeBSgenome.R
-echo 'forgeBSgenomeDataPkg("'$BSsp1b'.seedfile")' >> forgeBSgenome.R # forgeBSgenomeDataPkg("AstBur1.0.seedfile")
+echo "Package: BSgenome.$BSsp2a.$BSsp2e.$BSsp2b" > $BSsp2b.seedfile
+echo "Title: Full genome sequences for $BSsp2c (version $BSsp2b)" >> $BSsp2b.seedfile
+echo "Description: Full genome sequences for $BSsp2c as provided by $BSsp2e ($BSsp2b, $BSsp2f) and stored in Biostrings objects." >> $BSsp2b.seedfile
+echo "Version: $BSsp2d" >> $BSsp2b.seedfile
+echo "organism: $BSsp2c" >> $BSsp2b.seedfile
+echo "common_name: $BSsp2c" >> $BSsp2b.seedfile
+echo "provider: $BSsp2e" >> $BSsp2b.seedfile
+echo "provider_version: $BSsp2b" >> $BSsp2b.seedfile
+echo "release_date: $BSsp2f" >> $BSsp2b.seedfile
+echo "release_name: $BSsp2b" >> $BSsp2b.seedfile
+echo "source_url: $BSsp2g" >> $BSsp2b.seedfile
+echo "organism_biocview: $BSsp2h" >> $BSsp2b.seedfile
+echo "BSgenomeObjname: $BSsp2a" >> $BSsp2b.seedfile
+echo "seqnames: $BSsp2i" >> $BSsp2b.seedfile
+echo "seqs_srcdir: $BSsp2j" >> $BSsp2b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp2a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp2a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp2b'.seedfile")' >> ${BSsp2a}_forgeBSgenome.R
 
-# NOTE: Installed own version of R-4.0.2 with specific modules on the HPC required to run ATACseqQC
-source R-4.0.2
+echo "Package: BSgenome.$BSsp3a.$BSsp3e.$BSsp3b" > $BSsp3b.seedfile
+echo "Title: Full genome sequences for $BSsp3c (version $BSsp3b)" >> $BSsp3b.seedfile
+echo "Description: Full genome sequences for $BSsp3c as provided by $BSsp3e ($BSsp3b, $BSsp3f) and stored in Biostrings objects." >> $BSsp3b.seedfile
+echo "Version: $BSsp3d" >> $BSsp3b.seedfile
+echo "organism: $BSsp3c" >> $BSsp3b.seedfile
+echo "common_name: $BSsp3c" >> $BSsp3b.seedfile
+echo "provider: $BSsp3e" >> $BSsp3b.seedfile
+echo "provider_version: $BSsp3b" >> $BSsp3b.seedfile
+echo "release_date: $BSsp3f" >> $BSsp3b.seedfile
+echo "release_name: $BSsp3b" >> $BSsp3b.seedfile
+echo "source_url: $BSsp3g" >> $BSsp3b.seedfile
+echo "organism_biocview: $BSsp3h" >> $BSsp3b.seedfile
+echo "BSgenomeObjname: $BSsp3a" >> $BSsp3b.seedfile
+echo "seqnames: $BSsp3i" >> $BSsp3b.seedfile
+echo "seqs_srcdir: $BSsp3j" >> $BSsp3b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp3a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp3a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp3b'.seedfile")' >> ${BSsp3a}_forgeBSgenome.R
 
-Rscript forgeBSgenome.R # this will forge the BS genome required to run ATACseqQC
-######## NOTE: AS OF 28/07/2020 the above is not working and must a problem with your R-4.0.2 installation. When you load R and run the forgeBSgenome code, it works but is not able to pass from command line (so currently useless!)
-## also tried: Rscript forgeBSgenome.R > forgeBSgenome.Rout; R --no-save < forgeBSgenome.R - these don't work either and in some cases just load R
-## wonder if it is related to the shell executable wrapper - look at (which looks very different) /tgac/software/testing/R/3.6.2_jdv/x86_64/bin/R
-## that looks completely different and has command line options e.g. R --help does not work for you.
-## Consider installing local one again?!?! Rememebr, ml gcc, ml zlib
+echo "Package: BSgenome.$BSsp4a.$BSsp4e.$BSsp4b" > $BSsp4b.seedfile
+echo "Title: Full genome sequences for $BSsp4c (version $BSsp4b)" >> $BSsp4b.seedfile
+echo "Description: Full genome sequences for $BSsp4c as provided by $BSsp4e ($BSsp4b, $BSsp4f) and stored in Biostrings objects." >> $BSsp4b.seedfile
+echo "Version: $BSsp4d" >> $BSsp4b.seedfile
+echo "organism: $BSsp4c" >> $BSsp4b.seedfile
+echo "common_name: $BSsp4c" >> $BSsp4b.seedfile
+echo "provider: $BSsp4e" >> $BSsp4b.seedfile
+echo "provider_version: $BSsp4b" >> $BSsp4b.seedfile
+echo "release_date: $BSsp4f" >> $BSsp4b.seedfile
+echo "release_name: $BSsp4b" >> $BSsp4b.seedfile
+echo "source_url: $BSsp4g" >> $BSsp4b.seedfile
+echo "organism_biocview: $BSsp4h" >> $BSsp4b.seedfile
+echo "BSgenomeObjname: $BSsp4a" >> $BSsp4b.seedfile
+echo "seqnames: $BSsp4i" >> $BSsp4b.seedfile
+echo "seqs_srcdir: $BSsp4j" >> $BSsp4b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp4a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp4a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp4b'.seedfile")' >> ${BSsp4a}_forgeBSgenome.R
+
+echo "Package: BSgenome.$BSsp5a.$BSsp5e.$BSsp5b" > $BSsp5b.seedfile
+echo "Title: Full genome sequences for $BSsp5c (version $BSsp5b)" >> $BSsp5b.seedfile
+echo "Description: Full genome sequences for $BSsp5c as provided by $BSsp5e ($BSsp5b, $BSsp5f) and stored in Biostrings objects." >> $BSsp5b.seedfile
+echo "Version: $BSsp5d" >> $BSsp5b.seedfile
+echo "organism: $BSsp5c" >> $BSsp5b.seedfile
+echo "common_name: $BSsp5c" >> $BSsp5b.seedfile
+echo "provider: $BSsp5e" >> $BSsp5b.seedfile
+echo "provider_version: $BSsp5b" >> $BSsp5b.seedfile
+echo "release_date: $BSsp5f" >> $BSsp5b.seedfile
+echo "release_name: $BSsp5b" >> $BSsp5b.seedfile
+echo "source_url: $BSsp5g" >> $BSsp5b.seedfile
+echo "organism_biocview: $BSsp5h" >> $BSsp5b.seedfile
+echo "BSgenomeObjname: $BSsp5a" >> $BSsp5b.seedfile
+echo "seqnames: $BSsp5i" >> $BSsp5b.seedfile
+echo "seqs_srcdir: $BSsp5j" >> $BSsp5b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp5a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp5a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp5b'.seedfile")' >> ${BSsp5a}_forgeBSgenome.R
+
+echo "Package: BSgenome.$BSsp6a.$BSsp6e.$BSsp6b" > $BSsp6b.seedfile
+echo "Title: Full genome sequences for $BSsp6c (version $BSsp6b)" >> $BSsp6b.seedfile
+echo "Description: Full genome sequences for $BSsp6c as provided by $BSsp6e ($BSsp6b, $BSsp6f) and stored in Biostrings objects." >> $BSsp6b.seedfile
+echo "Version: $BSsp6d" >> $BSsp6b.seedfile
+echo "organism: $BSsp6c" >> $BSsp6b.seedfile
+echo "common_name: $BSsp6c" >> $BSsp6b.seedfile
+echo "provider: $BSsp6e" >> $BSsp6b.seedfile
+echo "provider_version: $BSsp6b" >> $BSsp6b.seedfile
+echo "release_date: $BSsp6f" >> $BSsp6b.seedfile
+echo "release_name: $BSsp6b" >> $BSsp6b.seedfile
+echo "source_url: $BSsp6g" >> $BSsp6b.seedfile
+echo "organism_biocview: $BSsp6h" >> $BSsp6b.seedfile
+echo "BSgenomeObjname: $BSsp6a" >> $BSsp6b.seedfile
+echo "seqnames: $BSsp6i" >> $BSsp6b.seedfile
+echo "seqs_srcdir: $BSsp6j" >> $BSsp6b.seedfile
+echo '#BiocManager::install("BSgenome")' > ${BSsp6a}_forgeBSgenome.R
+echo 'library("BSgenome")' >> ${BSsp6a}_forgeBSgenome.R
+echo 'forgeBSgenomeDataPkg("'$BSsp6b'.seedfile")' >> ${BSsp6a}_forgeBSgenome.R
+
+# 2aBa. Forge BS genomes
+spnumber=6 # input the total number of species for ceating BS genomes
+spnumberarray=$(expr $spnumber - 1)
+
+echo "#!/bin/bash -e" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -p tgac-medium # partition (queue)" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -N 1 # number of nodes" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -n 1 # number of tasks" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH --array=0-$spnumberarray" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH --mem-per-cpu 24000" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -t 0-03:59" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> 2aBa.forgeBSgenomes.sh
+printf '\n' >> 2aBa.forgeBSgenomes.sh
+echo "source pcre2-10.23" >> 2aBa.forgeBSgenomes.sh
+echo "source /ei/software/staging/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBa.forgeBSgenomes.sh
+printf '\n' >> 2aBa.forgeBSgenomes.sh
+echo "ls -1 *_forgeBSgenome.R > bsgenomes # create a list of all bsgenomes Rscript files" >> 2aBa.forgeBSgenomes.sh
+echo 'mapfile -t bsgenomes < bsgenomes # assign as elements to $bsgenomes variable' >> 2aBa.forgeBSgenomes.sh
+printf '\n' >> 2aBa.forgeBSgenomes.sh
+echo 'Rscript ${bsgenomes[${SLURM_ARRAY_TASK_ID}]} # this will forge the BS genome required to run ATACseqQC' >> 2aBa.forgeBSgenomes.sh
+
+echo '# -- 1b. FRiP calculation has completed -- #'
+
+echo '# -- 2aBa. Peak annotation has started: forging BSgenomes-- #'
+
+JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 2aBa.forgeBSgenomes.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+
+
+# 2aBb. Build and install BS genomes
+
+echo "$speciesBSgenome1" >> speciesBSgenomeIDs
+echo "$speciesBSgenome2" >> speciesBSgenomeIDs
+echo "$speciesBSgenome3" >> speciesBSgenomeIDs
+echo "$speciesBSgenome4" >> speciesBSgenomeIDs
+echo "$speciesBSgenome5" >> speciesBSgenomeIDs
+echo "$speciesBSgenome6" >> speciesBSgenomeIDs
+
+echo "#!/bin/bash -e" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -p tgac-medium # partition (queue)" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -N 1 # number of nodes" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -n 1 # number of tasks" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH --array=0-$spnumberarray" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH --mem-per-cpu 24000" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -t 0-04:59" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> 2aBb.buildBSgenomes.sh
+printf '\n' >> 2aBb.buildBSgenomes.sh
+echo "source pcre2-10.23" >> 2aBb.buildBSgenomes.sh
+echo "source /ei/software/staging/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBb.buildBSgenomes.sh
+printf '\n' >> 2aBb.buildBSgenomes.sh
+echo 'mapfile -t bsgenomesIDs < speciesBSgenomeIDs' >> 2aBb.buildBSgenomes.sh
+printf '\n' >> 2aBb.buildBSgenomes.sh
+echo 'R CMD build ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will build the BSgenome' >> 2aBb.buildBSgenomes.sh
+echo 'R CMD check ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will check the package' >> 2aBb.buildBSgenomes.sh
+echo 'R CMD INSTALL ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will install the package for loading' >> 2aBb.buildBSgenomes.sh
+
+
+echo '# -- 2aBa. Peak annotation has started: forging BSgenomes has completed -- #'
+
+echo '# -- 2aBb. Peak annotation has started: building BSgenomes -- #'
+
+JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2aBb.buildBSgenomes.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+
+# 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
+
+# TO DO: CREATE A WHILE LOOP TO RUN FOR EACH SAMPLE AND IT'S GENOME -
+# You need to maintain job dependencies so:
+  # THROW THIS AS AN ECHO INTO A SEPARATE SBATCH SCRIPT with a long time
+
+# mkdir -p $annotdir/Ab5_L
+# Input (-i) will be nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file
+# Rscript $atacqcscript -i Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam -g $annotAbg -s $annotdir/Ab5_L -p Ab5_L_1-PTscore.tiff -n Ab5_L_2-NFRscore.tiff -b BSgenome.Abur.Ensembl.AstBur1.0 -t Ab5_L_3-TSSscore.txt -c Ab5_L_4-cumulativepercscore.tiff -h Ab5_L_5-logtransformedTSSsignalheatmap.tiff -r Ab5_L_6-rescaledTSSsignal.tiff
+
+echo "#!/bin/bash -e" >> $atacqcscript2
+echo "#SBATCH -p tgac-medium # partition (queue)" >> $atacqcscript2
+echo "#SBATCH -N 1 # number of nodes" >> $atacqcscript2
+echo "#SBATCH -n 1 # number of tasks" >> $atacqcscript2
+echo "#SBATCH --mem-per-cpu 60000" >> $atacqcscript2
+echo "#SBATCH -t 1-23:59" >> $atacqcscript2
+echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $atacqcscript2
+echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $atacqcscript2
+echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $atacqcscript2
+echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $atacqcscript2
+printf '\n' >> $atacqcscript2
+echo -e 'while read -r i1 i2; do' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotMzg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome1' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotPng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome2' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome3' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotNbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome4' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotOng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome5' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $atacqcscript2
+echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAcg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome6' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
+echo -e '\tfi' >> $atacqcscript2
+"done < $prefixATAC2" # this while loop will run ATAC script in each ATAC folder
 
 
 
-R CMD build BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b} # this will build the BSgenome
-R CMD check BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b}_${BSsp1d}.tar.gz # this will check the package
-R CMD INSTALL BSgenome.${BSsp1a}.${BSsp1e}.${BSsp1b}_${BSsp1d}.tar.gz # this will install the package for loading
 
-mkdir -p $annotdir/Ab5_L
+# while read -r i1 i2; do
+#   if [[ "$i1" == "$speciesid1" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotMzg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome1 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+#   if [[ "$i1" == "$speciesid2" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotPng -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome2 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+#   if [[ "$i1" == "$speciesid3" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAbg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome3 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+#   if [[ "$i1" == "$speciesid4" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotNbg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome4 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+#   if [[ "$i1" == "$speciesid5" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotOng -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome5 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+#   if [[ "$i1" == "$speciesid6" ]]; then
+#     mkdir $annotdir/$i2
+#     cd $WD/$i2
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAcg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome6 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#   fi
+# done < $prefixATAC2 # this while loop will run ATAC script in each ATAC folder
 
-Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam -g Haplochromis_burtoni.AstBur1.0.100.gtf -s $annotdir/Ab5_L -p Ab5_L_1-PTscore.tiff -n Ab5_L_2-NFRscore.tiff -b BSgenome.Abur.Ensembl.AstBur1.0 -t Ab5_L_3-TSSscore.txt -c Ab5_L_4-cumulativepercscore.tiff -h Ab5_L_5-logtransformedTSSsignalheatmap.tiff -r Ab5_L_6-rescaledTSSsignal.tiff
+echo '# -- 2aBb. Peak annotation has started: building BSgenomes has completed -- #'
+
+echo '# -- 2aBc. Peak annotation has started: running ATACseqQC -- #'
+
+JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} XX | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
+
 
 # make_option(c("-i", "--input"), action="store", default=NA, type='character',
 #             help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
@@ -614,217 +946,20 @@ Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i Ab5_L_ATAC.nochrM.nodup.filt.sorted
 # make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
 #             help="output *.tiff filename for rescaled signal around TSSs")
 
-###############
-
-
-
-
-
-## IGNORE this and DELETE once ATACseqQC works
-# 1. check script from point 8 to 9
-# 2. if that is ok, then test plotting with old python script/s
-# 3. if that works then great, if not, look at other ideas: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1929-3
-  # A. TSS plotting - look at the script employed in ATACseqQC - R script in bioconductor
-  # B. check out whether YOU NEED TO SPLIT READS INTO NUCLEOSOME-FREE, MONOBOUND ETC. - LOOK AT atacseqQC?!?!
-# 4. Change the whole thing so that it can be run for each species tissues (while loop?) and echo into SBATCH script
-
-
-annotdir=($scripts/2.Annotation) # assign raw reads dir
-mkdir -p $annotdir
-cd $annotdir
-
-peakcall=($WD/5.peak_calling) # ATAC peak calling directory
-
-## THESE VARIABLES WILL NEED UPDATING SO THAT THEY ARE NOT SPECIES SPECIFIC - use a while loop
-spG=Ab
-Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
-FAAbg=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
-Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
-Abgchr2=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes.v2
-annotAbg=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf
-AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
-# AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_RefSeq.bed
-Abggenaltsv=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.tsv
-Abggenal=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.genealias.txt
-
-genebedtss=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.bed/') # BED file of protein coding genes with TSS +/- 1kb
-genebedtss2=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed/') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
-genebedtss2saf=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed.saf/') # SAF file of above
-genebedtss3=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.flanks_100_up_down.bed/') # BED file of protein coding genes with TSS 100bp -/+ regions (with the exclusion of the TSS region)
-genebedtss3saf=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.flanks_100_up_down.bed.saf/') # SAF file of above
-
-
-inbam=$tffprdir/Ab5_L_ATAC.nochrM.nodup.filt.sorted.bam # DONT USE THIS BAM BUT USE A SHIFTED BAM INSTEAD
-
-###### DELETE ALL OF SUPRESSED BELOW IF ATACSEQQC WORKS
-# source bedops-2.4.28
-#
-# # 1. Create a suitable scaffold length boundaries of input genome assembly (col1=scaff; col2=0; col3=scaffold_length)
-# awk '{print $1,"0",$2}' $Abgchr > $Abgchr2
-#
-# # case $annotAbg in
-# #   *.gtf.gz) gunzip -c $annotAbg | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # gzipped GTF > 0-based BED of protein_coding
-# #   *.gtf) awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # unzipped GTF > 0-based BED of protein_coding
-# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annotAbg > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# # esac
-#
-# # 2. Split gene regions by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)
-# awk '($6 == "+") { print $0 }' $AbggenGC | awk 'BEGIN{ OFS="\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }' > $(basename "$AbggenGC" _Gencode.bed)_ensembl.tss.for.padded.bed
-# awk '($6 == "-") { print $0 }' $AbggenGC | awk 'BEGIN{ OFS="\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }' > $(basename "$AbggenGC" _Gencode.bed)_ensembl.tss.rev.padded.bed
-# bedops --everything $(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.for.padded.bed/') $(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.rev.padded.bed/') > $genebedtss
-#
-# # 3. Keep only TSS regions within chromosomal bounds
-# bedops --element-of 100% $genebedtss $Abgchr2 > $genebedtss2
-#
-# # 4. Convert to SAF
-# awk 'BEGIN{FS=OFS="\t"; print "GeneID\tChr\tStart\tEnd\tStrand"}{print $4, $1, $2+1, $3, $6}' $genebedtss2 > $genebedtss2saf
-#
-# # 5. Count reads using FeatureCounts and record number of successful alignments to the TSS
-# source subread-1.6.0
-#
-# featureCounts -T 6 -a $genebedtss2saf -F SAF -o $(echo $(basename $inbam) | sed -e 's/.bam/.TSS.readCountInPeaks.txt/') $inbam
-#
-# # Second part is to do the same thing but on different regions (100bp -/+ of TSS regions)
-# # 6. Use flank from bedtools to get these 100bp -/+ regions (with the exclusion of the TSS region)
-# ml bedtools/2.25.0
-# bedtools flank -i $genebedtss2 -g $Abgchr -b 100 > $genebedtss3
-#
-# # 7. Convert to SAF file
-# awk 'BEGIN{FS=OFS="\t"; print "GeneID\tChr\tStart\tEnd\tStrand"}{print $4, $1, $2+1, $3, $6}' $genebedtss3 > $genebedtss3saf
-#
-# # 8. Count reads using FeatureCounts and record number of successful alignments to the 100bp -/+
-# # THIS ONE IS THROWING OUT AN ERROR - still doesn't work when reducing to 2bp flanks?!?!
-# # Is the problem that there is +/- for each gene so two entries for each?!?!
-# # LOOK UP THE ACTUAL TSS CALCULATION - maybe this is wrong and 100bp +/- is not required
-# # featureCounts: readSummary.c:1169: register_reverse_table: Assertion `this_block_min_start <= this_block_max_end' failed.
-# featureCounts -T 6 -a $genebedtss3saf -F SAF -o $(echo $(basename $inbam) | sed -e 's/.bam/.TSS100bp.readCountInPeaks.txt/') $inbam
-#
-# # 9. To get TSS Enrichment score divide total number of successful alignments to the TSS by total number of successful alignments to the 100bp -/+
-# tsscount=$(grep 'Assigned' $(echo $(basename $inbam) | sed -e 's/.bam/.TSS.readCountInPeaks.txt.summary/') | cut -f2)
-# tss100count=$(grep 'Assigned' $(echo $(basename $inbam) | sed -e 's/.bam/.TSS100bp.readCountInPeaks.txt.summary/') | cut -f2)
-# tssenrich=`expr $tsscount / $tss100count`
-#
-# # 10. Write out the TSS enrichment scores
-# # Transcription start site (TSS) enrichment values are dependent on the reference files used; cutoff values for high quality data are listed below.
-# # GRCh38 Refseq TSS annotation
-# #     below 5: Concerning
-# #     5 - 7: Acceptable
-# #     Above 7: Ideal
-# tssenrichmentscores=($annotdir/TSSenrichmentscores.txt)
-# echo -e "$(echo $(basename $inbam) | sed -e 's/.nochrM.nodup.filt.sorted.bam//')\t$(echo $tssenrich)" >> $tssenrichmentscores.tmp
-# awk '{if($2 < 5)print $1, $2, "Concerning";if($2 > 7)print $1, $2, "Ideal"; else print $1, $2, "Acceptable";}' OFS='\t' $tssenrichmentscores.tmp > $tssenrichmentscores
-# rm $tssenrichmentscores.tmp
-#
-# # 11.
-#
-# ### HAVE A LOOK AT THE NOTES NEAR THE END OF THE testrun.sh SCRIPT FOR OTHER IDEAS ON PLOTTING ETC.
-# # 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py
-# python3 /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/ATAC_Bioinf_pipeline_v2b_part5bD-a.py /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab5_L_ATAC/0.rawreads/PRO1563_S1_lib_CAGAATGC-GAACTGAG_L001_R1.fastq.merged.gz # input fastq can be native or gzipped
-#
-# nano test_TSSplot.sh
-#
-# #!/bin/bash -e
-# #SBATCH -p ei-largemem # partition (queue)
-# #SBATCH -N 1 # number of nodes
-# #SBATCH -c 2 # number of cores
-# #SBATCH --mem 512GB # memory pool for all cores
-# #SBATCH -o slurm.%N.%j.out # STDOUT
-# #SBATCH -e slurm.%N.%j.err # STDERR
-# #SBATCH --mail-type=ALL # notifications for job done & fail
-# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
-#
-# ml bedtools/2.25.0
-# ml GCC
-# ml zlib
-#
-# spG=Ab
-# spID=Ab5_L_ATAC
-# Abg=(/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni)
-# AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.generegions_Gencode.bed
-#
-# genebedtss=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.bed/') # BED file of protein coding genes with TSS +/- 1kb
-# genebedtss2=$annotdir/$(echo $(basename $AbggenGC) | sed -e 's/_Gencode.bed/_ensembl.tss.padded.filt.bed/') # BED file of protein coding genes with TSS +/- 1kb and filtered for any out of bound genes
-# Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
-# read_len=($rawreaddir/*_read_length.txt)
-# Test1=$tffprdir/$spID'.nochrM.nodup.filt.sorted.bam'
-#
-# # python $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen
-# #
-# #
-# # # subsample the BAM file (to make it smaller) and test the python script
-# ml samtools/1.3
-# Test2=$filtdir/$spID'.nochrM.nodup.filt.subsample.bam'
-# # samtools view -s 0.05 -b $Test1 > $Test2
-# python $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test2 $genebedtss2 $spID $read_len $Abgchr
-#
-#
-# ###### THIS IS THE OLD SCRIPT
-# echo '# 3a. TSS enrichment plotting' >> 5.peakcall.sh
-# # echo '# This calls two python scripts - make sure they are in $scripts' >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# echo '# create a 2kb window around TSS (+/- 1kb) bed file e.g.' >> 5.peakcall.sh
-# echo '# chr1	134210701	134214701	+' >> 5.peakcall.sh
-# echo '# chr1	33724603	33728603	-' >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# echo '# 3aA. Protein-coding genes GTF > BED: variable $annot of gzipped GTF file (*gtf.gz); or 2) longest protein-coding gene annotations as 6-column BED: col1-scaff,col2-start,col3-end,col4-geneID,col5-XX,col6-strand' >> 5.peakcall.sh
-# echo '# output is genebed=($peakcall/$spG'_refGene.bed') defined as variable at top' >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# echo 'source bedops-2.4.28' >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# echo '# the below is for either one of your own gtf or bed files' >> 5.peakcall.sh
-# echo "case $annot in" >> 5.peakcall.sh # NOTE: FILES AREN'T ZIPPED ANYMORE!!
-# echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | grep 'protein_coding' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-# echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
-# echo "esac" >> 5.peakcall.sh
-# # below is for the old annotations that are a little odd
-# # echo "case $annot in" >> 5.peakcall.sh
-# # echo -e "\t*gtf.gz) gunzip -c $annot | awk 'OFS="'"\\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}'"' | tr -d '"'";'"' | awk '{print "'$1,$2,$3,$4,$5,$6}'"' OFS="'"\\t" > '"$genebed ;; # GTF > 0-based BED of protein_coding" >> 5.peakcall.sh
-# # echo -e "\t*.bed) awk '{"'print $1,$2,$3,$4,0,$6}'"' OFS="'"\\t"'" $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)" >> 5.peakcall.sh
-# # echo "esac" >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# # # below is the same as what is echoed above
-# # case $annot in
-# #   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# # esac
-# # # the below is for either a gtf file from ensembl etc. and your own bed file
-# # case $annot in
-# #   *gtf.gz) gunzip -c $annot | awk 'OFS="\t" {if ($3=="gene" || $3=="exon") {print $1,$4-1,$5,$10,0,$7,$18}}' | tr -d '";' | grep -wiF 'protein_coding' | awk '{print $1,$2,$3,$4,$5,$6}' OFS='\t' > $genebed ;; # GTF > 0-based BED of protein_coding
-# #   *.bed) awk '{print $1,$2,$3,$4,0,$6}' OFS='\t' $annot > $genebed ;; # BED format ONLY for my files that have six cols (where 6th col is strand)
-# # esac
-# echo '# 3aB. Then split them by strand and pad around the stranded-start position of the annotation (taking TSS +/- 1000=1kb)' >> 5.peakcall.sh
-# echo "awk '("'$6 == "+") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($2 > 1000){ print $1, ($2 - 1000), ($2 + 1000), $4, $5, $6  }'"' > $genebed.tss.for.padded.bed" >> 5.peakcall.sh
-# echo "awk '("'$6 == "-") { print $0 }'"' $genebed | awk 'BEGIN{ OFS="'"\t" }($3 > 1000){ print $1, ($3 - 1000), ($3 + 1000), $4, $5, $6  }'"' > $genebed.tss.rev.padded.bed" >> 5.peakcall.sh
-# echo "bedops --everything $genebed.tss.for.padded.bed $genebed.tss.rev.padded.bed > $genebedtss" >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# echo '# 3aC. Keep only TSS regions within chromosomal bounds - prep scaffold sizes file (col1=scaffoldID; col2=0; col3=length) from genome fasta' >> 5.peakcall.sh
-# echo 'bioawk -c fastx'" '{ print "'$name, length($seq) }'"' < $gFA | awk '{print "'$1,"0",$2}'"' OFS="'"\t" > '"$scafflen" >> 5.peakcall.sh
-# echo "bedops --element-of 100% $genebedtss $scafflen > $genebedtss2" >> 5.peakcall.sh
-# printf '\n' >> 5.peakcall.sh
-# # echo '# 5bD. Use final TSS (+/- 1kb) bed file as input to calculate TSS enrichment and plot with python script ATAC_Bioinf_pipeline_v2b_part5bD.py' >> 5.peakcall.sh
-# # echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD-a.py $fastqr1 # input fastq can be native or gzipped" >> 5.peakcall.sh
-# # echo "python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py $Test1 $genebedtss2 $spID $read_len $scafflen"' # usage: python3 $scripts/ATAC_Bioinf_pipeline_v2b_part5bD.py'" 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'" >> 5.peakcall.sh
-# # printf '\n' >> 5.peakcall.sh
-
-
-
-echo '# -- 1b. FRiP calculation has completed -- #'
-
-echo '# -- 2a. Peak annotation has started -- #'
-
-JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} XX.sh | awk '{print $4}' ) # JOB7 depends on JOB6-10 completing successfully
+# NEED TO ADD FRACTION OF READS IN ANNOTATE REGIONS SCRIPT Here
 
 echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
+
 
 ################################################################################################################
 
 ### 3. TF footprinting and creation of signal tracks
 
 ######### TO DO
-# 1. MOVE THIS AS POINT 3
-# 2. IN POINT 2 USING ATACSEQQC, CREATE A SHIFTED BAM AND USE THIS FOR FOOTPRINTING!!!!
-# 3. CHANGE ALL PATHS TO THE NEW BAM TO USE BELOW IN THIS SECTION!!
-# 4. Ensure all echo of started, completed and job numbers are ok
+# 0. Add A. calliptera using M. zebra motifs - add variables of A. calliptera at top if required
+# 1. IN POINT 2 USING ATACSEQQC, CREATE A SHIFTED BAM (this has been input as -s option > output is $annotdir/Ab5_L.shifted.bam) AND USE THIS FOR FOOTPRINTING!!!!
+# 2. CHANGE ALL PATHS TO THE NEW BAM TO USE BELOW IN THIS SECTION!!
+# 3. Ensure all echo of started, completed and job numbers are ok
 
 # Signal tracks are generated from BAM file (Raw) and bias corrected by HINT-ATAC
 # This is rolled in with TF footprinting using HINT-ATAC, see this: https://www.regulatory-genomics.org/hint/tutorial/
@@ -982,7 +1117,7 @@ echo '# -- 2b. Fraction of Reads in annotated regions has completed -- #'
 
 echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
 
-JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
+JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 
 
 # # while loop original placed in script above, and a while loop version of the longer version below
@@ -1521,7 +1656,7 @@ for Dfpsp in "${!fpsp@}"; do
   echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
-# scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2)
+# scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2)
 # ml samtools/1.7
 # # idrdir=($scripts/1.IDR)
 # idrdir=($scripts/idr_test) # THIS NEEDS CHANGING TO ABOVE PATH FOR FINAL SCRIPT

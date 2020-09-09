@@ -7,6 +7,9 @@
 # ----------------------------------------------------------------------------
 
 ## Quick start - install ATACseqQC and other packages
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+# BiocManager::install(version = "3.11")
 # library(BiocManager)
 # BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2"))
 
@@ -145,7 +148,7 @@ dev.off()
 
 # TSS enrichment score is a ratio between aggregate distribution of reads centered on TSSs and that flanking
 # the corresponding TSSs. TSS score = the depth of TSS (1000 bp each side) / the depth of end flanks (100bp each end).
-# TSS enrichment score is calculated according to the definition at [https://www.encodeproject.org/data-standards/terms/#enrichment](https://www.encodeproject.org/data-standards/terms/#enrichment). 
+# TSS enrichment score is calculated according to the definition at [https://www.encodeproject.org/data-standards/terms/#enrichment](https://www.encodeproject.org/data-standards/terms/#enrichment).
 # Transcription start site (TSS) enrichment values are dependent on the reference files used; cutoff values for high quality data are listed below and in the following table from [https://www.encodeproject.org/atac-seq/](https://www.encodeproject.org/atac-seq/).
 # # GRCh38 Refseq TSS annotation
 # #     below 5: Concerning
@@ -271,7 +274,7 @@ abline(v=seq(0, 100, by=10)+1, lty=2, col="gray")
 dev.off()
 
 # ## plot Footprints
-# 
+#
 # # ATAC-seq footprints infer factor occupancy genome-wide. The `factorFootprints`
 # # function uses `matchPWM` to predict the binding sites using the input position
 # # weight matrix (PWM).
@@ -281,8 +284,8 @@ dev.off()
 # # do not take the conservation (PhyloP) into consideration.
 # # `factorFootprints` function could also accept the
 # # binding sites as a GRanges object.
-# 
-# 
+#
+#
 # ## footprints e.g. CTCF
 # CTCF <- query(MotifDb, c("CTCF"))
 # CTCF <- as.list(CTCF)
@@ -291,7 +294,7 @@ dev.off()
 #                          genome=genome,
 #                          min.score="90%", seqlev=seqlev,
 #                          upstream=100, downstream=100)
-# 
+#
 # featureAlignedHeatmap(sigs$signal,
 #                       feature.gr=reCenterPeaks(sigs$bindingSites,
 #                                                width=200+width(sigs$bindingSites[1])),
@@ -300,8 +303,8 @@ dev.off()
 #                       n.tile=ncol(sigs$signal[[1]]))
 # sigs$spearman.correlation
 # sigs$Profile.segmentation
-# 
-# 
+#
+#
 # ### V-plot
 # # V-plot is a plot to visualize fragment midpoint vs length for a given transcription factors.
 # vp <- vPlot(shiftedBamfile, pfm=CTCF[[1]],
@@ -309,7 +312,7 @@ dev.off()
 #             upstream=200, downstream=200,
 #             ylim=c(30, 250), bandwidth=c(2, 1))
 # distanceDyad(vp, pch=20, cex=.5)
-# 
+#
 # # Plot correlations for multiple samples
 # path <- system.file("extdata", package="ATACseqQC", mustWork=TRUE)
 # bamfiles <- dir(path, "*.bam$", full.name=TRUE)

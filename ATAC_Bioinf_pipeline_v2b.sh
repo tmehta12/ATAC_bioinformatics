@@ -5,7 +5,7 @@
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
-#SBATCH -t 0-23:59 # time (D-HH:MM)
+#SBATCH -t 4-23:59 # time (D-HH:MM)
 #SBATCH -o slurm.%N.%j.out # STDOUT
 #SBATCH -e slurm.%N.%j.err # STDERR
 #SBATCH --mail-type=ALL # notifications for job done & fail
@@ -19,7 +19,7 @@
 ################################################################################################################
 
 # Script usage: ./ATAC_Bioinf_pipeline_v2b.sh -s "spID" -g "spG" -f "gFA" -m "mtID" -u "Usr" -a "annot"
-# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat -a M_zebra_UMD1.gtf
+# e.g. ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat -a M_zebra_UMD1.gtf.gz
 # Note: Script is adapted for SBATCH usage and uses gDNA controls (can be removed from peak calling step)
 
 ## Place this script and the following files in $WD (created in first script)
@@ -51,7 +51,7 @@
 # 	5b. TN5 shifting of tagaligns - shift reads +4 bp for the +strand and -5 bp for the -strand
 # 	5c. count-based peak calling using Poisson distribution - macs2
 #   5d. count-based peak calling using a program that considers properly paired, unpaired and secondary alignments (unlike MACS2) - Genrich
-#   5e. markov model based peak calling specific for ATAC-seq data - HMMRATAC
+#   5e. markov model based peak calling specific for ATAC-seq data - HMMRATAC (this is currently surpressed to run)
 # 6. bed to bigbed conversion for narrowpeaks - bedClip and bedToBigbed from ucsc_tools
 
 ################################################################################################################
@@ -103,8 +103,8 @@ echo "$annot"
 
 # All variables are added (and can be amended) here
 
-scripts=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
-WD=(/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/$spID) # insert the working directory
+scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
 ### 1. Trim adaptors and renaming
@@ -182,7 +182,7 @@ echo '#SBATCH -N 1 # number of nodes' >> 1a.trimadaptors.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1a.trimadaptors.sh
 echo "#SBATCH --array=$trimarray" >> 1a.trimadaptors.sh
 echo '#SBATCH --mem-per-cpu 24000' >> 1a.trimadaptors.sh
-echo '#SBATCH -t 0-14:59' >> 1a.trimadaptors.sh
+echo '#SBATCH -t 1-23:59' >> 1a.trimadaptors.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1a.trimadaptors.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 1a.trimadaptors.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1a.trimadaptors.sh
@@ -423,7 +423,7 @@ echo 'fi' >> 3.mtfilt_fragcount_B.sh
 # ml blast/2.3.0
 # makeblastdb -in $gFA -parse_seqids -dbtype nucl # create a blast database of the genome assembly
 # # 3. blast the mitochondrial genomes against the assembly - output tabular format
-# blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignments 10 -max_hsps 20 -num_threads 5 -out Ab5_L_ATAC.genome_mt.blast -query /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab5_L_ATAC/3.Mtfilt_fragcnt/NC_027289.1.fasta # blast the mitochondrial genome against the input genome assembly, output tabular format
+# blastn -db $gFA -outfmt 6 -evalue 1e-3 -word_size 11 -show_gis -num_alignments 10 -max_hsps 20 -num_threads 5 -out Ab5_L_ATAC.genome_mt.blast -query /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Ab5_L_ATAC/3.Mtfilt_fragcnt/NC_027289.1.fasta # blast the mitochondrial genome against the input genome assembly, output tabular format
 # # 4. Python script: filter BLAST hits based on pident>=93 and evalue<=1e-10; then pident>75% according to BLAST hit and alignment length to mitochondrial genome
 # ml python/3.5
 # python $scripts/ATAC_Bioinf_pipeline_v2b_part3a.py $blstout $mtgen # output is stored as variable $mtscaff at top
@@ -489,6 +489,7 @@ JOBID6a=$( sbatch -W --dependency=afterok:${JOBID6} 3.mtfilt_fragcount_B_a.sh | 
 
 mkdir -p $filtdir
 cd $filtdir
+mkdir $filtdir/tmp
 
 echo '#!/bin/bash -e' > 4.postalign_filt.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
@@ -522,7 +523,7 @@ echo -e '\tnodup_filt_bam_file_mapstats=$(echo $bam_file | sed -e '"'s/.bam/.fla
 echo -e '\tpbc_file_qc=$(echo $bam_file | sed -e '"'s/.bam/.pbc.qc/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # library complexity" >> 4.postalign_filt.sh
 echo -e '\tnodup_filt_bam_file_sorted=$(echo $bam_file | sed -e '"'s/.bam/.srt.bam/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # final bam file, sorted (temp)" >> 4.postalign_filt.sh
 echo -e '\t# Filter reads' >> 4.postalign_filt.sh
-echo -e "\tsambamba sort -m 88G -t 1 -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
+echo -e "\tsambamba sort -m 88G -t 1 --tmpdir tmp -o "'$bam_file_sorted -u $bam_file' >> 4.postalign_filt.sh
 echo -e "\tsambamba markdup -l 0 -t 1 "'$bam_file_sorted '""'$bam_file_dup' >> 4.postalign_filt.sh
 echo -e "\tsamtools view -F 1804 -f 2 -q 30 -b "'$bam_file_dup > '""'$nodup_filt_bam_file' >> 4.postalign_filt.sh
 echo -e "\tsamtools index "'$nodup_filt_bam_file '""'$nodup_filt_bam_index_file' >> 4.postalign_filt.sh
@@ -574,7 +575,7 @@ echo '#!/bin/bash -e' > 5.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5.peakcall.sh
-echo '#SBATCH -t 0-04:59' >> 5.peakcall.sh
+echo '#SBATCH -t 0-10:59' >> 5.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5.peakcall.sh
@@ -634,7 +635,7 @@ echo '#!/bin/bash -e' > 5f.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
-echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
+echo '#SBATCH -t 0-07:59' >> 5f.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh

@@ -106,7 +106,7 @@ else:
         for line in ref_seqs:
             line = line.rstrip() #discard the newline at the end (if any)
             #distinguish header from sequence
-            if line[0]=='>': #or line.startswith('>')
+            if line.startswith('>'): #or line[0]=='>'
                 #it is the header
                 name = line[1:] #discarding the initial >
                 seqs[name] = ''
