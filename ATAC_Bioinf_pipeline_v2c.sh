@@ -23,6 +23,8 @@
 ## Place this script and the following files in $WD (created in first script)
 # 1. As used in './ATAC_Bioinf_pipeline_v2a.sh': a 2-column space-delimited table where col1='R1/R2 filename's col2='desired species renamed filename: species_tissue_experiment e.g. Mz_L_ATAC/gDNA'
 # 2. Scripts:
+  # ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py
+  # ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py
   # ATAC_Bioinf_pipeline_v2c_part3a.R
 # 3. Run as an sbatch script with 8Gb memory and ~3 days runtime - will spawn off other jobs
 
@@ -41,9 +43,10 @@
 
 ################################################################################################################
 
-# All variables are added (and can be amended) here
+# All variables are added here - there are some in-script and many are hardcoded so they cannot be changed for other species
+# NOTE: if you want to run for other species then it will require a lot of amending in script!!
 
-scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
+scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2) # place all scripts in the topmost directory - create this separately
 # WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/$spID) # insert the working directory
 email=Tarang.Mehta@earlham.ac.uk # SBATCH out and err send to address
 
@@ -82,11 +85,6 @@ speciesid6=Ac
 
 atacqcscript2=(ATAC_Bioinf_pipeline_v2c_part3b.sh) # this will be created in this script so do not need it
 
-### 3. TF footprinting and creation of signal tracks
-tffprdir=$scripts/3.TFfprint_SignalTrack
-mkdir -p $tffprdir # make the directory here as files will be added
-cd $tffprdir
-## AS OF 25/06 - WHEN MOVED TO EI PROJECTS, REPLACE PATHS
 # genome folders - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
 genomesdir=($scripts/genomes)
 Mzg=($genomesdir/Mzebra)
@@ -98,24 +96,28 @@ Acg=($genomesdir/Acalliptera)
 
 # genome fasta - assign genomes here with FA* variables, and a list of paths will be created for while loops (so for adding own or other species, just change or add to variables here)
 # NOTE: ensure input FASTAs have only a short headers e.g. >chr1 or >scaffold001 etc.
-FAMzg=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa
+FAMzg=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa
 FAPng=$Png/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa
 FAAbg=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
 FANbg=$Nbg/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa
-FAOng=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa
-FAAcg=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa
+FAOng=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa
+FAAcg=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa
 genfastas=(path_genomes.txt)
 for gf in "${!FA@}"; do
   # echo "$gf is set to ${!gf}"
   echo "${!gf}" >> $genfastas
 done
 # chromosome sizes - the variables are obviously hardcoded below, if you want to make generic then create a for loop over species genomes in scripts
-Mzgchr=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa.chrom.sizes
+Mzgchr=$Mzg/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
 Pngchr=$Png/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa.chrom.sizes
 Abgchr=$Abg/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
 Nbgchr=$Nbg/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa.chrom.sizes
-Ongchr=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa.chrom.sizes
-Acgchr=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa.chrom.sizes
+Ongchr=$Ong/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+Acgchr=$Acg/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+source bioawk-1.0
+while read -r a; do
+  bioawk -c fastx '{ print $name, length($seq) }' < ${a} | awk '{print $1,$2}' OFS="\t" > $(echo "${a}" | sed 's/.fa/.fa.chrom.sizes/g')
+done < $genfastas
 # annotation files •.gtf - assign annotations here with annot* variables, and a list of paths will be created for while loops (so for adding own or other species, just change or add to variables here)
 annotMzg=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.gtf
 annotPng=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.gtf
@@ -129,6 +131,51 @@ for af in "${!annot@}"; do
   echo "${!af}" >> $antfiles
 done
 processggenaltsv2=(processggenaltsvpath2.txt)
+
+Mzgannotbed=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.bed
+Pngannotbed=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.bed
+Abgannotbed=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.bed
+Nbgannotbed=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.bed
+Ongannotbed=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.bed
+Acgannotbed=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.bed
+
+fripprefix2=($annotdir/fripprefix2.txt)
+
+Mzgannotbedtmp=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.tmp.bed
+Pngannotbedtmp=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.tmp.bed
+Abgannotbedtmp=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.tmp.bed
+Nbgannotbedtmp=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.tmp.bed
+Ongannotbedtmp=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.tmp.bed
+Acgannotbedtmp=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.tmp.bed
+
+Mz5kbpromannottmp=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.tmp5kb_promoters.stranded.GENEBED.bed
+Pn5kbpromannottmp=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.tmp5kb_promoters.stranded.GENEBED.bed
+Ab5kbpromannottmp=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.tmp5kb_promoters.stranded.GENEBED.bed
+Nb5kbpromannottmp=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.tmp5kb_promoters.stranded.GENEBED.bed
+On5kbpromannottmp=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.tmp5kb_promoters.stranded.GENEBED.bed
+Ac5kbpromannottmp=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.tmp5kb_promoters.stranded.GENEBED.bed
+
+Mz5kbpromannot=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.5kb_promoters.bed
+Pn5kbpromannot=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.5kb_promoters.bed
+Ab5kbpromannot=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.5kb_promoters.bed
+Nb5kbpromannot=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.5kb_promoters.bed
+On5kbpromannot=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.5kb_promoters.bed
+Ac5kbpromannot=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.5kb_promoters.bed
+
+Mz5kbprom=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.5kb_promoters.fa
+Pn5kbprom=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.5kb_promoters.fa
+Ab5kbprom=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.5kb_promoters.fa
+Nb5kbprom=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.5kb_promoters.fa
+On5kbprom=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.5kb_promoters.fa
+Ac5kbprom=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.5kb_promoters.fa
+
+friarscript=frinannotatedregions.sh
+friarout=fraction_of_reads_in_annotatedregions.txt
+
+### 3. TF footprinting and creation of signal tracks
+tffprdir=$scripts/3.TFfprint_SignalTrack
+mkdir -p $tffprdir # make the directory here as files will be added
+cd $tffprdir
 # gene regions •.bed
 MzggenGC=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.generegions_Gencode.bed
 PnggenGC=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.generegions_Gencode.bed
@@ -538,13 +585,11 @@ rm $FRIP.temp
 
 # 	2b. Fraction of Reads in annotated regions - TO DO
 
-#### Emailed CiS on 28/08/2020 to install R-4.0.2 with the required packages - they have done this: source /ei/software/staging/CISSUPPORT-11716/stagingloader
+#### NOTE: Install R-4.0.2 with the required packages: source /ei/software/staging/CISSUPPORT-11716/stagingloader
 ## Installed the following packages in R-4.0.2: "RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","DiffBind", "DESeq2", "motifbreakR"
-
 
 mkdir -p $annotdir
 cd $annotdir
-
 
 ## 2a. Use ATACseqQC here (ensure input BAM is indexed) TO 1) CREATE A SHIFTED BAM, AND 2) RUN TSS ENRICHMENT
 # For ATACseqQC we need to use BSgenome objects: Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
@@ -826,11 +871,7 @@ echo '# -- 2aBb. Peak annotation has started: building BSgenomes -- #'
 
 JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2aBb.buildBSgenomes.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 
-# 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
-
-# TO DO: CREATE A WHILE LOOP TO RUN FOR EACH SAMPLE AND IT'S GENOME -
-# You need to maintain job dependencies so:
-  # THROW THIS AS AN ECHO INTO A SEPARATE SBATCH SCRIPT with a long time
+## 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
 
 # mkdir -p $annotdir/Ab5_L
 # Input (-i) will be nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file
@@ -850,34 +891,34 @@ printf '\n' >> $atacqcscript2
 echo 'while read -r i1 i2; do' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotMzg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome1' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotPng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome2' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome3' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotNbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome4' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotOng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome5' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $atacqcscript2
 echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$WD'/$i2' >> $atacqcscript2
+echo -e '\t\tcd '$WD'/'$annotdir'/$i2' >> $atacqcscript2
 echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAcg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome6' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
 echo -e '\tfi' >> $atacqcscript2
 echo "done < $prefixATAC2" >> $atacqcscript2
@@ -886,12 +927,12 @@ echo "done < $prefixATAC2" >> $atacqcscript2
 # while read -r i1 i2; do
 #   if [[ "$i1" == "$speciesid1" ]]; then
 #     mkdir $annotdir/$i2
-#     cd $WD/$i2
+#     cd $WD/$annotdir/$i2
 #     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotMzg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome1 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
 #   fi
 #   if [[ "$i1" == "$speciesid2" ]]; then
 #     mkdir $annotdir/$i2
-#     cd $WD/$i2
+#     cd $WD/$annotdir/$i2
 #     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotPng -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome2 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
 #   fi
 #   if [[ "$i1" == "$speciesid3" ]]; then
@@ -901,7 +942,7 @@ echo "done < $prefixATAC2" >> $atacqcscript2
 #   fi
 #   if [[ "$i1" == "$speciesid4" ]]; then
 #     mkdir $annotdir/$i2
-#     cd $WD/$i2
+#     cd $WD/$annotdir/$i2
 #     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotNbg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome4 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
 #   fi
 #   if [[ "$i1" == "$speciesid5" ]]; then
@@ -911,7 +952,7 @@ echo "done < $prefixATAC2" >> $atacqcscript2
 #   fi
 #   if [[ "$i1" == "$speciesid6" ]]; then
 #     mkdir $annotdir/$i2
-#     cd $WD/$i2
+#     cd $WD/$annotdir/$i2
 #     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAcg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome6 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
 #   fi
 # done < $prefixATAC2 # this while loop will run ATAC script in each ATAC folder
@@ -944,13 +985,199 @@ JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} $atacqcscript2 | awk '{print 
 # make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
 #             help="output *.tiff filename for rescaled signal around TSSs")
 
-# 2b. Fraction of reads in annotated regions
+
+## 2b. Fraction of reads in annotated regions
+
+# Inputs:
+# i. TAG-ALIGN file: ${TA_FILE} - For the tag-align files, use the $fripprefix 3 column file - col1: sampleID; col2: tagAlign input; col3: IDR peak file
+# ii. Annotation BED file
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotMzg | tr -d '";' > $Mzgannotbed
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotPng | tr -d '";' > $Pngannotbed
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotAbg | tr -d '";' > $Abgannotbed
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotNbg | tr -d '";' > $Nbgannotbed
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotOng | tr -d '";' > $Ongannotbed
+awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotAcg | tr -d '";' > $Acgannotbed
+
+# iii. Promoter BED file: BED file of promoter regions # need to generate new promoter regions for newer genomes
+
+# Will prepared two scripts to 1) annotate 5kb promoters and 2) extract seqs
+# However, there is an error in the first script that is corrected by the second.
+# If you need promoter annotations, which are created by the first script, you will need to cap the final promoter on each scaffold based on the scaffold length.
+# - ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py
+# input: .bed file of all genes
+# output: 1. .bed of 5kb upstream regions, excluding overlapping promoters, where bidirectional – truncated to half the distance with opposing gene – this contains a known error – if the 5kb region overlaps the non-zero end of a scaffold, it will not be capped.
+#         2. a log of genes excluded due to sharing the same start site and strand (relic of the old cichlid assemblies)
+#
+# - Cap 5kb promoters for scaffold ends
+# input: .bed file of preliminary promoters above (that aren't capped at the end of scaffold)
+# output: 1. .bed of 5kb upstream regions, excluding overlapping promoters, where bidirectional – truncated to half the distance with opposing gene
+#         2. a log of genes excluded due to sharing the same start site and strand (relic of the old cichlid assemblies)
+#
+# - ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py
+# input: .bed produced above, genome fasta
+# output: reverse complemented fasta sequences of the regions extracted above, with the last gene on scaffold error corrected for.
+
+
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Mzgannotbed > $Mzgannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Pngannotbed > $Pngannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Abgannotbed > $Abgannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Nbgannotbed > $Nbgannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Ongannotbed > $Ongannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Acgannotbed > $Acgannotbedtmp
+
+# this extracts the 5kb promoter regions (uncorrected for scaffold ends)
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Mzgannotbedtmp
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Pngannotbedtmp
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Abgannotbedtmp
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Nbgannotbedtmp
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Ongannotbedtmp
+python ATAC_Bioinf_pipeline_v2c_part2bi.promBED_fromGeneBED.py $Acgannotbedtmp
+
+rm $Mzgannotbedtmp
+rm $Pngannotbedtmp
+rm $Abgannotbedtmp
+rm $Nbgannotbedtmp
+rm $Ongannotbedtmp
+rm $Acgannotbedtmp
+
+# this corrects the 5kb promoters so that they don't go over the scaffold ends
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Mzgchr $Mz5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Mz5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Pngchr $Pn5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Pn5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Abgchr $Ab5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Ab5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Nbgchr $Nb5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Nb5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Ongchr $On5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $On5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Acgchr $Ac5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Ac5kbpromannot
+
+rm $Mz5kbpromannottmp
+rm $Pn5kbpromannottmp
+rm $Ab5kbpromannottmp
+rm $Nb5kbpromannottmp
+rm $On5kbpromannottmp
+rm $Ac5kbpromannottmp
+
+# this pulls out the 5kb promoter sequences
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAMzg $Mz5kbpromannot
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAPng $Pn5kbpromannot
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAAbg $Ab5kbpromannot
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FANbg $Nb5kbpromannot
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAOng $On5kbpromannot
+python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAAcg $Ac5kbpromannot
+
+
+# For each annotation BED file, run fraction of reads in annotated region - run this in a while loop (using an amended $fripprefix as input) where you also output the sample ID
+# for this, add the the following to $fripprefix:
+  # col1 - species id e.g. Mz, Pn, etc.
+  # col2 - sample id
+  # col3 - tagalign path
+  # remove the last col
+
+awk -F'_' '{print $1}' $fripprefix | sed 's/1a//g' | sed 's/1b//g' | sed 's/2a//g' | sed 's/2b//g' | sed 's/3a//g' | sed 's/3b//g' | sed 's/[0-9]//g' | sed 's/Pnm/Pn/g' > $fripprefix2.tmp1 # strip all other characters to expose only species ID
+awk '{print $1,$2}' OFS='\t' $fripprefix2 > $fripprefix2.tmp2
+paste $fripprefix2.tmp1 $fripprefix2.tmp2 > $fripprefix2 # create a new file that has species ID alongside the sample ID
+rm $fripprefix2.tmp1 $fripprefix2.tmp2
+
+# ONCE BELOW IS FINALISED THEN ECHO INTO AN SBATCH SCRIPT LIKE ABOVE FOR DEPENDENCY
+
+echo "#!/bin/bash -e" >> $friarscript
+echo "#SBATCH -p tgac-medium # partition (queue)" >> $friarscript
+echo "#SBATCH -N 1 # number of nodes" >> $friarscript
+echo "#SBATCH -n 1 # number of tasks" >> $friarscript
+echo "#SBATCH --mem-per-cpu 60000" >> $friarscript
+echo "#SBATCH -t 1-23:59" >> $friarscript
+echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $friarscript
+echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $friarscript
+echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $friarscript
+echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $friarscript
+printf '\n' >> $friarscript
+echo 'source bedtools-2.26.0' >> $friarscript
+printf '\n' >> $friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> $friarscript
+echo 'while read -r i1 i2 i3; do' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Mzgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$Mz5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Pngannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$Pn5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Abgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ab5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Nbgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$Nb5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Ongannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$On5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $friarscript
+echo -e "\t\tcd $WD/${annotdir}/"'$i2' >> $friarscript
+echo -e '\t\tgenefr=$(bedtools sort -i '$Acgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ac5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
+echo -e '\tfi' >> $friarscript
+echo "done < $fripprefix2" >> $friarscript
+
+# source bedtools-2.26.0
+# # output is sample id, gene fraction, promoter fraction
+# while read -r i1 i2 i3; do
+#   if [[ "$i1" == "$speciesid1" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Mzgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $Mz5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+#   if [[ "$i1" == "$speciesid2" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Pngannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $Pn5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+#   if [[ "$i1" == "$speciesid3" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Abgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $Ab5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+#   if [[ "$i1" == "$speciesid4" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Nbgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $Nb5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+#   if [[ "$i1" == "$speciesid5" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Ongannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $On5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+#   if [[ "$i1" == "$speciesid6" ]]; then
+#     cd $WD/${annotdir}/$i2
+#     genefr=$(bedtools sort -i $Acgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     promoterfr=$(bedtools sort -i $Ac5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
+#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#   fi
+# done < $fripprefix2
+
 
 echo '# -- 2aBc. Peak annotation has completed: ATACseqQC completed -- #'
 
 echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
 
-JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} XX | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
+JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} $friarscript | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
 
 
 ################################################################################################################
@@ -996,11 +1223,7 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} XX | awk '{print $4}' ) # JOB
 cd $tffprdir
 
 # A. For each genome, the following is required:
-# Aa. chromosome size files
-source bioawk-1.0
-while read -r a; do
-  bioawk -c fastx '{ print $name, length($seq) }' < ${a} | awk '{print $1,$2}' OFS="\t" > $(echo "${a}" | sed 's/.fa/.fa.chrom.sizes/g')
-done < $genfastas
+# Aa. chromosome size files - generated at top
 
 # bioawk -c fastx '{ print $name, length($seq) }' < $AbgFA | awk '{print $1,$2}' OFS="\t" > $Abgchr
 # bioawk -c fastx '{ print $name, length($seq) }' < $MzgFA | awk '{print $1,$2}' OFS="\t" > $Mzgchr

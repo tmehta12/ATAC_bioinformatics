@@ -494,8 +494,8 @@ mkdir $filtdir/tmp
 echo '#!/bin/bash -e' > 4.postalign_filt.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
 echo '#SBATCH -N 1 # number of nodes' >> 4.postalign_filt.sh
-echo '#SBATCH --mem 88000' >> 4.postalign_filt.sh
-echo '#SBATCH -t 0-05:59' >> 4.postalign_filt.sh
+echo '#SBATCH --mem 120000' >> 4.postalign_filt.sh
+echo '#SBATCH -t 0-10:59' >> 4.postalign_filt.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 4.postalign_filt.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 4.postalign_filt.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 4.postalign_filt.sh
@@ -575,7 +575,7 @@ echo '#!/bin/bash -e' > 5.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5.peakcall.sh
-echo '#SBATCH -t 0-10:59' >> 5.peakcall.sh
+echo '#SBATCH -t 0-12:59' >> 5.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5.peakcall.sh
@@ -635,7 +635,7 @@ echo '#!/bin/bash -e' > 5f.peakcall.sh
 echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
-echo '#SBATCH -t 0-07:59' >> 5f.peakcall.sh
+echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 5f.peakcall.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 5f.peakcall.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 5f.peakcall.sh

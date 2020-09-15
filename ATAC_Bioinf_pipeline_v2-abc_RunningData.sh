@@ -67,7 +67,9 @@ user=mehtat # userID for cluster to download mitochondrial genomes on internet a
 # mzebgenome=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa
 # mzebgtf=$mzeb/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.gtf.gz
 mzeb=($genomesdir/Mzebra)
-mzebgenome=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa
+mzebgenomelg=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.fa
+mzebgenomenc=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.nonchromosomal.fa
+mzebgenome=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa
 mzebgtf=$mzeb/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.gtf.gz
 
 # Pundamilia nyererei
@@ -99,7 +101,9 @@ nbrigtf=$nbri/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoB
 # onilgenome=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa
 # onilgtf=$onil/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf.gz
 onil=($genomesdir/Oniloticus)
-onilgenome=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa
+onilgenomelg=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.fa
+onilgenomenc=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.nonchromosomal.fa
+onilgenome=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa
 onilgtf=$onil/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.gtf.gz
 
 # Astatotilapia calliptera
@@ -107,8 +111,15 @@ onilgtf=$onil/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticu
 # acalgenome=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.nonchromosomal.fa
 # acalgtf=$acal/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.100.gtf.gz
 acal=($genomesdir/Acalliptera)
-acalgenome=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa
+acalgenomelg=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.fa
+acalgenomenc=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.nonchromosomal.fa
+acalgenome=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa
 acalgtf=$acal/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.gtf.gz
+
+# Cat the LG and nonchromosomal assemblies for Mz, On and Ac
+cat $mzebgenomelg $mzebgenomenc | awk '{print $1}' > $mzebgenome
+cat $onilgenomelg $onilgenomenc | awk '{print $1}' > $onilgenome
+cat $acalgenomelg $acalgenomenc | awk '{print $1}' > $acalgenome
 
 ##############################################################################
 
@@ -139,11 +150,6 @@ sbatch $ATACscript1 # {DONE - 24/08/2020}
 ##############################################################################
 
 ## 2a. For building genome indexes
-
-# # this just moves any updated gDNA scripts from $WD to sample dirs
-# while IFS= read -r i; do
-#   cp $ATACscript2 $i
-# done < $prefixgDNA
 
 # A. download required genomes (already stored in workarea but having permission problems!)
 
@@ -207,6 +213,11 @@ gunzip -c $onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assem
 ##############################################################################
 
 ## 2b. Trimming and alignment of gDNA reads
+
+# # this just moves any updated gDNA scripts from $WD to sample dirs
+# while IFS= read -r i; do
+#   cp $ATACscript2 $i
+# done < $prefixgDNA
 
 # # Example
 # cd $WD/Ab5_L_gDNA # DONE
@@ -295,6 +306,11 @@ done
 
 ## 3. Trimming and alignment of ATAC reads, and then filtering, calling peaks, and annotation
 
+# # this just moves any updated ATAC scripts from $WD to sample dirs
+# while IFS= read -r i; do
+#   cp $ATACscript3 $i
+# done < $prefixATAC
+
 # # Example
 # cd $WD/Ab5_L_ATAC
 # sbatch ATAC_Bioinf_pipeline_v2b.sh -s Ab5_L_ATAC -g AstBur1.0 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa -m NC_027289.1 -u mehtat -a /tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Aburtoni/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf.gz
@@ -355,240 +371,240 @@ for i in $jobids; do
   echo -e $com'\t'$err
 done # this will output two columns - first col shows the command where error occured and second shows the stout error file associated. The folder ran before the command will invariably have the error with it.
 
-############################################ ~~~~~~~ ############################################
-## several jobs failed due to insufficent space > move completed jobs to scratch area (except corresponding gDNA required for ATAC runs)
-cd $WD
-mkdir -p $WD2
-failedids=($WD/failed_IDs.txt)
-failedidsATAC=($WD/failed_IDs_ATAC.txt)
-prefixcomb=($WD/prefix_all.txt)
-successids=($WD/successful_IDs.txt)
-prefixfailed=($WD/prefix_failed.txt)
-successids2=($WD/successful_IDsv2.txt)
-
-for i in $jobids; do
-  workdirATAC=$(scontrol show jobid -dd $i | grep 'WorkDir=' | sed 's/5.peak_calling//g' | sed 's/WorkDir=//g' | sed "s/\/ei\/projects\/9\/9e238063-c905-4076-a975-f7c7f85dbd56\/data\/ATACseq\/3.run2\///g" | sed 's/\///g')
-  workdirgDNA=$(echo $workdirATAC | sed 's/_ATAC/_gDNA/g' )
-  echo $workdirATAC >> $failedids
-  echo $workdirgDNA >> $failedids
-done # this will provide the sample IDs for those that failed plus corresponding gDNA folders
-
-cat $prefixgDNA $prefixATAC > $prefixcomb
-
-grep -vf $failedids $prefixcomb > $successids # create a file to iterate sample IDs that finished successfuly
-# grep -v '_gDNA' $successids | grep -v '1aAc_3dpf_ATAC' | grep -v '2aAc_7dpf_ATAC' > $successids2 # this removes any already done
-
-echo '#!/bin/bash -e' > mv_files.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> mv_files.sh
-echo '#SBATCH -N 1 # number of nodes' >> mv_files.sh
-echo '#SBATCH -n 1 # number of tasks' >> mv_files.sh
-echo '#SBATCH --array=0-101' >> mv_files.sh
-echo '#SBATCH --mem-per-cpu 10000' >> mv_files.sh
-echo '#SBATCH -t 0-00:45' >> mv_files.sh
-echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> mv_files.sh
-echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> mv_files.sh
-echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> mv_files.sh
-echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> mv_files.sh
-printf '\n' >> mv_files.sh
-echo 'source rsync-3.1.1' >> mv_files.sh
-echo "mapfile -t successids < $successids" >> mv_files.sh
-echo "#mapfile -t successids < $successids2" >> mv_files.sh
-echo '#mv ${successids[${SLURM_ARRAY_TASK_ID}]}'" $WD2" >> mv_files.sh
-echo '#mv ${successids[${SLURM_ARRAY_TASK_ID}]}'" $WD2" >> mv_files.sh
-echo 'rsync -avhP --checksum ${successids[${SLURM_ARRAY_TASK_ID}]} '" $WD2" >> mv_files.sh
-
-sbatch mv_files.sh # run the above
-
-rm -r $WD2/On3_B_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling} # needs a full re-run
-rm -r $WD2/On3_T_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling} # needs a re-run (peak calling only but re-run all)
-mv $WD2/On3_B_ATAC $WD
-mv $WD2/On3_T_ATAC $WD
-sbatch $ATACscript3 -s On3_B_ATAC -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
-sbatch $ATACscript3 -s On3_T_ATAC -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
-rm -r Pnm4_E_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling}
-sbatch $ATACscript3 -s Pnm4_E_ATAC -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf
-
-while read -r h; do
-  rm -r $h
-done < $successids # once the above is done, remove the folders from $WD
-
-# remove failed files folders - best to start again!
-grep ATAC $failedids > $failedidsATAC
-
-while read -r g; do
-  rm -r $WD/${g}/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling}
-  rm $WD/${g}/slurm*
-done < $failedidsATAC
-
-# re-run
-grep -f $failedids $prefixATAC2 > $prefixfailed # create a new file to iterate for sample IDs
-
-# While loop with if statements to appropriately spawn off sbatch scripts
-while read -r i1 i2; do
-  if [[ "$i1" == "$sp1" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp1
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf"
-    sbatch $ATACscript3 -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf
-  fi
-  if [[ "$i1" == "$sp2" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp2
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf"
-    sbatch $ATACscript3 -s $i2 -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf
-  fi
-  if [[ "$i1" == "$sp3" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp3
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp3ID -f $aburgenome -m $sp3mitID -u $user -a $aburgtf"
-    sbatch $ATACscript3 -s $i2 -g $sp3ID -f $aburgenome -m $sp3mitID -u $user -a $aburgtf
-  fi
-  if [[ "$i1" == "$sp4" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp4
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp4ID -f $nbrigenome -m $sp4mitID -u $user -a $nbrigtf"
-    sbatch $ATACscript3 -s $i2 -g $sp4ID -f $nbrigenome -m $sp4mitID -u $user -a $nbrigtf
-  fi
-  if [[ "$i1" == "$sp5" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp5
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf"
-    sbatch $ATACscript3 -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
-  fi
-  if [[ "$i1" == "$sp6" ]]; then
-    # echo "New if statement: "$i1 $i2 $sp6
-    cd $WD/$i2
-    # echo "sbatch $ATACscript3 -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf"
-    sbatch $ATACscript3 -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf
-  fi
-done < $prefixfailed # this while loop will run ATAC script in each ATAC folder
-
-## the following are struggling to complete:
-# Pnm4_T_ATAC
-# # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/ #sambamba-sort: Unable to write to stream - GIVE IT MORE MEMORY
-# nano /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/4.postalign_filt.sh # change memory to 120G
-# scancel 28283356
-# scancel 28296911
-# cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/
-# sbatch 4.postalign_filt.sh # if that runs successfuly then run peak calling and bed to bigbed conversion for narrowpeaks separately too
-
-# these are also struggling at the same stage
-scancel -n ATAC_Bioinf_pipeline_v2b.sh
-scancel -n 5.peakcall.sh
-
-# these all failed for 'sambamba-sort: /tmp/sambamba-pid19093-imkg: No space left on device'
-# create tmp dir for each sample in a place with lots of space - /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
-# up the memory to 120000 (in sbatch header and sambamba sort)
-  # sambamba sort -m 120G -t 1 --tmpdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp -o $bam_file_sorted -u $bam_file
-  # sambamba markdup -l 0 -t 1 --tmpdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp $bam_file_sorted $bam_file_dup
-
-# edited the memory and tmp dir and ran using sbatch > that ran successfuly > then run peak calling and bed to bigbed conversion for narrowpeaks separately too
-for i in On3_T_ATAC On3_B_ATAC On2_G_ATAC Pnm3_B_ATAC Pnm4_T_ATAC Mz2_T_ATAC 1bAc_3dpf_ATAC On1_G_ATAC; do
-  # ls -tlrh $i/4.postalign_filt/
-  # rm $i/4.postalign_filt/slurm*
-  # echo $i
-  # head $i/4.postalign_filt/slurm*.err
-  # mkdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
-  # sed -i 's/88000/120000/g' $i/4.postalign_filt/4.postalign_filt.sh
-  # sed -i 's/88G/120G/g' $i/4.postalign_filt/4.postalign_filt.sh
-  # nano $i/4.postalign_filt/4.postalign_filt.sh
-  # less $i/4.postalign_filt/4.postalign_filt.sh
-  # sbatch $i/4.postalign_filt/4.postalign_filt.sh
-  ls -tlrh $i/5.peak_calling/
-  # cd $WD/${i}/5.peak_calling/
-  # sbatch 5.peakcall.sh
-done
-
-for i in Ab5_L_ATAC Ab6_L_ATAC; do
-  ls -tlrh $i/4.postalign_filt/
-  # rm $i/4.postalign_filt/slurm*
-  # echo $i
-  # head $i/4.postalign_filt/slurm*.err
-  # mkdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
-  # sed -i 's/88000/120000/g' $i/4.postalign_filt/4.postalign_filt.sh
-  # sed -i 's/88G/120G/g' $i/4.postalign_filt/4.postalign_filt.sh
-  # nano $i/4.postalign_filt/4.postalign_filt.sh
-  # less $i/4.postalign_filt/4.postalign_filt.sh
-  # cd $WD/${i}/4.postalign_filt
-  # sbatch 4.postalign_filt.sh
-  # ls -tlrh $i/5.peak_calling/
-  # cd $WD/${i}/5.peak_calling/
-  # sbatch 5.peakcall.sh
-done
-# the above failed to tmp isssues on mark-dup - re-ran supressing the sort as that is completed
-
-# > On1_G_ATAC # restarted peak calling due to time limit {{{{{COMPLETED}}}}}
-
-# > Ab5_L_ATAC and Ab6_L_ATAC failed again at stage 4 for the same reason:
-# sambamba-markdup: Cannot open file `/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab6_L_ATAC_tmp/sambamba-pid48145-markdup-jfzq/PairedEndsInfoxzwx16' in mode `w+' (Too many open files)
-# added '--overflow-list-size 600000' to the sambamba markdup command
-# re-ran step 4 - Ab5_L_ATAC completed {{{{{CHECK Ab6_L_ATAC step4}}}}}
-# amended peak call time limit and re-ran peak calling for: {{{{{{{RUNNING - Ab5_L_ATAC and Ab6_L_ATAC}}}}}}}
-
-# some of the other jobs (moved to scratch) didn't finish (genrich) due to time limit:
-for i in *_*_ATAC/5.peak_calling; do
-  ls -tlrh $i
-  # sample=$(echo $i | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
-  # time=$(grep 'DUE TO TIME LIMIT' $i)
-  # echo -e $sample
-done
-
-# these need re-running peakcalling with longer run time: Pnm1_L_ATAC Nb5_T_ATAC Nb5_L_ATAC Nb4_T_ATAC Nb4_L_ATAC Ab5_T_ATAC
-for i in Pnm1_L_ATAC Nb5_T_ATAC Nb5_L_ATAC Nb4_T_ATAC Nb4_L_ATAC Ab5_T_ATAC; do
-  # rm ${i}/5.peak_calling/slurm*
-  # rm ${i}/5.peak_calling/Pnm*
-  # rm ${i}/5.peak_calling/Nb*
-  # rm ${i}/5.peak_calling/Ab*
-  # rm ${i}/5.peak_calling/*.bed
-  # rm ${i}/5.peak_calling/*.as
-  # sed -i 's/0-04:59/0-07:59/g' ${i}/5.peak_calling/5.peakcall.sh # change time to 0-07:59
-  # sed -i 's/data/scratch/g' ${i}/5.peak_calling/5.peakcall.sh
-  # sed -i 's/scratch\/ATACseq\/3.run2\/genomes/data\/ATACseq\/3.run2\/genomes/g' ${i}/5.peak_calling/5.peakcall.sh
-  # cd $WD2/${i}/5.peak_calling
-  ls -tlrh $WD2/${i}/5.peak_calling
-  # sbatch 5.peakcall.sh ###### {{{{{CHECK}}}}}
-done
-
-# the above ran ok except for Nb4_L_ATAC (due to gDNA folder incorrect location) and Nb4_T_ATAC (time limit)
-cd $WD2/Nb4_L_ATAC/5.peak_calling; sbatch 5.peakcall.sh # re-ran
-cd $WD2/Nb4_T_ATAC/5.peak_calling; sbatch 5.peakcall.sh # re-ran
-
-## last few to check once complete
-ls -tlrh $WD/Ab5_L_ATAC/5.peak_calling
-ls -tlrh $WD/Ab6_L_ATAC/5.peak_calling
-ls -tlrh $WD2/Nb4_L_ATAC/5.peak_calling
-ls -tlrh $WD2/Nb4_T_ATAC/5.peak_calling
-
-
-# bed to bigbed conversion
-source ucsc_utils-v333
-
-for i in On3_T_ATAC On3_B_ATAC On2_G_ATAC Pnm3_B_ATAC Pnm4_T_ATAC Mz2_T_ATAC 1bAc_3dpf_ATAC On1_G_ATAC Ab5_L_ATAC Ab6_L_ATAC; do
-  cd $WD/${i}/5.peak_calling
-  bigbed=(${i}/5.peak_calling/${i}_peaks.narrowPeak.bb)
-  peak=(${i}/5.peak_calling/${i}_peaks.narrowPeak)
-  peakgz=(${i}/5.peak_calling/${i}_peaks.narrowPeak.gz)
-  echo 'table narrowPeak' > narrowPeak.as
-  echo '"BED6+4 Peaks of signal enrichment based on pooled, normalized (interpreted) data."' >> narrowPeak.as
-  echo '(' >> narrowPeak.as
-  echo -e '\tstring chrom;        "Reference sequence chromosome or scaffold"' >> narrowPeak.as
-  echo -e '\tuint   chromStart;   "Start position in chromosome"' >> narrowPeak.as
-  echo -e '\tuint   chromEnd;     "End position in chromosome"' >> narrowPeak.as
-  echo -e '\tstring name;	 "Name given to a region (preferably unique). Use . if no name is assigned"' >> narrowPeak.as
-  echo -e '\tuint   score;        "Indicates how dark the peak will be displayed in the browser (0-1000) "' >> narrowPeak.as
-  echo -e '\tchar[1]  strand;     "+ or - or . for unknown"' >> narrowPeak.as
-  echo -e '\tfloat  signalValue;  "Measurement of average enrichment for the region"' >> narrowPeak.as
-  echo -e '\tfloat  pValue;       "Statistical significance of signal value (-log10). Set to -1 if not used."' >> narrowPeak.as
-  echo -e '\tfloat  qValue;       "Statistical significance with multiple-test correction applied (FDR -log10). Set to -1 if not used."' >> narrowPeak.as
-  echo -e '\tint   peak;         "Point-source called for this peak; 0-based offset from chromStart. Set to -1 if no point-source called."' >> narrowPeak.as
-  echo ')' >> narrowPeak.as
-  zcat ${peakgz} | sort -k1,1 -k2,2n > ${bigbed}.tmp
-  bedClip ${bigbed}.tmp ${scafflen2} ${bigbed}.tmp2
-  bedToBigBed -type=bed6+4 -as=narrowPeak.as ${bigbed}.tmp2 ${scafflen2} ${bigbed}
-  rm -f ${bigbed}.tmp ${bigbed}.tmp2
-done
-
-############################################ ~~~~~~~ ############################################
+# ############################################ ~~~~~~~ ############################################
+# ## several jobs failed due to insufficent space > move completed jobs to scratch area (except corresponding gDNA required for ATAC runs)
+# cd $WD
+# mkdir -p $WD2
+# failedids=($WD/failed_IDs.txt)
+# failedidsATAC=($WD/failed_IDs_ATAC.txt)
+# prefixcomb=($WD/prefix_all.txt)
+# successids=($WD/successful_IDs.txt)
+# prefixfailed=($WD/prefix_failed.txt)
+# successids2=($WD/successful_IDsv2.txt)
+#
+# for i in $jobids; do
+#   workdirATAC=$(scontrol show jobid -dd $i | grep 'WorkDir=' | sed 's/5.peak_calling//g' | sed 's/WorkDir=//g' | sed "s/\/ei\/projects\/9\/9e238063-c905-4076-a975-f7c7f85dbd56\/data\/ATACseq\/3.run2\///g" | sed 's/\///g')
+#   workdirgDNA=$(echo $workdirATAC | sed 's/_ATAC/_gDNA/g' )
+#   echo $workdirATAC >> $failedids
+#   echo $workdirgDNA >> $failedids
+# done # this will provide the sample IDs for those that failed plus corresponding gDNA folders
+#
+# cat $prefixgDNA $prefixATAC > $prefixcomb
+#
+# grep -vf $failedids $prefixcomb > $successids # create a file to iterate sample IDs that finished successfuly
+# # grep -v '_gDNA' $successids | grep -v '1aAc_3dpf_ATAC' | grep -v '2aAc_7dpf_ATAC' > $successids2 # this removes any already done
+#
+# echo '#!/bin/bash -e' > mv_files.sh
+# echo '#SBATCH -p tgac-short # partition (queue)' >> mv_files.sh
+# echo '#SBATCH -N 1 # number of nodes' >> mv_files.sh
+# echo '#SBATCH -n 1 # number of tasks' >> mv_files.sh
+# echo '#SBATCH --array=0-101' >> mv_files.sh
+# echo '#SBATCH --mem-per-cpu 10000' >> mv_files.sh
+# echo '#SBATCH -t 0-00:45' >> mv_files.sh
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> mv_files.sh
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> mv_files.sh
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> mv_files.sh
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> mv_files.sh
+# printf '\n' >> mv_files.sh
+# echo 'source rsync-3.1.1' >> mv_files.sh
+# echo "mapfile -t successids < $successids" >> mv_files.sh
+# echo "#mapfile -t successids < $successids2" >> mv_files.sh
+# echo '#mv ${successids[${SLURM_ARRAY_TASK_ID}]}'" $WD2" >> mv_files.sh
+# echo '#mv ${successids[${SLURM_ARRAY_TASK_ID}]}'" $WD2" >> mv_files.sh
+# echo 'rsync -avhP --checksum ${successids[${SLURM_ARRAY_TASK_ID}]} '" $WD2" >> mv_files.sh
+#
+# sbatch mv_files.sh # run the above
+#
+# rm -r $WD2/On3_B_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling} # needs a full re-run
+# rm -r $WD2/On3_T_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling} # needs a re-run (peak calling only but re-run all)
+# mv $WD2/On3_B_ATAC $WD
+# mv $WD2/On3_T_ATAC $WD
+# sbatch $ATACscript3 -s On3_B_ATAC -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
+# sbatch $ATACscript3 -s On3_T_ATAC -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
+# rm -r Pnm4_E_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling}
+# sbatch $ATACscript3 -s Pnm4_E_ATAC -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf
+#
+# while read -r h; do
+#   rm -r $h
+# done < $successids # once the above is done, remove the folders from $WD
+#
+# # remove failed files folders - best to start again!
+# grep ATAC $failedids > $failedidsATAC
+#
+# while read -r g; do
+#   rm -r $WD/${g}/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling}
+#   rm $WD/${g}/slurm*
+# done < $failedidsATAC
+#
+# # re-run
+# grep -f $failedids $prefixATAC2 > $prefixfailed # create a new file to iterate for sample IDs
+#
+# # While loop with if statements to appropriately spawn off sbatch scripts
+# while read -r i1 i2; do
+#   if [[ "$i1" == "$sp1" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp1
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf
+#   fi
+#   if [[ "$i1" == "$sp2" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp2
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp2ID -f $pnyegenome -m $sp2mitID -u $user -a $pnyegtf
+#   fi
+#   if [[ "$i1" == "$sp3" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp3
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp3ID -f $aburgenome -m $sp3mitID -u $user -a $aburgtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp3ID -f $aburgenome -m $sp3mitID -u $user -a $aburgtf
+#   fi
+#   if [[ "$i1" == "$sp4" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp4
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp4ID -f $nbrigenome -m $sp4mitID -u $user -a $nbrigtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp4ID -f $nbrigenome -m $sp4mitID -u $user -a $nbrigtf
+#   fi
+#   if [[ "$i1" == "$sp5" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp5
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
+#   fi
+#   if [[ "$i1" == "$sp6" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp6
+#     cd $WD/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf"
+#     sbatch $ATACscript3 -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf
+#   fi
+# done < $prefixfailed # this while loop will run ATAC script in each ATAC folder
+#
+# ## the following are struggling to complete:
+# # Pnm4_T_ATAC
+# # # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/ #sambamba-sort: Unable to write to stream - GIVE IT MORE MEMORY
+# # nano /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/4.postalign_filt.sh # change memory to 120G
+# # scancel 28283356
+# # scancel 28296911
+# # cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/Pnm4_T_ATAC/4.postalign_filt/
+# # sbatch 4.postalign_filt.sh # if that runs successfuly then run peak calling and bed to bigbed conversion for narrowpeaks separately too
+#
+# # these are also struggling at the same stage
+# scancel -n ATAC_Bioinf_pipeline_v2b.sh
+# scancel -n 5.peakcall.sh
+#
+# # these all failed for 'sambamba-sort: /tmp/sambamba-pid19093-imkg: No space left on device'
+# # create tmp dir for each sample in a place with lots of space - /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
+# # up the memory to 120000 (in sbatch header and sambamba sort)
+#   # sambamba sort -m 120G -t 1 --tmpdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp -o $bam_file_sorted -u $bam_file
+#   # sambamba markdup -l 0 -t 1 --tmpdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp $bam_file_sorted $bam_file_dup
+#
+# # edited the memory and tmp dir and ran using sbatch > that ran successfuly > then run peak calling and bed to bigbed conversion for narrowpeaks separately too
+# for i in On3_T_ATAC On3_B_ATAC On2_G_ATAC Pnm3_B_ATAC Pnm4_T_ATAC Mz2_T_ATAC 1bAc_3dpf_ATAC On1_G_ATAC; do
+#   # ls -tlrh $i/4.postalign_filt/
+#   # rm $i/4.postalign_filt/slurm*
+#   # echo $i
+#   # head $i/4.postalign_filt/slurm*.err
+#   # mkdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
+#   # sed -i 's/88000/120000/g' $i/4.postalign_filt/4.postalign_filt.sh
+#   # sed -i 's/88G/120G/g' $i/4.postalign_filt/4.postalign_filt.sh
+#   # nano $i/4.postalign_filt/4.postalign_filt.sh
+#   # less $i/4.postalign_filt/4.postalign_filt.sh
+#   # sbatch $i/4.postalign_filt/4.postalign_filt.sh
+#   ls -tlrh $i/5.peak_calling/
+#   # cd $WD/${i}/5.peak_calling/
+#   # sbatch 5.peakcall.sh
+# done
+#
+# for i in Ab5_L_ATAC Ab6_L_ATAC; do
+#   ls -tlrh $i/4.postalign_filt/
+#   # rm $i/4.postalign_filt/slurm*
+#   # echo $i
+#   # head $i/4.postalign_filt/slurm*.err
+#   # mkdir /tgac/workarea/group-vh/Tarang/ATACseq/3.run2/${i}_tmp
+#   # sed -i 's/88000/120000/g' $i/4.postalign_filt/4.postalign_filt.sh
+#   # sed -i 's/88G/120G/g' $i/4.postalign_filt/4.postalign_filt.sh
+#   # nano $i/4.postalign_filt/4.postalign_filt.sh
+#   # less $i/4.postalign_filt/4.postalign_filt.sh
+#   # cd $WD/${i}/4.postalign_filt
+#   # sbatch 4.postalign_filt.sh
+#   # ls -tlrh $i/5.peak_calling/
+#   # cd $WD/${i}/5.peak_calling/
+#   # sbatch 5.peakcall.sh
+# done
+# # the above failed to tmp isssues on mark-dup - re-ran supressing the sort as that is completed
+#
+# # > On1_G_ATAC # restarted peak calling due to time limit {{{{{COMPLETED}}}}}
+#
+# # > Ab5_L_ATAC and Ab6_L_ATAC failed again at stage 4 for the same reason:
+# # sambamba-markdup: Cannot open file `/tgac/workarea/group-vh/Tarang/ATACseq/3.run2/Ab6_L_ATAC_tmp/sambamba-pid48145-markdup-jfzq/PairedEndsInfoxzwx16' in mode `w+' (Too many open files)
+# # added '--overflow-list-size 600000' to the sambamba markdup command
+# # re-ran step 4 - Ab5_L_ATAC completed {{{{{CHECK Ab6_L_ATAC step4}}}}}
+# # amended peak call time limit and re-ran peak calling for: {{{{{{{RUNNING - Ab5_L_ATAC and Ab6_L_ATAC}}}}}}}
+#
+# # some of the other jobs (moved to scratch) didn't finish (genrich) due to time limit:
+# for i in *_*_ATAC/5.peak_calling; do
+#   ls -tlrh $i
+#   # sample=$(echo $i | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
+#   # time=$(grep 'DUE TO TIME LIMIT' $i)
+#   # echo -e $sample
+# done
+#
+# # these need re-running peakcalling with longer run time: Pnm1_L_ATAC Nb5_T_ATAC Nb5_L_ATAC Nb4_T_ATAC Nb4_L_ATAC Ab5_T_ATAC
+# for i in Pnm1_L_ATAC Nb5_T_ATAC Nb5_L_ATAC Nb4_T_ATAC Nb4_L_ATAC Ab5_T_ATAC; do
+#   # rm ${i}/5.peak_calling/slurm*
+#   # rm ${i}/5.peak_calling/Pnm*
+#   # rm ${i}/5.peak_calling/Nb*
+#   # rm ${i}/5.peak_calling/Ab*
+#   # rm ${i}/5.peak_calling/*.bed
+#   # rm ${i}/5.peak_calling/*.as
+#   # sed -i 's/0-04:59/0-07:59/g' ${i}/5.peak_calling/5.peakcall.sh # change time to 0-07:59
+#   # sed -i 's/data/scratch/g' ${i}/5.peak_calling/5.peakcall.sh
+#   # sed -i 's/scratch\/ATACseq\/3.run2\/genomes/data\/ATACseq\/3.run2\/genomes/g' ${i}/5.peak_calling/5.peakcall.sh
+#   # cd $WD2/${i}/5.peak_calling
+#   ls -tlrh $WD2/${i}/5.peak_calling
+#   # sbatch 5.peakcall.sh ###### {{{{{CHECK}}}}}
+# done
+#
+# # the above ran ok except for Nb4_L_ATAC (due to gDNA folder incorrect location) and Nb4_T_ATAC (time limit)
+# cd $WD2/Nb4_L_ATAC/5.peak_calling; sbatch 5.peakcall.sh # re-ran
+# cd $WD2/Nb4_T_ATAC/5.peak_calling; sbatch 5.peakcall.sh # re-ran
+#
+# ## last few to check once complete
+# ls -tlrh $WD/Ab5_L_ATAC/5.peak_calling # completed
+# ls -tlrh $WD/Ab6_L_ATAC/5.peak_calling # completed
+# ls -tlrh $WD2/Nb4_L_ATAC/5.peak_calling # completed
+# ls -tlrh $WD2/Nb4_T_ATAC/5.peak_calling # completed
+#
+#
+# # bed to bigbed conversion
+# source ucsc_utils-v333
+#
+# for i in On3_T_ATAC On3_B_ATAC On2_G_ATAC Pnm3_B_ATAC Pnm4_T_ATAC Mz2_T_ATAC 1bAc_3dpf_ATAC On1_G_ATAC Ab5_L_ATAC Ab6_L_ATAC; do
+#   cd $WD/${i}/5.peak_calling
+#   bigbed=(${i}/5.peak_calling/${i}_peaks.narrowPeak.bb)
+#   peak=(${i}/5.peak_calling/${i}_peaks.narrowPeak)
+#   peakgz=(${i}/5.peak_calling/${i}_peaks.narrowPeak.gz)
+#   echo 'table narrowPeak' > narrowPeak.as
+#   echo '"BED6+4 Peaks of signal enrichment based on pooled, normalized (interpreted) data."' >> narrowPeak.as
+#   echo '(' >> narrowPeak.as
+#   echo -e '\tstring chrom;        "Reference sequence chromosome or scaffold"' >> narrowPeak.as
+#   echo -e '\tuint   chromStart;   "Start position in chromosome"' >> narrowPeak.as
+#   echo -e '\tuint   chromEnd;     "End position in chromosome"' >> narrowPeak.as
+#   echo -e '\tstring name;	 "Name given to a region (preferably unique). Use . if no name is assigned"' >> narrowPeak.as
+#   echo -e '\tuint   score;        "Indicates how dark the peak will be displayed in the browser (0-1000) "' >> narrowPeak.as
+#   echo -e '\tchar[1]  strand;     "+ or - or . for unknown"' >> narrowPeak.as
+#   echo -e '\tfloat  signalValue;  "Measurement of average enrichment for the region"' >> narrowPeak.as
+#   echo -e '\tfloat  pValue;       "Statistical significance of signal value (-log10). Set to -1 if not used."' >> narrowPeak.as
+#   echo -e '\tfloat  qValue;       "Statistical significance with multiple-test correction applied (FDR -log10). Set to -1 if not used."' >> narrowPeak.as
+#   echo -e '\tint   peak;         "Point-source called for this peak; 0-based offset from chromStart. Set to -1 if no point-source called."' >> narrowPeak.as
+#   echo ')' >> narrowPeak.as
+#   zcat ${peakgz} | sort -k1,1 -k2,2n > ${bigbed}.tmp
+#   bedClip ${bigbed}.tmp ${scafflen2} ${bigbed}.tmp2
+#   bedToBigBed -type=bed6+4 -as=narrowPeak.as ${bigbed}.tmp2 ${scafflen2} ${bigbed}
+#   rm -f ${bigbed}.tmp ${bigbed}.tmp2
+# done
+#
+# ############################################ ~~~~~~~ ############################################
 
 
 
@@ -601,6 +617,16 @@ then
   echo -e "All ATAC library alignments to peak calling and bigbed conversion have completed successfully....\nTotal runs = $ATACslurmoutstotal\nTotal completed runs = $ATACcompleteslurm"
 else
   echo -e "Not all ATAC library alignments to peak calling and bigbed conversion have completed successfuly....\nTotal runs = $ATACslurmoutstotal\nTotal completed runs = $ATACcompleteslurm"
+fi
+
+# alternative method to check if scripts were re-ran from midway
+ATACslurmoutstotal2=$(ls -1 *_*_ATAC/slurm*.out | wc -l)
+ATACcompleteslurm2=$(ls -tlrh *_*_ATAC/5.peak_calling/*_*_Genrich.peaks | wc -l)
+if [[ $ATACslurmoutstotal2 -eq $ATACcompleteslurm2 ]]
+then
+  echo -e "All ATAC library alignments to peak calling and bigbed conversion have completed successfully....\nTotal runs = $ATACslurmoutstotal2\nTotal completed runs = $ATACcompleteslurm2"
+else
+  echo -e "Not all ATAC library alignments to peak calling and bigbed conversion have completed successfuly....\nTotal runs = $ATACslurmoutstotal2\nTotal completed runs = $ATACcompleteslurm2"
 fi
 
 # D. Check and print all ATAC mapping rates
@@ -645,13 +671,154 @@ for file in *_*_ATAC/5.peak_calling/*_*_Genrich.peaks; do
   echo -e $sample'\t'$peaks >> ATAC_Genrichpeaks_mainsummary.txt
 done
 
+##############################################################################
+### Moving folders will be difficult until you have more space - ask for 10tb in scratch
+# then move all gDNA to data ($WD) (leave uncompressed as this doesn't make difference to size)
+# then move all ATAC to $WD2 (scratch) for processing
+
+# Move all gDNA folders from $WD2 to $WD
+
+cd $WD2
+
+nano mvgDNA.sh
+
+#!/bin/bash -e
+#SBATCH -p tgac-short # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --array=0-48
+#SBATCH --mem-per-cpu 12000
+#SBATCH -t 0-00:45
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+
+WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # if you change path here then ensure to change in all other scripts
+WD2=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2)
+
+ls -1 *_*_gDNA | grep ':' | sed 's/://g' > gDNAfolders
+mapfile -t gDNAfolders < gDNAfolders
+mv ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]} $WD
+
+# run the above
+sbatch mvgDNA.sh
+
+# Move all ATAC folders back from $WD to $WD2
+
+cd $WD
+
+nano mvATAC.sh
+
+#!/bin/bash -e
+#SBATCH -p tgac-medium # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --array=0-10
+#SBATCH --mem-per-cpu 8000
+#SBATCH -t 0-03:59
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+
+WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # if you change path here then ensure to change in all other scripts
+WD2=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2)
+
+ls -1 *_*_ATAC | grep ':' | sed 's/://g' > ATACfolders
+mapfile -t ATACfolders < ATACfolders
+mv ${ATACfolders[${SLURM_ARRAY_TASK_ID}]} $WD2
+
+# run the above
+sbatch mvATAC.sh
+
+# ##############################################################################
+#
+# ## Create tar balls of the files that you will not need.
+#
+# # a. copy *_*_ATAC/3.Mtfilt_fragcnt/*.fraglength.pdf to 4.postalign_filt
+# for i in *_*_ATAC; do
+#   cp $i/3.Mtfilt_fragcnt/*.fraglength.pdf $i/4.postalign_filt
+# done
+#
+# # b. create a tar ball of each gDNA folder
+#
+# cd $WD
+#
+# nano gDNA_tar.sh
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-short # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --array=0-10
+# #SBATCH --mem-per-cpu 12000
+# #SBATCH -t 0-00:45
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# ls -1 *_*_gDNA | grep ':' | sed 's/://g' > gDNAfolders
+# mapfile -t gDNAfolders < gDNAfolders
+# tar -czvf ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]}.tar.gz ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]}
+#
+# # run the above
+# sbatch gDNA_tar.sh
+#
+# cd $WD2
+#
+# nano gDNA_tar.sh
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-short # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --array=0-48
+# #SBATCH --mem-per-cpu 12000
+# #SBATCH -t 0-00:45
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# ls -1 *_*_gDNA | grep ':' | sed 's/://g' > gDNAfolders
+# mapfile -t gDNAfolders < gDNAfolders
+# tar -czvf ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]}.tar.gz ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]}
+#
+# # run the above
+# sbatch gDNA_tar.sh
+#
+# # c. check gDNA compressions finished ok and remove gDNA folder
+# ls -tlrh slurm*.err
+# rm -r *_*_gDNA
+# rm slurm*.err # keep the slurm*.out files as they have compression details
+#
+# # d. create a tar ball of some subdirs of each ATAC folder: *_*_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt}
+#
+# cd $WD
+#
+# nano ATAC_tar.sh
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-short # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --array=0-10
+# #SBATCH --mem-per-cpu 12000
+# #SBATCH -t 0-00:45
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# ls -1 *_*_ATAC | grep ':' | sed 's/://g' > ATACfolders
+# mapfile -t ATACfolders < ATACfolders
+# tar -czvf ${ATACfolders[${SLURM_ARRAY_TASK_ID}]}.tar.gz ${ATACfolders[${SLURM_ARRAY_TASK_ID}]}/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt}
+#
+# # run the above
+# sbatch ATAC_tar.sh
 
 ##############################################################################
 
-## 4. ATAC downstream analysis - IDR, footprinting, peak annotation and differential analysis
-
-##############################################################################
-
-# Before you start running this section, consider creating a tar ball of the files that you will not need. This includes:
-# *_*_gDNA
-# *_*_ATAC/{1.adaptor_trimming,2.read_alignment,3.Mtfilt_fragcnt,4.postalign_filt,5.peak_calling}
+## 5. ATAC downstream analysis - IDR, footprinting, peak annotation and differential analysis
