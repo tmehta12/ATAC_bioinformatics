@@ -71,6 +71,7 @@ FRIP=($idrdir/FRiPvalues.txt)
 PASS=0.3
 ACCEPTABLE=0.2
 
+
 ### 2. Peak annotation - there are several variables in the section that will need amending
 annotdir=($scripts/2.Annotation) # assign raw reads dir
 prefixATAC2=($scripts/prefixATAC2.txt)
@@ -172,6 +173,7 @@ Ac5kbprom=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAs
 friarscript=frinannotatedregions.sh
 friarout=fraction_of_reads_in_annotatedregions.txt
 
+
 ### 3. TF footprinting and creation of signal tracks
 tffprdir=$scripts/3.TFfprint_SignalTrack
 mkdir -p $tffprdir # make the directory here as files will be added
@@ -250,7 +252,6 @@ pwmsp4=nb
 pwmsp5=on
 pwmsp6=ac
 j=7 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
-
 
 
 ### 4. Differential analysis of peaks
@@ -585,7 +586,9 @@ rm $FRIP.temp
 
 # 	2b. Fraction of Reads in annotated regions - TO DO
 
-#### NOTE: Install R-4.0.2 with the required packages: source /ei/software/staging/CISSUPPORT-11716/stagingloader
+#### NOTE: Install R-4.0.2 with the required packages:
+## It's been copied to home area: cp -r /ei/software/staging/CISSUPPORT-11716 ~/
+## Load by: source ~/CISSUPPORT-11716/stagingloader
 ## Installed the following packages in R-4.0.2: "RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","DiffBind", "DESeq2", "motifbreakR"
 
 mkdir -p $annotdir
@@ -820,7 +823,7 @@ echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> 2aBa.forgeBSgenomes.sh
 echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> 2aBa.forgeBSgenomes.sh
 printf '\n' >> 2aBa.forgeBSgenomes.sh
 echo "source pcre2-10.23" >> 2aBa.forgeBSgenomes.sh
-echo "source /ei/software/staging/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBa.forgeBSgenomes.sh
+echo "source ~/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBa.forgeBSgenomes.sh
 printf '\n' >> 2aBa.forgeBSgenomes.sh
 echo "ls -1 *_forgeBSgenome.R > bsgenomes # create a list of all bsgenomes Rscript files" >> 2aBa.forgeBSgenomes.sh
 echo 'mapfile -t bsgenomes < bsgenomes # assign as elements to $bsgenomes variable' >> 2aBa.forgeBSgenomes.sh
@@ -856,7 +859,7 @@ echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> 2aBb.buildBSgenomes.sh
 echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> 2aBb.buildBSgenomes.sh
 printf '\n' >> 2aBb.buildBSgenomes.sh
 echo "source pcre2-10.23" >> 2aBb.buildBSgenomes.sh
-echo "source /ei/software/staging/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBb.buildBSgenomes.sh
+echo "source ~/CISSUPPORT-11716/stagingloader # source R-4.0.2" >> 2aBb.buildBSgenomes.sh
 printf '\n' >> 2aBb.buildBSgenomes.sh
 echo 'mapfile -t bsgenomesIDs < speciesBSgenomeIDs' >> 2aBb.buildBSgenomes.sh
 printf '\n' >> 2aBb.buildBSgenomes.sh
@@ -1063,7 +1066,6 @@ python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FANbg $
 python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAOng $On5kbpromannot
 python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAAcg $Ac5kbpromannot
 
-
 # For each annotation BED file, run fraction of reads in annotated region - run this in a while loop (using an amended $fripprefix as input) where you also output the sample ID
 # for this, add the the following to $fripprefix:
   # col1 - species id e.g. Mz, Pn, etc.
@@ -1075,8 +1077,6 @@ awk -F'_' '{print $1}' $fripprefix | sed 's/1a//g' | sed 's/1b//g' | sed 's/2a//
 awk '{print $1,$2}' OFS='\t' $fripprefix2 > $fripprefix2.tmp2
 paste $fripprefix2.tmp1 $fripprefix2.tmp2 > $fripprefix2 # create a new file that has species ID alongside the sample ID
 rm $fripprefix2.tmp1 $fripprefix2.tmp2
-
-# ONCE BELOW IS FINALISED THEN ECHO INTO AN SBATCH SCRIPT LIKE ABOVE FOR DEPENDENCY
 
 echo "#!/bin/bash -e" >> $friarscript
 echo "#SBATCH -p tgac-medium # partition (queue)" >> $friarscript
@@ -1172,13 +1172,11 @@ echo "done < $fripprefix2" >> $friarscript
 #   fi
 # done < $fripprefix2
 
-
 echo '# -- 2aBc. Peak annotation has completed: ATACseqQC completed -- #'
 
 echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
 
 JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} $friarscript | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
-
 
 ################################################################################################################
 
