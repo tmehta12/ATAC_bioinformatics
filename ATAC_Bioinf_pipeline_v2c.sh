@@ -55,6 +55,8 @@ idrdir=($scripts/1.IDR) # assign raw reads dir
 prefixATAC=($scripts/prefixATAC.txt)
 prefixpairs=($idrdir/prefixpairs.txt)
 idrpairs=($idrdir/idrpairpaths.txt)
+idrpairs2=($idrdir/idrpairpaths2.txt)
+idrpairunique=($idrdir/idrpairpathsunique.txt)
 idrpair1=($idrdir/idrpairpaths_rep1.txt)
 idrpair2=($idrdir/idrpairpaths_rep2.txt)
 idrprefix=($idrdir/idrprefix.txt)
@@ -70,7 +72,6 @@ fripprefix=($idrdir/fripprefix.txt)
 FRIP=($idrdir/FRiPvalues.txt)
 PASS=0.3
 ACCEPTABLE=0.2
-
 
 ### 2. Peak annotation - there are several variables in the section that will need amending
 annotdir=($scripts/2.Annotation) # assign raw reads dir
@@ -184,7 +185,7 @@ PnggenGC=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.
 AbggenGC=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.generegions_Gencode.bed
 NbggenGC=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.generegions_Gencode.bed
 OnggenGC=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.generegions_Gencode.bed
-AcgenGC=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_Gencode.bed
+AcggenGC=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_Gencode.bed
 MzggenRS=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.generegions_RefSeq.bed
 PnggenRS=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.generegions_RefSeq.bed
 AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.generegions_RefSeq.bed
@@ -251,7 +252,7 @@ pwmsp3=ab
 pwmsp4=nb
 pwmsp5=on
 pwmsp6=ac
-j=7 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
+j=9 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
 
 
 ### 4. Differential analysis of peaks
@@ -313,42 +314,46 @@ done
 awk -F'\t' '!seen[$1>$2 ? $1 FS $2 : $2 FS $1]++' $prefixpairs.temp > $prefixpairs # this removes duplicate pairs that are simply in a different order
 rm $prefixpairs.temp
 
-awk '{print "/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t","/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
+# since the Ac embryo samples are uniquely name, manually add them
+echo -e '1aAc_3dpf_ATAC\t1bAc_3dpf_ATAC' >> $prefixpairs
+echo -e '2aAc_7dpf_ATAC\t2bAc_7dpf_ATAC' >> $prefixpairs
+echo -e '3aAc_12dpf_ATAC\t3bAc_12dpf_ATAC' >> $prefixpairs
 
-# Run a file check to ensure the pairs exist and continue if they do, else, echo that they do not exist
+awk -F'\t' -v wd="$scripts" '{print wd"/"$1"/5.peak_calling/"$1"_peaks.narrowPeak.gz","\t",wd"/"$2"/5.peak_calling/"$2"_peaks.narrowPeak.gz"}' $prefixpairs | sed 's/ //g' > $idrpairs
+
+# =============================
+# 1aB. Separate the pairwise comparisons for an array
+# split the above file into two files, one for each column
+# =============================
+#
+cut -f1 $idrpairs > $idrpair1
+cut -f2 $idrpairs > $idrpair2
+paircount=$(wc -l $idrpairs | awk -F' ' '{print $1}') # assign variable for total number of pairs
+IDRarray=0-$(expr $paircount - 1) # number of pairs for the array starting from 0
+#
+# =============================
+# 1aC. Run the IDR analyses by iterating in an array
+# 1aCa. unzip files and create a pooled-replicate narrowPeak file
+# 1aCb. Perform IDR analysis.
+  # Generate a plot and IDR output with additional columns including IDR scores.
+# 1aCc. Get peaks passing IDR threshold of 10%
+#
+cat $idrpair1 $idrpair2 | sort -u > $idrpairunique
+# unzip the narrow peak files
+while IFS= read -r i; do
+  gunzip $i
+done < $idrpairunique
+#
+#
+sed 's/.gz//g' $idrpair1 > $idrpair1a
+sed 's/.gz//g' $idrpair2 > $idrpair2a
+# =============================
+sed 's/.gz//g' $idrpairs > $idrpairs2 # now the the peak files are unzipped, change the paths
 
 while read -r r1 r2; do
   # echo "rep1 is $r1, rep2 is $r2"
   if test -f "$r1" && test -f "$r2"; then
     echo "$r1 and $r2 EXISTS"
-    # =============================
-    # 1aB. Separate the pairwise comparisons for an array
-    # split the above file into two files, one for each column
-    # =============================
-    #
-    cut -f1 $idrpairs > $idrpair1
-    cut -f2 $idrpairs > $idrpair2
-    paircount=$(wc -l $idrpairs | awk -F' ' '{print $1}') # assign variable for total number of pairs
-    IDRarray=0-$(expr $paircount - 1) # number of pairs for the array starting from 0
-    #
-    # =============================
-    # 1aC. Run the IDR analyses by iterating in an array
-    # 1aCa. unzip files and create a pooled-replicate narrowPeak file
-    # 1aCb. Perform IDR analysis.
-      # Generate a plot and IDR output with additional columns including IDR scores.
-    # 1aCc. Get peaks passing IDR threshold of 10%
-    #
-    while IFS= read -r i; do
-      gunzip $i
-    done < $idrpair1
-    #
-    while IFS= read -r i; do
-      gunzip $i
-    done < $idrpair2
-    #
-    sed 's/.gz//g' $idrpair1 > $idrpair1a
-    sed 's/.gz//g' $idrpair2 > $idrpair2a
-    #
     #
     echo '#!/bin/bash -e' > 1a.IDR.sh
     echo '#SBATCH -p tgac-short # partition (queue)' >> 1a.IDR.sh
@@ -425,7 +430,7 @@ while read -r r1 r2; do
     echo -e '\t# echo $out' >> 1aB.IDR.sh
     echo -e '\t# echo $inprefix' >> 1aB.IDR.sh
     echo -e '\tif [[ $peakprefix = $inprefix ]]; then # check that the peaks passing IDR and narrowPeak file match' >> 1aB.IDR.sh
-    echo -e '\t\t"peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"'
+    echo -e '\t\t"peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"' >> 1aB.IDR.sh
     echo -e '\t\tsort -k7,7rn ${reppeak} | awk -v peakline="$peakline" '"'{if(NR>=1 && NR<=peakline)print "'$0,"T";else print $0,"F";}'"' OFS='\t' > "'${out} # check with awk '"'FNR>=103003 && FNR<=103006'" >> 1aB.IDR.sh
     echo -e '\telse' >> 1aB.IDR.sh
     echo -e '\t\t"peakcount>> $peakprefix != $inprefix <<narrowPeaks_file: npeaks and peaks file NOT matched"' >> 1aB.IDR.sh
@@ -434,8 +439,7 @@ while read -r r1 r2; do
   else
     echo "$r1 and/or $r2 DOES NOT EXIST"
   fi
-done < idrpairpaths.txt
-
+done < $idrpairs2
 
 # IDR output
 # Broad peak output files are the same except that they do not include the the summit columns (e.g. columns 10, 18, and 22 for samples with 2 replicates)
@@ -515,6 +519,7 @@ JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1aB.IDR.sh | awk '{print $4}'
 
 # 1bA. Create a 3 column file - col1: variableID; col2: tagAlign input; col3: IDR peak file
 
+### CHECK THE WD OUTPUT OF THIS!!!!!!!!!
 echo '#!/bin/bash -e' > 1bA.FRIPawk.sh
 echo '#SBATCH -p tgac-short # partition (queue)' >> 1bA.FRIPawk.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1bA.FRIPawk.sh
@@ -526,8 +531,7 @@ echo "#SBATCH --mail-user=$email # send-to address" >> 1bA.FRIPawk.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1bA.FRIPawk.sh
 echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1bA.FRIPawk.sh
 printf '\n' >> 1bA.FRIPawk.sh
-echo 'awk -F'"'\t' '{print "'$1,"/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
-
+echo 'awk -F'"'\t' -v "'wd="'$scripts'" '"'{print "'$1,wd"/"$1"/5.peak_calling/"$1".tn5.tagAlign.gz",$1"_peaks.final.narrowPeak"}'"' OFS='\t' $prefixATAC > $fripprefix" >> 1bA.FRIPawk.sh
 
 echo '# -- 1a. IDR has completed -- #'
 
@@ -1183,10 +1187,10 @@ JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} $friarscript | awk '{print $4
 ### 3. TF footprinting and creation of signal tracks
 
 ######### TO DO
-# 0. Add A. calliptera using M. zebra motifs - add variables of A. calliptera at top if required
-# 1. IN POINT 2 USING ATACSEQQC, CREATE A SHIFTED BAM (this has been input as -s option > output is $annotdir/Ab5_L.shifted.bam) AND USE THIS FOR FOOTPRINTING!!!!
-# 2. CHANGE ALL PATHS TO THE NEW BAM TO USE BELOW IN THIS SECTION!!
-# 3. Ensure all echo of started, completed and job numbers are ok
+# 0. Add A. calliptera using M. zebra motifs {TO DO - may need to copy and rename M. zebra motifs} - add variables of A. calliptera at top if required {DONE}
+# 1. IN POINT 2 USING ATACSEQQC, CREATE A SHIFTED BAM (this has been input as -s option > output is $annotdir/Ab5_L.shifted.bam) AND USE THIS FOR FOOTPRINTING!!!! {TO DO}
+# 2. CHANGE ALL PATHS TO THE NEW BAM TO USE BELOW IN THIS SECTION!! {TO DO}
+# 3. Ensure all echo of started, completed and job numbers are ok {DONE}
 
 # Signal tracks are generated from BAM file (Raw) and bias corrected by HINT-ATAC
 # This is rolled in with TF footprinting using HINT-ATAC, see this: https://www.regulatory-genomics.org/hint/tutorial/
@@ -1228,6 +1232,7 @@ cd $tffprdir
 # bioawk -c fastx '{ print $name, length($seq) }' < $PngFA | awk '{print $1,$2}' OFS="\t" > $Pngchr
 # bioawk -c fastx '{ print $name, length($seq) }' < $NbgFA | awk '{print $1,$2}' OFS="\t" > $Nbgchr
 # bioawk -c fastx '{ print $name, length($seq) }' < $OngFA | awk '{print $1,$2}' OFS="\t" > $Ongchr
+# bioawk -c fastx '{ print $name, length($seq) }' < $AcgFA | awk '{print $1,$2}' OFS="\t" > $Acgchr
 
 # Ab. Two gene regions file in bed format
 ## 1. For the genes_Gencode file use ensemblIDS
@@ -1240,6 +1245,7 @@ done < $antfiles
 # cat $annotPng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $PnggenGC
 # cat $annotNbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $NbggenGC
 # cat $annotOng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $OnggenGC
+# cat $annotAcg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $AcggenGC
 
 ## 2. For the genes_RefSeq file use gene symbol
 while read -r b; do
@@ -1251,6 +1257,7 @@ done < $antfiles
 # cat $annotPng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $PnggenRS
 # cat $annotNbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $NbggenRS
 # cat $annotOng | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $OnggenRS
+# cat $annotAcg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $AcggenRS
 
 # Ac. gene alias file in text format - prepare from the gtf and BioMart
 
@@ -1291,6 +1298,7 @@ done < $antfiles
   # hburtoni_gene_ensembl
   # nbrichardi_gene_ensembl - not available
   # oniloticus_gene_ensembl
+  # acalliptera_gene_ensembl
 
 echo '#!/bin/bash -e' > 2.2_biomart_dl.sh
 echo '#SBATCH -p tgac-short # partition (queue)' >> 2.2_biomart_dl.sh
@@ -1340,7 +1348,7 @@ echo '# -- 2b. Fraction of Reads in annotated regions has completed -- #'
 
 echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
 
-JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
+JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
 
 
 # # while loop original placed in script above, and a while loop version of the longer version below
@@ -1500,7 +1508,7 @@ sed 's/.tsv/.txt/g' $processggenaltsv2 > $genalpaths
 echo $(ls -1 $Nbggenal) >> $genalpaths
 
 while read -r d; do
-# for d in "$Mzgannot" "$Pngannot" "$Abgannot" "$Nbgannot" "$Ongannot"; do
+# for d in "$Mzgannot" "$Pngannot" "$Abgannot" "$Nbgannot" "$Ongannot" "$Acgannot"; do
   rm $(echo "${d}" | sed 's/.gtf/.genealias.txt.tmp1/g')
 done < $antfiles
 
@@ -1552,6 +1560,15 @@ echo "genes_Gencode: $OnggenGC" >> $rgtdatapath/data.config.user
 echo "genes_RefSeq: $OnggenRS" >> $rgtdatapath/data.config.user
 echo "annotation: $annotOng" >> $rgtdatapath/data.config.user
 echo "gene_alias: $Onggenal" >> $rgtdatapath/data.config.user
+printf '\n' >> $rgtdatapath/data.config.user
+
+echo "$rgtidsp6" >> $rgtdatapath/data.config.user
+echo "genome: $FAAcg" >> $rgtdatapath/data.config.user
+echo "chromosome_sizes: $Acgchr" >> $rgtdatapath/data.config.user
+echo "genes_Gencode: $AcggenGC" >> $rgtdatapath/data.config.user
+echo "genes_RefSeq: $AcggenRS" >> $rgtdatapath/data.config.user
+echo "annotation: $annotAcg" >> $rgtdatapath/data.config.user
+echo "gene_alias: $Acggenal" >> $rgtdatapath/data.config.user
 printf '\n' >> $rgtdatapath/data.config.user
 
 # C. Create an array to work on files of each species
@@ -1848,7 +1865,7 @@ for Dfpsp in "${!fpsp@}"; do
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)' >> "${!Dfpsp}"'_TFfp.sh'
   echo "${!Dfpsp}BAM=(${!Dfpsp}inputBAM.txt)" >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$scripts/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling|g" | sed '"'s/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$annotdir/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed '"'s/_peaks.final.narrowPeak/.shifted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder) ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 4. mapfile the file from above' >> "${!Dfpsp}"'_TFfp.sh'
@@ -1856,22 +1873,22 @@ for Dfpsp in "${!fpsp@}"; do
   echo 'echo "# 4. mapfile the file from above ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 5. run samtools sort and index and drop in this folder' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'samtools sort '"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]} -o "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'samtools index "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'samtools sort '"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]} -o "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'samtools index "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 5. run samtools sort and index and drop in this folder ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed' >> "${!Dfpsp}"'_TFfp.sh'
   echo "mkdir -p $tffprdir/${pwmsp3}_fp" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# B. outputs signals for visualization in a genome browser' >> "${!Dfpsp}"'_TFfp.sh'
   echo "${!Dfpsp}signalprefix=(${!Dfpsp}signalprefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
   echo "sed 's"'/$/_BC/'"g' \$${!Dfpsp}prefix > \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
   echo "mapfile -t ${!Dfpsp}signalprefix < \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) $(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
+  echo 'rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) $(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# B. outputs signals for visualization in a genome browser ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# C. find associated TFs' >> "${!Dfpsp}"'_TFfp.sh'
@@ -1879,7 +1896,7 @@ for Dfpsp in "${!fpsp@}"; do
   echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
-# scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2)
+# scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2)
 # ml samtools/1.7
 # # idrdir=($scripts/1.IDR)
 # idrdir=($scripts/idr_test) # THIS NEEDS CHANGING TO ABOVE PATH FOR FINAL SCRIPT
@@ -1894,15 +1911,22 @@ done
 # # 2. mapfile the above file
 # mapfile -t Abprefixes < $Abprefix
 #
-# # 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the Abpeakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
+# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the Abpeakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
+# AbBAM=(AbinputBAM.txt)
+# echo ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$annotdir/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed 's/_peaks.final.narrowPeak/.shifted.bam/g' >> $AbBAM
+#
+# this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
 # AbBAM=(AbinputBAM.txt)
 # echo ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$scripts/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g' >> $AbBAM
-# # echo "${Abpeakarray[0]}" | sed "s|$idrdir|$scripts/${Abprefixes[0]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g'
+# echo "${Abpeakarray[0]}" | sed "s|$idrdir|$scripts/${Abprefixes[0]}/5.peak_calling|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.querysorted.bam/g'
 #
 # # 4, mapfile the file from above
 # mapfile -t AbBAM < $AbBAM
 #
 # # 5. run samtools sort and index and drop in this folder
+# samtools sort "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" -o "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"
+# samtools index "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"
+# this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
 # samtools sort "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" -o "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
 # samtools index "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam"
 #
@@ -1919,12 +1943,16 @@ done
 # # RGTDATA=(~/rgtdata)
 # export PATH="$PATH:/hpc-home/mehtat/.local/bin/"
 # mkdir -p $tffprdir/${pwmsp3}_fp
+# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
+# this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
 # rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
 #
 # # B. outputs signals for visualization in a genome browser
 # Absignalprefix=(Absignalprefixes.txt)
 # sed 's/$/_BC/g' $Abprefix > $Absignalprefix
 # mapfile -t Absignalprefix < $Absignalprefix
+# rgt-hint tracks --bc --bigWig --organism=$rgtidsp3a "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Absignalprefix[${SLURM_ARRAY_TASK_ID}]}
+# this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
 # rgt-hint tracks --bc --bigWig --organism=$rgtidsp3a "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Absignalprefix[${SLURM_ARRAY_TASK_ID}]}
 #
 # # C. find associated TFs
@@ -1935,15 +1963,13 @@ echo '# -- 3a. TF footprinting preparation has completed - bioMart alias, annota
 echo '# -- 3b. TF footprinting and creation of signal tracks started -- #'
 
 
-# JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} xx.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
-## This will need five jobs - put in a while loop using fpsp
-
+## This will need six jobs - put in a while loop using fpsp
 for Efpsp in "${!fpsp@}"; do
   jobidadd=$(echo $Efpsp | grep -Eo '[0-9]')
   jobidadd2=`expr $j + $jobidadd`
   # echo $jobidadd
   # echo $jobidadd2
-  JOBID"${jobidadd2}"=$( sbatch -W --dependency=afterok:${JOBID6} "${!Efpsp}"'_TFfp.sh' | awk '{print $4}' ) # JOB7-JOB11
+  JOBID"${jobidadd2}"=$( sbatch -W --dependency=afterok:${JOBID9} "${!Efpsp}"'_TFfp.sh' | awk '{print $4}' ) # JOB10-JOB15
 done
 
 
@@ -1969,11 +1995,13 @@ echo '# -- 3b. TF footprinting and creation of signal tracks has completed -- #'
 
 echo '# -- 4. Differential analysis of peaks has started -- #'
 
-JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} XX.sh | awk '{print $4}' ) # JOB4 depends on JOB3 completing successfully
+JOBID16=$( sbatch -W --dependency=afterok:${JOBID15} XX.sh | awk '{print $4}' ) # JOB16 depends on JOB15 completing successfully
 
 ################################################################################################################
 
 echo '# -- 5. Differential analysis of peaks has completed -- #'
 
 ### Finish the script
+echo -e '# --------------------\nEXITING SCRIPT - all completed\n# --------------------'
+
 exit 0
