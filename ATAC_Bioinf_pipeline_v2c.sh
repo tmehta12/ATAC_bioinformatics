@@ -62,7 +62,7 @@ idrpair2=($idrdir/idrpairpaths_rep2.txt)
 idrprefix=($idrdir/idrprefix.txt)
 idrpair1a=($idrdir/idrpairpaths_rep1unzipped.txt) # unzipped narrow peaks file path for rep1
 idrpair2a=($idrdir/idrpairpaths_rep2unzipped.txt) # unzipped narrow peaks file path for rep2
-IDR_THRESH=0.1 # consider changing to 0.05
+IDR_THRESH=0.1 # currently set at 10%, consider changing to 0.05 (5%)
 IDR_THRESH_TRANSFORMED=$(awk -v p=${IDR_THRESH} 'BEGIN{print -log(p)/log(10)}')
 npeaks_idr=($idrdir/idr_10thresh_peakcount.txt) # Number of peaks passing IDR thresholds of 10%
 npeaks_idrrep1=($idrdir/idr_10thresh_peakcount_rep1.txt) # Number of peaks passing IDR thresholds of 10% for replicate 1
@@ -279,7 +279,7 @@ j=9 # this is the preceding JOBID number (change this if required e.g. more or l
       # ml zlib
       # python3 setup.py install
     # follow IDR details: https://docs.google.com/document/d/1f0Cm4vRyDQDu0bMehHD7P7KOMxTOP-HiNoIvL1VcBt8/edit#
-      # set IDR_THRESH=0.1
+      # set IDR_THRESH=0.05/0.1 (that is an IDR threshold of either 5% or 10% - maybe run both?)
     # If you have more than 2 true replicates select the longest peak list from all pairs that passes the IDR threshold.
 
 ## NOTE:
@@ -355,50 +355,43 @@ while read -r r1 r2; do
   if test -f "$r1" && test -f "$r2"; then
     echo "$r1 and $r2 EXISTS"
     #
-    echo '#!/bin/bash -e' > 1a.IDR.sh
-    echo '#SBATCH -p tgac-short # partition (queue)' >> 1a.IDR.sh
-    echo '#SBATCH -N 1 # number of nodes' >> 1a.IDR.sh
-    echo '#SBATCH -n 1 # number of tasks' >> 1a.IDR.sh
-    echo "#SBATCH --array=$IDRarray" >> 1a.IDR.sh
-    echo '#SBATCH --mem-per-cpu 8000' >> 1a.IDR.sh
-    echo '#SBATCH -t 0-00:45' >> 1a.IDR.sh
-    echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1a.IDR.sh
-    echo "#SBATCH --mail-user=$email # send-to address" >> 1a.IDR.sh
-    echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1a.IDR.sh
-    echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo '# 1aC. Run the IDR analyses by iterating in an array' >> 1a.IDR.sh
-    echo '# 1aCa. unzip files and create a pooled-replicate narrowPeak file' >> 1a.IDR.sh
-    echo "mapfile -t idrrep1 < $idrpair1a" >> 1a.IDR.sh
-    echo "mapfile -t idrrep2 < $idrpair2a" >> 1a.IDR.sh
-    echo "awk '{print"' $1"_"$2}'"' $prefixpairs > $idrprefix" >> 1a.IDR.sh
-    echo "mapfile -t idrprefix < $idrprefix" >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo 'cat ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak' >> 1a.IDR.sh
-    echo '# 1aCb. Perform IDR analysis.' >> 1a.IDR.sh
-    echo '# Generate a plot and IDR output with additional columns including IDR scores.' >> 1a.IDR.sh
-    echo 'srun idr --samples ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} --peak-list ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak --input-file-type narrowPeak --output-file ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1output --rank p.value --soft-idr-threshold '"${IDR_THRESH} --plot --use-best-multisummit-IDR" >> 1a.IDR.sh
-    echo '# 1aCc. Get peaks passing IDR threshold of 10%' >> 1a.IDR.sh
-    echo '# IDR QC to report and using the IDR output' >> 1a.IDR.sh
-    echo '# 1. For each biological replicate pair, filter the IDR peaks based on the ${IDR_THRESH_TRANSFORMED} and sort descending based on signal.value (col7)' >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo "awk 'BEGIN{OFS="'"\t"} $12>='"'"${IDR_THRESH_TRANSFORMED}"' {print "'$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}'"' "'${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1output | sort | uniq | sort -k7,7rn > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Transf.narrowPeak' >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo '# 2. For each biological replicate pair, count the number of lines passing ${IDR_THRESH_TRANSFORMED} - this is where IDR finds the threshold to separate real peaks from noise' >> 1a.IDR.sh
-    echo 'wc -l ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR0.1Transf.narrowPeak >>'" $npeaks_idr # Number of peaks passing IDR thresholds of 10%" >> 1a.IDR.sh
-    echo '# 3. For each biological replicate in a pair, assign the wc -l as max_numPeaks_Rep peaks' >> 1a.IDR.sh
-    echo "awk -F'.' '{print "'$1}'"' $npeaks_idr | awk -F'_' '{print"' $1"_"$2"_"$3" "$4"_"$5"_"$6}'"' | sed 's/ /\t/g' > $npeaks_idr.tmp" >> 1a.IDR.sh
-    echo "cut -f1,2 $npeaks_idr.tmp > $npeaks_idrrep1" >> 1a.IDR.sh
-    echo "cut -f1,3 $npeaks_idr.tmp > $npeaks_idrrep2" >> 1a.IDR.sh
-    echo '# cat $npeaks_idr.tmp2 $npeaks_idr.tmp3 | sort -k2,2 > $npeaks_idr2' >> 1a.IDR.sh
-    echo "rm *tmp*" >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo "# 4. For each biological replicate pair, sort the MACS2 narrowPeak file based on signal.value column (col7) and add another column on end 'max_numPeaks_Rep', adding 'T' for True and 'F' for False of peaks that pass IDR, based on wc -l" >> 1a.IDR.sh
-    printf '\n' >> 1a.IDR.sh
-    echo '# mapfile -t idrrep1 < $idrpair1a' >> 1a.IDR.sh
-    echo '# mapfile -t idrrep2 < $idrpair2a' >> 1a.IDR.sh
-    echo '# mapfile -t idrrep1peak < $npeaks_idrrep1' >> 1a.IDR.sh
-    echo '# mapfile -t idrrep2peak < $npeaks_idrrep2' >> 1a.IDR.sh
+    echo '#!/bin/bash -e' > 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -p tgac-short # partition (queue)' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -N 1 # number of nodes' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -n 1 # number of tasks' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "#SBATCH --array=$IDRarray" >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH --mem-per-cpu 8000' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -t 0-00:45' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "#SBATCH --mail-user=$email # send-to address" >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> 1a.IDR_${IDR_THRESH}.sh
+    printf '\n' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 1aC. Run the IDR analyses by iterating in an array' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 1aCa. unzip files and create a pooled-replicate narrowPeak file' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "mapfile -t idrrep1 < $idrpair1a" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "mapfile -t idrrep2 < $idrpair2a" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "awk '{print"' $1"_"$2}'"' $prefixpairs > $idrprefix" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "mapfile -t idrprefix < $idrprefix" >> 1a.IDR_${IDR_THRESH}.sh
+    printf '\n' >> 1a.IDR_${IDR_THRESH}.sh
+    echo 'cat ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 1aCb. Perform IDR analysis.' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# Generate a plot and IDR output with additional columns including IDR scores.' >> 1a.IDR_${IDR_THRESH}.sh
+    echo 'srun idr --samples ${idrrep1[${SLURM_ARRAY_TASK_ID}]} ${idrrep2[${SLURM_ARRAY_TASK_ID}]} --peak-list ${idrprefix[${SLURM_ARRAY_TASK_ID}]}_peaks.narrowPeak --input-file-type narrowPeak --output-file ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR'${IDR_THRESH}'output --rank p.value --soft-idr-threshold '"${IDR_THRESH} --plot --use-best-multisummit-IDR" >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 1aCc. Get peaks passing IDR threshold of 10%' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# IDR QC to report and using the IDR output' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 1. For each biological replicate pair, filter the IDR peaks based on the ${IDR_THRESH_TRANSFORMED} and sort descending based on signal.value (col7)' >> 1a.IDR_${IDR_THRESH}.sh
+    printf '\n' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "awk 'BEGIN{OFS="'"\t"} $12>='"'"${IDR_THRESH_TRANSFORMED}"' {print "'$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}'"' "'${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR'${IDR_THRESH}'output | sort | uniq | sort -k7,7rn > ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR'${IDR_THRESH}'Transf.narrowPeak' >> 1a.IDR_${IDR_THRESH}.sh
+    printf '\n' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 2. For each biological replicate pair, count the number of lines passing ${IDR_THRESH_TRANSFORMED} - this is where IDR finds the threshold to separate real peaks from noise' >> 1a.IDR_${IDR_THRESH}.sh
+    echo 'wc -l ${idrprefix[${SLURM_ARRAY_TASK_ID}]}.IDR'${IDR_THRESH}'Transf.narrowPeak >>'" $npeaks_idr # Number of peaks passing IDR thresholds of 10%" >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# 3. For each biological replicate in a pair, assign the wc -l as max_numPeaks_Rep peaks' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "awk -F'.' '{print "'$1}'"' $npeaks_idr | awk -F'_' '{print"' $1"_"$2"_"$3" "$4"_"$5"_"$6}'"' | sed 's/ /\t/g' > $npeaks_idr.tmp" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "cut -f1,2 $npeaks_idr.tmp > $npeaks_idrrep1" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "cut -f1,3 $npeaks_idr.tmp > $npeaks_idrrep2" >> 1a.IDR_${IDR_THRESH}.sh
+    echo '# cat $npeaks_idr.tmp2 $npeaks_idr.tmp3 | sort -k2,2 > $npeaks_idr2' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "rm *tmp*" >> 1a.IDR_${IDR_THRESH}.sh
     #
     #
     echo '#!/bin/bash -e' > 1aB.IDR.sh
@@ -496,7 +489,7 @@ done < $idrpairs2
 # [rep N data]
 
 
-# The plot (*.IDR0.1output.png) for each quadrant is described below:
+# The plot (*.IDR${IDR_THRESH}output.png) for each quadrant is described below:
 # Upper Left: Replicate 1 peak ranks versus Replicate 2 peak ranks - peaks that do not pass the specified idr threshold are colored red.
 # Upper Right: Replicate 1 log10 peak scores versus Replicate 2 log10 peak scores - peaks that do not pass the specified idr threshold are colored red.
 # Bottom Row: Peak rank versus IDR scores are plotted in black. The overlayed boxplots display the distribution of idr values in each 5% quantile. The IDR values are thresholded at the optimization precision - 1e-6 by default.
@@ -507,7 +500,7 @@ done < $idrpairs2
 
 echo '# -- 1a. IDR started -- #'
 
-JOBID1=$( sbatch -W --array=$IDRarray 1a.IDR.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
+JOBID1=$( sbatch -W --array=$IDRarray 1a.IDR_${IDR_THRESH}.sh | awk '{print $4}' ) # Run the first job and then store the first job to variable JOBID1 (taken by awk once run)
 
 JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1aB.IDR.sh | awk '{print $4}' ) # JOB2 depends on JOB1 completing successfully
 
