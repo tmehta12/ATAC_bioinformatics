@@ -67,6 +67,11 @@ IDR_THRESH_TRANSFORMED=$(awk -v p=${IDR_THRESH} 'BEGIN{print -log(p)/log(10)}')
 npeaks_idr=($idrdir/idr_10thresh_peakcount.txt) # Number of peaks passing IDR thresholds of 10%
 npeaks_idrrep1=($idrdir/idr_10thresh_peakcount_rep1.txt) # Number of peaks passing IDR thresholds of 10% for replicate 1
 npeaks_idrrep2=($idrdir/idr_10thresh_peakcount_rep2.txt) # Number of peaks passing IDR thresholds of 10% for replicate 2
+npeaks_idrrep3=($idrdir/idr_10thresh_peakcount_rep3.txt) # Number of peaks passing IDR thresholds of 10% for both replicates - however, there are duplicate samples with different npeaks
+npeaks_idrrep4=($idrdir/idr_10thresh_peakcount_rep4.txt) # Number of peaks passing IDR thresholds of 10% for both replicates - this file has the longest for duplicates
+reppeaks=($idrdir/reppeaks.txt)
+npeaks=($idrdir/npeaks.txt)
+IDRsummary=(IDR_${IDR_THRESH}_outputsummary.txt)
 
 fripprefix=($idrdir/fripprefix.txt)
 FRIP=($idrdir/FRiPvalues.txt)
@@ -349,6 +354,7 @@ sed 's/.gz//g' $idrpair1 > $idrpair1a
 sed 's/.gz//g' $idrpair2 > $idrpair2a
 # =============================
 sed 's/.gz//g' $idrpairs > $idrpairs2 # now the the peak files are unzipped, change the paths
+cat $idrpair1a $idrpair2a | sort -u > $reppeaks
 
 while read -r r1 r2; do
   # echo "rep1 is $r1, rep2 is $r2"
@@ -356,12 +362,12 @@ while read -r r1 r2; do
     echo "$r1 and $r2 EXISTS"
     #
     echo '#!/bin/bash -e' > 1a.IDR_${IDR_THRESH}.sh
-    echo '#SBATCH -p tgac-short # partition (queue)' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -p tgac-medium # partition (queue)' >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH -N 1 # number of nodes' >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH -n 1 # number of tasks' >> 1a.IDR_${IDR_THRESH}.sh
     echo "#SBATCH --array=$IDRarray" >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH --mem-per-cpu 8000' >> 1a.IDR_${IDR_THRESH}.sh
-    echo '#SBATCH -t 0-00:45' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -t 0-04:59' >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1a.IDR_${IDR_THRESH}.sh
     echo "#SBATCH --mail-user=$email # send-to address" >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1a.IDR_${IDR_THRESH}.sh
@@ -390,7 +396,8 @@ while read -r r1 r2; do
     echo "awk -F'.' '{print "'$1}'"' $npeaks_idr | awk -F'_' '{print"' $1"_"$2"_"$3" "$4"_"$5"_"$6}'"' | sed 's/ /\t/g' > $npeaks_idr.tmp" >> 1a.IDR_${IDR_THRESH}.sh
     echo "cut -f1,2 $npeaks_idr.tmp > $npeaks_idrrep1" >> 1a.IDR_${IDR_THRESH}.sh
     echo "cut -f1,3 $npeaks_idr.tmp > $npeaks_idrrep2" >> 1a.IDR_${IDR_THRESH}.sh
-    echo '# cat $npeaks_idr.tmp2 $npeaks_idr.tmp3 | sort -k2,2 > $npeaks_idr2' >> 1a.IDR_${IDR_THRESH}.sh
+    echo "cat $npeaks_idrrep1 $npeaks_idrrep2 | sort -k2,2 > $npeaks_idrrep3" >> 1a.IDR_${IDR_THRESH}.sh
+    echo "sort -k2,2 -k1,1nr $npeaks_idrrep3 | awk '"'!a[$2] {a[$2] = $1} $1 == a[$2]'"' | sort -u | sort -k2,2 > $npeaks" >> 1a.IDR_${IDR_THRESH}.sh
     echo "rm *tmp*" >> 1a.IDR_${IDR_THRESH}.sh
     #
     #
@@ -423,12 +430,12 @@ while read -r r1 r2; do
     echo -e '\t# echo $out' >> 1aB.IDR.sh
     echo -e '\t# echo $inprefix' >> 1aB.IDR.sh
     echo -e '\tif [[ $peakprefix = $inprefix ]]; then # check that the peaks passing IDR and narrowPeak file match' >> 1aB.IDR.sh
-    echo -e '\t\t"peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"' >> 1aB.IDR.sh
+    echo -e '\t\techo "peakcount>> $peakprefix = $inprefix <<narrowPeaks_file: npeaks and peaks file ARE matched"' >> 1aB.IDR.sh
     echo -e '\t\tsort -k7,7rn ${reppeak} | awk -v peakline="$peakline" '"'{if(NR>=1 && NR<=peakline)print "'$0,"T";else print $0,"F";}'"' OFS='\t' > "'${out} # check with awk '"'FNR>=103003 && FNR<=103006'" >> 1aB.IDR.sh
     echo -e '\telse' >> 1aB.IDR.sh
-    echo -e '\t\t"peakcount>> $peakprefix != $inprefix <<narrowPeaks_file: npeaks and peaks file NOT matched"' >> 1aB.IDR.sh
+    echo -e '\t\techo "peakcount>> $peakprefix != $inprefix <<narrowPeaks_file: npeaks and peaks file NOT matched"' >> 1aB.IDR.sh
     echo -e '\tfi' >> 1aB.IDR.sh
-    echo "done 3<$idrpair1a 4<$npeaks_idrrep1" >> 1aB.IDR.sh
+    echo "done 3<$reppeaks 4<$npeaks" >> 1aB.IDR.sh
   else
     echo "$r1 and/or $r2 DOES NOT EXIST"
   fi
@@ -496,6 +503,16 @@ done < $idrpairs2
 
 ## FINAL PEAK FILES based on IDR QC are *.final.narrowPeak - the last column of T (True) or F (False) indicate peaks passing IDR
 
+## Create a final file with percentage of peaks passing IDR - output: col1-sample; col2-total peaks; col3-peaks passing IDR; col4-peaks failing IDR; col5-percentage of peaks passing IDR
+printf "sample\ttotal_peaks\tpeaks_passing_IDR-${IDR_THRESH}\tpeaks_failing_IDR-${IDR_THRESH}\tpercentage_peaks_pass_IDR-${IDR_THRESH}\n" > $IDRsummary
+for i in *.final.narrowPeak; do
+  total=$(wc -l $i | awk -F' ' '{print $1}')
+  pass=$(awk '$11=="T"' $i | wc -l)
+  fail=$(awk '$11=="F"' $i | wc -l)
+  perc=$(perl -E "say ${pass}/${total}*100") # calculate the percentage passing IDR using perl
+  echo -e $i'\t'$total'\t'$pass'\t'$fail'\t'$perc | sed 's|_peaks.final.narrowPeak||g' >> $IDRsummary
+done
+
 # =============================
 
 echo '# -- 1a. IDR started -- #'
@@ -512,13 +529,12 @@ JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1aB.IDR.sh | awk '{print $4}'
 
 # 1bA. Create a 3 column file - col1: variableID; col2: tagAlign input; col3: IDR peak file
 
-### CHECK THE WD OUTPUT OF THIS!!!!!!!!!
 echo '#!/bin/bash -e' > 1bA.FRIPawk.sh
 echo '#SBATCH -p tgac-short # partition (queue)' >> 1bA.FRIPawk.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1bA.FRIPawk.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1bA.FRIPawk.sh
 echo '#SBATCH --mem-per-cpu 4000' >> 1bA.FRIPawk.sh
-echo '#SBATCH -t 0-00:45' >> 1bA.FRIPawk.sh
+echo '#SBATCH -t 0-00:15' >> 1bA.FRIPawk.sh
 echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1bA.FRIPawk.sh
 echo "#SBATCH --mail-user=$email # send-to address" >> 1bA.FRIPawk.sh
 echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> 1bA.FRIPawk.sh
@@ -553,7 +569,7 @@ ml bedtools/2.25.0
 while IFS=$'\t' read -r c1 c2 c3; do
   # assign variable for doing bedtools intersect of tagAlign and IDR
   val1=$(bedtools intersect -a <(zcat -f ${c2}) -b <(cat ${c3}) -wa -u | wc -l)
-  # 1bC. For loop over the 3 column file and over each line, assigning variable.2 for wc -l over tagAlign file
+  # 1bC. For loop over the 3 column file and over each line, assign variables for wc -l over tagAlign file
   val2=$(zcat ${c2} | wc -l)
   # 1bD. For each pair of variables, calculate the FRiP value
   frac=$(bc -l <<< "(${val1}/${val2})")
