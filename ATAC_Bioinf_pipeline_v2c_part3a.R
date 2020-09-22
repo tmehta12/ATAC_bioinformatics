@@ -11,7 +11,7 @@
 #     install.packages("BiocManager")
 # BiocManager::install(version = "3.11")
 # library(BiocManager)
-# BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2"))
+# BiocManager::install(c("RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","optparse"))
 
 ## load the libraries
 # library("RMySQL")
@@ -31,7 +31,7 @@ library("Rsamtools")
 library("BSgenome")
 library("Biostrings")
 library("ggplot2")
-
+library("optparse")
 
 ## set the options list for command line input
 
