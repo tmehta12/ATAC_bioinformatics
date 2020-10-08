@@ -28,6 +28,10 @@
   # ATAC_Bioinf_pipeline_v2c_part3a.R
 # 3. Run as an sbatch script with 8Gb memory and ~4 days runtime - will spawn off other jobs
 
+## Major Note:
+# This script cannot run ATACseqQC on HPC (due to BSgenome build installation) - therefore it is broken for that step (surpressed here)
+# Nonetheless, a script for running locally has been created (and requires copying files locally): ATAC_Bioinf_pipeline_v2c_part2aB_ATACseqQClocal.sh
+
 ## Other Notes:
 # Install R-4.0.2 with the required packages:
 # "RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","DiffBind", "DESeq2", "motifbreakR"
@@ -39,7 +43,7 @@
 # 1. IDR on all pairs of replicates (optional) - The IDR peaks are a subset of the naive overlap peaks that pass a specific IDR threshold of 10%.
 # 	1a. IDR of true replicates
 # 	1b. Compute Fraction of Reads in Peaks (FRiP) - bedtools and awk
-# 2. Peak annotation - bedops and bioawk
+# 2. Peak annotation - ATACseqQC
 # 	2a. TSS enrichment
 # 	2b. Fraction of reads in annotated regions
 # 3. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
@@ -716,6 +720,13 @@ speciesBSgenome4=BSgenome.Nbri.Ensembl.NeoBri1.0
 speciesBSgenome5=BSgenome.Onil.Ensembl.OreNil2.0
 speciesBSgenome6=BSgenome.Acal.Ensembl.fAstCal1.2
 
+speciesBSgenome1a=Mzeb
+speciesBSgenome2a=Pnye
+speciesBSgenome3a=Abur
+speciesBSgenome4a=Nbri
+speciesBSgenome5a=Onil
+speciesBSgenome6a=Acal
+
 echo "Package: BSgenome.$BSsp1a.$BSsp1e.$BSsp1b" > $BSsp1b.seedfile
 echo "Title: Full genome sequences for $BSsp1c (version $BSsp1b)" >> $BSsp1b.seedfile
 echo "Description: Full genome sequences for $BSsp1c as provided by $BSsp1e ($BSsp1b, $BSsp1f) and stored in Biostrings objects." >> $BSsp1b.seedfile
@@ -857,7 +868,6 @@ echo '# -- 2aBa. Peak annotation has started: forging BSgenomes-- #'
 
 JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 2aBa.forgeBSgenomes.sh | awk '{print $4}' ) # JOB5 depends on JOB4 completing successfully
 
-
 # 2aBb. Build and install BS genomes
 
 echo "$speciesBSgenome1" > speciesBSgenomeIDs
@@ -866,6 +876,13 @@ echo "$speciesBSgenome3" >> speciesBSgenomeIDs
 echo "$speciesBSgenome4" >> speciesBSgenomeIDs
 echo "$speciesBSgenome5" >> speciesBSgenomeIDs
 echo "$speciesBSgenome6" >> speciesBSgenomeIDs
+
+echo "${speciesBSgenome1}_${BSsp1d}.tar.gz" > speciesBSgenomeIDs2
+echo "${speciesBSgenome2}_${BSsp2d}.tar.gz" >> speciesBSgenomeIDs2
+echo "${speciesBSgenome3}_${BSsp3d}.tar.gz" >> speciesBSgenomeIDs2
+echo "${speciesBSgenome4}_${BSsp4d}.tar.gz" >> speciesBSgenomeIDs2
+echo "${speciesBSgenome5}_${BSsp5d}.tar.gz" >> speciesBSgenomeIDs2
+echo "${speciesBSgenome6}_${BSsp6d}.tar.gz" >> speciesBSgenomeIDs2
 
 echo '#!/bin/bash -e' > 2aBb.buildBSgenomes.sh
 echo "#SBATCH -p tgac-medium # partition (queue)" >> 2aBb.buildBSgenomes.sh
@@ -883,10 +900,11 @@ echo "source $pcre" >> 2aBb.buildBSgenomes.sh
 echo "source $r402 # source R-4.0.2" >> 2aBb.buildBSgenomes.sh
 printf '\n' >> 2aBb.buildBSgenomes.sh
 echo 'mapfile -t bsgenomesIDs < speciesBSgenomeIDs' >> 2aBb.buildBSgenomes.sh
+echo 'mapfile -t bsgenomesIDs2 < speciesBSgenomeIDs2' >> 2aBb.buildBSgenomes.sh
 printf '\n' >> 2aBb.buildBSgenomes.sh
 echo 'R CMD build ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will build the BSgenome' >> 2aBb.buildBSgenomes.sh
-echo 'R CMD check ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will check the package' >> 2aBb.buildBSgenomes.sh
-echo 'R CMD INSTALL ${bsgenomesIDs[${SLURM_ARRAY_TASK_ID}]} # this will install the package for loading' >> 2aBb.buildBSgenomes.sh
+echo 'R CMD check ${bsgenomesIDs2[${SLURM_ARRAY_TASK_ID}]} # this will check the package' >> 2aBb.buildBSgenomes.sh
+echo 'R CMD INSTALL ${bsgenomesIDs2[${SLURM_ARRAY_TASK_ID}]} # this will install the package for loading' >> 2aBb.buildBSgenomes.sh
 
 echo '# -- 2aBa. Peak annotation has started: forging BSgenomes has completed -- #'
 
@@ -894,90 +912,464 @@ echo '# -- 2aBb. Peak annotation has started: building BSgenomes -- #'
 
 JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 2aBb.buildBSgenomes.sh | awk '{print $4}' ) # JOB6 depends on JOB5 completing successfully
 
+
 ## 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
 
-# mkdir -p $annotdir/Ab5_L
-# Input (-i) will be nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file
-# Rscript $atacqcscript -i Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam -g $annotAbg -s $annotdir/Ab5_L -p Ab5_L_1-PTscore.tiff -n Ab5_L_2-NFRscore.tiff -b BSgenome.Abur.Ensembl.AstBur1.0 -t Ab5_L_3-TSSscore.txt -c Ab5_L_4-cumulativepercscore.tiff -h Ab5_L_5-logtransformedTSSsignalheatmap.tiff -r Ab5_L_6-rescaledTSSsignal.tiff
+# 1. Get total number of samples for each species and assign to variable
+sp1count=$(grep -F "$speciesid1" $prefixATAC2 | wc -l )
+sp2count=$(grep -F "$speciesid2" $prefixATAC2 | wc -l )
+sp3count=$(grep -F "$speciesid3" $prefixATAC2 | wc -l )
+sp4count=$(grep -F "$speciesid4" $prefixATAC2 | wc -l )
+sp5count=$(grep -F "$speciesid5" $prefixATAC2 | wc -l )
+sp6count=$(grep -F "$speciesid6" $prefixATAC2 | wc -l )
 
-echo '#!/bin/bash -e' > $atacqcscript2
-echo "#SBATCH -p tgac-medium # partition (queue)" >> $atacqcscript2
-echo "#SBATCH -N 1 # number of nodes" >> $atacqcscript2
-echo "#SBATCH -n 1 # number of tasks" >> $atacqcscript2
-echo "#SBATCH --mem-per-cpu 60000" >> $atacqcscript2
-echo "#SBATCH -t 1-23:59" >> $atacqcscript2
-echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $atacqcscript2
-echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $atacqcscript2
-echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $atacqcscript2
-echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $atacqcscript2
-printf '\n' >> $atacqcscript2
-echo "source $pcre" >> $atacqcscript2
-echo "source $r402 # source R-4.0.2" >> $atacqcscript2
-printf '\n' >> $atacqcscript2
-echo 'while read -r i1 i2; do' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotMzg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome1' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotPng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome2' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome3' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotNbg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome4' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotOng' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome5' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $atacqcscript2
-echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
-echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAcg' -s '$annotdir'/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b '$speciesBSgenome6' -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff' >> $atacqcscript2
-echo -e '\tfi' >> $atacqcscript2
-echo "done < $prefixATAC2" >> $atacqcscript2
+# 2. Minus one from the total for each species for the array
+sp1numberarray=$(expr $sp1count - 1)
+sp2numberarray=$(expr $sp2count - 1)
+sp3numberarray=$(expr $sp3count - 1)
+sp4numberarray=$(expr $sp4count - 1)
+sp5numberarray=$(expr $sp5count - 1)
+sp6numberarray=$(expr $sp6count - 1)
+
+# 3. Set up the array to run ATACseqQC on each sample - first prepare species specific sample ID files for iterating in array
+# NOTE: The BSgenomes etc. are hardcoded when passing arguments to the Rscript e.g. $annotAcg and $speciesBSgenome6 - if running for other species then ensure to change!!!
+grep -F "$speciesid1" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp1.txt"
+grep -F "$speciesid2" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp2.txt"
+grep -F "$speciesid3" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp3.txt"
+grep -F "$speciesid4" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp4.txt"
+grep -F "$speciesid5" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp5.txt"
+grep -F "$speciesid6" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp6.txt"
+
+echo '#!/bin/bash -e' > ${speciesid1}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp1numberarray" >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid1}_$atacqcscript2
+printf '\n' >> ${speciesid1}_$atacqcscript2
+echo "source $pcre" >> ${speciesid1}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid1}_$atacqcscript2
+printf '\n' >> ${speciesid1}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp1.txt" # assign as elements to variable' >> ${speciesid1}_$atacqcscript2
+printf '\n' >> ${speciesid1}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid1}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid1}_$atacqcscript2
+printf '\n' >> ${speciesid1}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotMzg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome1' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome1a >> ${speciesid1}_$atacqcscript2
+
+echo '#!/bin/bash -e' > ${speciesid2}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp2numberarray" >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid2}_$atacqcscript2
+printf '\n' >> ${speciesid2}_$atacqcscript2
+echo "source $pcre" >> ${speciesid2}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid2}_$atacqcscript2
+printf '\n' >> ${speciesid2}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp2.txt" # assign as elements to variable' >> ${speciesid2}_$atacqcscript2
+printf '\n' >> ${speciesid2}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid2}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid2}_$atacqcscript2
+printf '\n' >> ${speciesid2}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotPng' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome2' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome2a >> ${speciesid2}_$atacqcscript2
+
+echo '#!/bin/bash -e' > ${speciesid3}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp3numberarray" >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid3}_$atacqcscript2
+printf '\n' >> ${speciesid3}_$atacqcscript2
+echo "source $pcre" >> ${speciesid3}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid3}_$atacqcscript2
+printf '\n' >> ${speciesid3}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp3.txt" # assign as elements to variable' >> ${speciesid3}_$atacqcscript2
+printf '\n' >> ${speciesid3}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid3}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid3}_$atacqcscript2
+printf '\n' >> ${speciesid3}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotAbg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome3' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome3a >> ${speciesid3}_$atacqcscript2
+
+echo '#!/bin/bash -e' > ${speciesid4}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp4numberarray" >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid4}_$atacqcscript2
+printf '\n' >> ${speciesid4}_$atacqcscript2
+echo "source $pcre" >> ${speciesid4}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid4}_$atacqcscript2
+printf '\n' >> ${speciesid4}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp4.txt" # assign as elements to variable' >> ${speciesid4}_$atacqcscript2
+printf '\n' >> ${speciesid4}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid4}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid4}_$atacqcscript2
+printf '\n' >> ${speciesid4}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotNbg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome4' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome4a >> ${speciesid4}_$atacqcscript2
+
+echo '#!/bin/bash -e' > ${speciesid5}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp5numberarray" >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid5}_$atacqcscript2
+printf '\n' >> ${speciesid5}_$atacqcscript2
+echo "source $pcre" >> ${speciesid5}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid5}_$atacqcscript2
+printf '\n' >> ${speciesid5}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp5.txt" # assign as elements to variable' >> ${speciesid5}_$atacqcscript2
+printf '\n' >> ${speciesid5}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid5}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid5}_$atacqcscript2
+printf '\n' >> ${speciesid5}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotOng' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome5' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome5a >> ${speciesid5}_$atacqcscript2
+
+echo '#!/bin/bash -e' > ${speciesid6}_$atacqcscript2
+echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH --array=0-'"$sp6numberarray" >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -t 0-23:59' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid6}_$atacqcscript2
+printf '\n' >> ${speciesid6}_$atacqcscript2
+echo "source $pcre" >> ${speciesid6}_$atacqcscript2
+echo "source $r402 # source R-4.0.2" >> ${speciesid6}_$atacqcscript2
+printf '\n' >> ${speciesid6}_$atacqcscript2
+echo 'mapfile -t samples < "$(basename "'$prefixATAC2'" .txt)_sp6.txt" # assign as elements to variable' >> ${speciesid6}_$atacqcscript2
+printf '\n' >> ${speciesid6}_$atacqcscript2
+echo 'mkdir '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid6}_$atacqcscript2
+echo 'cd '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid6}_$atacqcscript2
+printf '\n' >> ${speciesid6}_$atacqcscript2
+echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotAcg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome6' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome6a >> ${speciesid6}_$atacqcscript2
+
+# # This is a while loop for each species that will check species ID etc and run ATACseqQC accordingly - problem with this is that jobs are NOT run in parallel!
+# echo '#!/bin/bash -e' > ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid1}_$atacqcscript2
+# printf '\n' >> ${speciesid1}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid1}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid1}_$atacqcscript2
+# printf '\n' >> ${speciesid1}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid1}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> ${speciesid1}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid1}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid1}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotMzg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome1' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome1a >> ${speciesid1}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid1}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid1}_$atacqcscript2
+#
+# echo '#!/bin/bash -e' > ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid2}_$atacqcscript2
+# printf '\n' >> ${speciesid2}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid2}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid2}_$atacqcscript2
+# printf '\n' >> ${speciesid2}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid2}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> ${speciesid2}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid2}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid2}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotPng' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome2' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome2a >> ${speciesid2}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid2}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid2}_$atacqcscript2
+#
+# echo '#!/bin/bash -e' > ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid3}_$atacqcscript2
+# printf '\n' >> ${speciesid3}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid3}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid3}_$atacqcscript2
+# printf '\n' >> ${speciesid3}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid3}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> ${speciesid3}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid3}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid3}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotAbg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome3' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome3a >> ${speciesid3}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid3}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid3}_$atacqcscript2
+#
+# echo '#!/bin/bash -e' > ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid4}_$atacqcscript2
+# printf '\n' >> ${speciesid4}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid4}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid4}_$atacqcscript2
+# printf '\n' >> ${speciesid4}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid4}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> ${speciesid4}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid4}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid4}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotNbg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome4' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome4a >> ${speciesid4}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid4}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid4}_$atacqcscript2
+#
+# echo '#!/bin/bash -e' > ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid5}_$atacqcscript2
+# printf '\n' >> ${speciesid5}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid5}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid5}_$atacqcscript2
+# printf '\n' >> ${speciesid5}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid5}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> ${speciesid5}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid5}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid5}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotOng' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome5' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome5a >> ${speciesid5}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid5}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid5}_$atacqcscript2
+#
+# echo '#!/bin/bash -e' > ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> ${speciesid6}_$atacqcscript2
+# printf '\n' >> ${speciesid6}_$atacqcscript2
+# echo "source $pcre" >> ${speciesid6}_$atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> ${speciesid6}_$atacqcscript2
+# printf '\n' >> ${speciesid6}_$atacqcscript2
+# echo 'while read i1 i2; do' >> ${speciesid6}_$atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> ${speciesid6}_$atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> ${speciesid6}_$atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> ${speciesid6}_$atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotAcg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome6' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome6a >> ${speciesid6}_$atacqcscript2
+# echo -e '\tfi' >> ${speciesid6}_$atacqcscript2
+# echo "done < $prefixATAC2" >> ${speciesid6}_$atacqcscript2
+#
+## This is a while loop for all species samples but that will take an eternity!
+# echo '#!/bin/bash -e' > $atacqcscript2
+# echo '#SBATCH -p tgac-medium # partition (queue)' >> $atacqcscript2
+# echo '#SBATCH -N 1 # number of nodes' >> $atacqcscript2
+# echo '#SBATCH -n 1 # number of tasks' >> $atacqcscript2
+# echo '#SBATCH --mem-per-cpu 120000' >> $atacqcscript2
+# echo '#SBATCH -t 4-23:59' >> $atacqcscript2
+# echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> $atacqcscript2
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> $atacqcscript2
+# echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> $atacqcscript2
+# echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> $atacqcscript2
+# printf '\n' >> $atacqcscript2
+# echo "source $pcre" >> $atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> $atacqcscript2
+# printf '\n' >> $atacqcscript2
+# echo 'while read i1 i2; do' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotMzg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome1' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome1a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotPng' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome2' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome2a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotAbg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome3' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome3a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotNbg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome4' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome4a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotOng' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome5' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome5a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.bam '$annotAcg' '$annotdir'/${i2} "${i2}_1_PTscore.tiff" "${i2}_2_NFRscore.tiff" '$speciesBSgenome6' "${i2}_3_TSSscore.txt" "${i2}_4_cumulativepercscore.tiff" "${i2}_5_logtransformedTSSsignalheatmap.tiff" "${i2}_6_rescaledTSSsignal.tiff"' $speciesBSgenome6a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo "done < $prefixATAC2" >> $atacqcscript2
+
+# i = args[1] # help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
+# g = args[2] # help="input *.gtf file"),
+# s = args[3] # help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
+# p = args[4] # help="output *.tiff filename for Promoter-Transcript score plot"),
+# n = args[5] # help="output *.tiff filename for NFR score plot"),
+# b = args[6] # help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
+# t = args[7] # help="output *.txt filename for TSS enrichment score summary"),
+# c = args[8] # help="output *.tiff filename for cumulative percentage plot"),
+# h = args[9] # help="output *.tiff filename for log-transformed signal around TSSs"),
+# r = args[10] # help="output *.tiff filename for rescaled signal around TSSs")
+# a = args[11] # help="BSgenome package name e.g. BSgenome.Abur.Ensembl.AstBur1.0 = Abur")
+
+
+# # mkdir -p $annotdir/Ab5_L
+# # Input (-i) will be nodup_filt_bam_index_file=$(echo $bam_file | sed -e 's/.bam/.nodup.filt.bam.bai/' | sed -e 's/3.Mtfilt_fragcnt/4.postalign_filt/g') # index file
+# # Rscript $atacqcscript -i Ab5_L_ATAC.nochrM.nodup.filt.sorted.JH425323.1.bam -g $annotAbg -s $annotdir/Ab5_L -p Ab5_L_1_PTscore.tiff -n Ab5_L_2_NFRscore.tiff -b BSgenome.Abur.Ensembl.AstBur1.0 -t Ab5_L_3_TSSscore.txt -c Ab5_L_4_cumulativepercscore.tiff -h Ab5_L_5_logtransformedTSSsignalheatmap.tiff -r Ab5_L_6_rescaledTSSsignal.tiff
+#
+# ## The following is only for whether the flags are used with the 'optparser' library in $atacqcscript script
+# echo '#!/bin/bash -e' > $atacqcscript2
+# echo "#SBATCH -p tgac-medium # partition (queue)" >> $atacqcscript2
+# echo "#SBATCH -N 1 # number of nodes" >> $atacqcscript2
+# echo "#SBATCH -n 1 # number of tasks" >> $atacqcscript2
+# echo "#SBATCH --mem-per-cpu 60000" >> $atacqcscript2
+# echo "#SBATCH -t 1-23:59" >> $atacqcscript2
+# echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $atacqcscript2
+# echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $atacqcscript2
+# echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $atacqcscript2
+# echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $atacqcscript2
+# printf '\n' >> $atacqcscript2
+# echo "source $pcre" >> $atacqcscript2
+# echo "source $r402 # source R-4.0.2" >> $atacqcscript2
+# printf '\n' >> $atacqcscript2
+# echo 'while read -r i1 i2; do' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotMzg' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome1' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome1a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotPng' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome2' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome2a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAbg' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome3' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome3a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotNbg' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome4' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome4a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotOng' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome5' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome5a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $atacqcscript2
+# echo -e '\t\tmkdir '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tcd '$annotdir'/$i2' >> $atacqcscript2
+# echo -e '\t\tRscript '$atacqcscript' -i '$scripts'/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g '$annotAcg' -s '$annotdir'/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b '$speciesBSgenome6' -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff" -a '$speciesBSgenome6a >> $atacqcscript2
+# echo -e '\tfi' >> $atacqcscript2
+# echo "done < $prefixATAC2" >> $atacqcscript2
+#
+# # make_option(c("-i", "--input"), action="store", default=NA, type='character',
+# #             help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
+# # make_option(c("-g", "--gtf"), action="store", default=NA, type='character',
+# #             help="input *.gtf file"),
+# # make_option(c("-s", "--shiftbam"), action="store", default=NA, type='character',
+# #             help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
+# # make_option(c("-p", "--ptp"), action="store", default=NA, type='character',
+# #             help="output *.tiff filename for Promoter-Transcript score plot"),
+# # make_option(c("-n", "--nfrp"), action="store", default=NA, type='character',
+# #             help="output *.tiff filename for NFR score plot"),
+# # make_option(c("-b", "--bsgenome"), action="store", default=NA, type='character',
+# #             help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
+# # make_option(c("-t", "--tssscore"), action="store", default=NA, type='character',
+# #             help="output *.txt filename for TSS enrichment score summary"),
+# # make_option(c("-c", "--cpp"), action="store", default=NA, type='character',
+# #             help="output *.tiff filename for cumulative percentage plot"),
+# # make_option(c("-h", "--hmp"), action="store", default=NA, type='character',
+# #             help="output *.tiff filename for log-transformed signal around TSSs"),
+# # make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
+# #             help="output *.tiff filename for rescaled signal around TSSs")
 
 ## Above without echo is below:
 # while read -r i1 i2; do
 #   if [[ "$i1" == "$speciesid1" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $annotdir/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotMzg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome1 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotMzg -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome1 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 #   if [[ "$i1" == "$speciesid2" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $annotdir/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotPng -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome2 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotPng -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome2 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 #   if [[ "$i1" == "$speciesid3" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $scripts/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAbg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome3 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAbg -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome3 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 #   if [[ "$i1" == "$speciesid4" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $annotdir/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotNbg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome4 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotNbg -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome4 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 #   if [[ "$i1" == "$speciesid5" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $scripts/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotOng -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome5 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotOng -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome5 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 #   if [[ "$i1" == "$speciesid6" ]]; then
 #     mkdir $annotdir/$i2
 #     cd $annotdir/$i2
-#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAcg -s $annotdir/${i2} -p ${i2}_1-PTscore.tiff -n ${i2}_2-NFRscore.tiff -b $speciesBSgenome6 -t ${i2}_3-TSSscore.txt -c ${i2}_4-cumulativepercscore.tiff -h ${i2}_5-logtransformedTSSsignalheatmap.tiff -r ${i2}_6-rescaledTSSsignal.tiff
+#     Rscript $atacqcscript -i $scripts/${i2}/4.postalign_filt/${i2}.nochrM.nodup.filt.sorted.bam -g $annotAcg -s $annotdir/${i2} -p "${i2}_1_PTscore.tiff" -n "${i2}_2_NFRscore.tiff" -b $speciesBSgenome6 -t "${i2}_3_TSSscore.txt" -c "${i2}_4_cumulativepercscore.tiff" -h "${i2}_5_logtransformedTSSsignalheatmap.tiff" -r "${i2}_6_rescaledTSSsignal.tiff"
 #   fi
 # done < $prefixATAC2 # this while loop will run ATAC script in each ATAC folder
 
@@ -985,29 +1377,15 @@ echo '# -- 2aBb. Peak annotation has started: building BSgenomes has completed -
 
 echo '# -- 2aBc. Peak annotation has started: running ATACseqQC -- #'
 
-JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} $atacqcscript2 | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
+# JOBID7=$( sbatch -W --dependency=afterok:${JOBID6} $atacqcscript2 | awk '{print $4}' ) # JOB7 depends on JOB6 completing successfully
 
-
-# make_option(c("-i", "--input"), action="store", default=NA, type='character',
-#             help="input *.bam file (nochrM-nodup-filtered-sorted; non-shifted!!)"),
-# make_option(c("-g", "--gtf"), action="store", default=NA, type='character',
-#             help="input *.gtf file"),
-# make_option(c("-s", "--shiftbam"), action="store", default=NA, type='character',
-#             help="path to output shifted and split BAMs - make and name path folder according to sample and tissue"),
-# make_option(c("-p", "--ptp"), action="store", default=NA, type='character',
-#             help="output *.tiff filename for Promoter-Transcript score plot"),
-# make_option(c("-n", "--nfrp"), action="store", default=NA, type='character',
-#             help="output *.tiff filename for NFR score plot"),
-# make_option(c("-b", "--bsgenome"), action="store", default=NA, type='character',
-#             help="BSgenome package dir as built in shell script e.g. BSgenome.Abur.Ensembl.AstBur1.0"),
-# make_option(c("-t", "--tssscore"), action="store", default=NA, type='character',
-#             help="output *.txt filename for TSS enrichment score summary"),
-# make_option(c("-c", "--cpp"), action="store", default=NA, type='character',
-#             help="output *.tiff filename for cumulative percentage plot"),
-# make_option(c("-h", "--hmp"), action="store", default=NA, type='character',
-#             help="output *.tiff filename for log-transformed signal around TSSs"),
-# make_option(c("-r", "--rsp"), action="store", default=NA, type='character',
-#             help="output *.tiff filename for rescaled signal around TSSs")
+# Six jobs for six species - amend the loop and obviously this based on no. of species
+JOBID7a=$( sbatch --dependency=afterok:${JOBID6} ${speciesid1}_$atacqcscript2 | awk '{print $4}' ) # JOB7a depends on JOB6 completing successfully
+JOBID7b=$( sbatch --dependency=afterok:${JOBID6} ${speciesid2}_$atacqcscript2 | awk '{print $4}' ) # JOB7b depends on JOB6 completing successfully
+JOBID7c=$( sbatch --dependency=afterok:${JOBID6} ${speciesid3}_$atacqcscript2 | awk '{print $4}' ) # JOB7c depends on JOB6 completing successfully
+JOBID7d=$( sbatch --dependency=afterok:${JOBID6} ${speciesid4}_$atacqcscript2 | awk '{print $4}' ) # JOB7d depends on JOB6 completing successfully
+JOBID7e=$( sbatch --dependency=afterok:${JOBID6} ${speciesid5}_$atacqcscript2 | awk '{print $4}' ) # JOB7e depends on JOB6 completing successfully
+JOBID7f=$( sbatch -W --dependency=afterok:${JOBID6} ${speciesid6}_$atacqcscript2 | awk '{print $4}' ) # JOB7f depends on JOB6 completing successfully
 
 
 ## 2b. Fraction of reads in annotated regions
@@ -1310,25 +1688,25 @@ done < $antfiles
   # oniloticus_gene_ensembl
   # acalliptera_gene_ensembl
 
-echo '#!/bin/bash -e' > 2.2_biomart_dl.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 2.2_biomart_dl.sh
-echo '#SBATCH -N 1 # number of nodes' >> 2.2_biomart_dl.sh
-echo '#SBATCH -c 1 # number of cores' >> 2.2_biomart_dl.sh
-echo '#SBATCH --mem 8000 # memory pool for all cores' >> 2.2_biomart_dl.sh
-echo '#SBATCH -t 0-00:45 # time (D-HH:MM)' >> 2.2_biomart_dl.sh
-echo '#SBATCH -o slurm.%j.out # STDOUT' >> 2.2_biomart_dl.sh
-echo '#SBATCH -e slurm.%j.err # STDERR' >> 2.2_biomart_dl.sh
-echo '#SBATCH --mail-type=END,FAIL,TIME_LIMIT_75 # notifications for job done & fail' >> 2.2_biomart_dl.sh
-echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to addressUSERNAME=mehtat' >> 2.2_biomart_dl.sh
-printf '\n' >> 2.2_biomart_dl.sh
-echo "# this script will access the software node to download the biomart dbs" >> 2.2_biomart_dl.sh
-echo 'source wget-1.14' >> 2.2_biomart_dl.sh
-echo "USERNAME=$Usr" >> 2.2_biomart_dl.sh
-echo 'HOSTNAME="software"' >> 2.2_biomart_dl.sh
-echo "PWD=$(pwd)" >> 2.2_biomart_dl.sh
-printf '\n' >> 2.2_biomart_dl.sh
-echo 'SCRIPT="cd ${PWD}; sh 2.2_biomart_dl_script.sh"' >> 2.2_biomart_dl.sh
-printf '\n' >> 2.2_biomart_dl.sh
+echo '#!/bin/bash -e' > 3.2_biomart_dl.sh
+echo '#SBATCH -p tgac-short # partition (queue)' >> 3.2_biomart_dl.sh
+echo '#SBATCH -N 1 # number of nodes' >> 3.2_biomart_dl.sh
+echo '#SBATCH -c 1 # number of cores' >> 3.2_biomart_dl.sh
+echo '#SBATCH --mem 8000 # memory pool for all cores' >> 3.2_biomart_dl.sh
+echo '#SBATCH -t 0-00:45 # time (D-HH:MM)' >> 3.2_biomart_dl.sh
+echo '#SBATCH -o slurm.%j.out # STDOUT' >> 3.2_biomart_dl.sh
+echo '#SBATCH -e slurm.%j.err # STDERR' >> 3.2_biomart_dl.sh
+echo '#SBATCH --mail-type=END,FAIL,TIME_LIMIT_75 # notifications for job done & fail' >> 3.2_biomart_dl.sh
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to addressUSERNAME=mehtat' >> 3.2_biomart_dl.sh
+printf '\n' >> 3.2_biomart_dl.sh
+echo "# this script will access the software node to download the biomart dbs" >> 3.2_biomart_dl.sh
+echo 'source wget-1.14' >> 3.2_biomart_dl.sh
+echo "USERNAME=$Usr" >> 3.2_biomart_dl.sh
+echo 'HOSTNAME="software"' >> 3.2_biomart_dl.sh
+echo "PWD=$(pwd)" >> 3.2_biomart_dl.sh
+printf '\n' >> 3.2_biomart_dl.sh
+echo 'SCRIPT="cd ${PWD}; sh 2.2_biomart_dl_script.sh"' >> 3.2_biomart_dl.sh
+printf '\n' >> 3.2_biomart_dl.sh
 echo "cd ${PWD}" > 2.2_biomart_dl_script.sh
 echo "while read -r i; do" >> 2.2_biomart_dl_script.sh
 echo -e '\twget -O ${i}_biomart1.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_gene_id" /><Attribute name = "ensembl_gene_id_version" /><Attribute name = "ensembl_transcript_id" /><Attribute name = "ensembl_transcript_id_version" /><Attribute name = "hgnc_id" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
@@ -1337,20 +1715,20 @@ echo -e '\twget -O ${i}_biomart3.txt '"'"'http://www.ensembl.org/biomart/martser
 echo -e '\twget -O ${i}_biomart4.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "zfin_id_id" /><Attribute name = "wikigene_id" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
 echo "done < $biomartspecies" >> 2.2_biomart_dl_script.sh
 echo 'exit' >> 2.2_biomart_dl_script.sh
-echo 'ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 2.2_biomart_dl.sh
-printf '\n' >> 2.2_biomart_dl.sh
-echo "printf 'ensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > "'biomart_headers # NOTE - many of these cols will get removed later' >> 2.2_biomart_dl.sh
-echo "while read -r i; do" >> 2.2_biomart_dl.sh
-echo -e "\tawk '"'!$5{print $0,"NA";next}1'"' "'${i}_biomart1.txt > ${i}_biomart1a.txt # fill the 5th column with NA if empty' >> 2.2_biomart_dl.sh
-echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart2.txt | awk '"'"'!$3{print $0,"NA";next}1'"' | awk '"'!$4{print $0,"NA";next}1'"' > "'${i}_biomart2a.txt # fill the 2nd, 3rd and 4th column with NA if empty' >> 2.2_biomart_dl.sh
-echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart3.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart3a.txt # fill the 2nd and 3rd column with NA if empty' >> 2.2_biomart_dl.sh
-echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart4.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart4a.txt # fill the 2nd and 3rd column with NA if empty' >> 2.2_biomart_dl.sh
-echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$3]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA";}}'"' "'${i}_biomart1a.txt ${i}_biomart2a.txt > ${i}_biomart1-2a.txt' >> 2.2_biomart_dl.sh
-echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart3a.txt ${i}_biomart1-2a.txt > ${i}_biomart1-2-3a.txt' >> 2.2_biomart_dl.sh
-echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart4a.txt ${i}_biomart1-2-3a.txt > ${i}_biomart.tmp.txt' >> 2.2_biomart_dl.sh
-echo -e '\tcat biomart_headers ${i}_biomart.tmp.txt | awk '"'{print "'$1,$2,$3,$4,$5,$6,$8,$9,$11,$12,$14,$15}'"' OFS='\t' | awk '{print "'$5,$6,$1,$7,$8,$2,$3,$4,$9,$10,$11,$12}'"' OFS='\t' > "'${i}_biomart.txt' >> 2.2_biomart_dl.sh
-echo -e '\trm ${i}_biomart.tmp.txt' >> 2.2_biomart_dl.sh
-echo "done < $biomartspecies" >> 2.2_biomart_dl.sh
+echo 'ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.2_biomart_dl.sh
+printf '\n' >> 3.2_biomart_dl.sh
+echo "printf 'ensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > "'biomart_headers # NOTE - many of these cols will get removed later' >> 3.2_biomart_dl.sh
+echo "while read -r i; do" >> 3.2_biomart_dl.sh
+echo -e "\tawk '"'!$5{print $0,"NA";next}1'"' "'${i}_biomart1.txt > ${i}_biomart1a.txt # fill the 5th column with NA if empty' >> 3.2_biomart_dl.sh
+echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart2.txt | awk '"'"'!$3{print $0,"NA";next}1'"' | awk '"'!$4{print $0,"NA";next}1'"' > "'${i}_biomart2a.txt # fill the 2nd, 3rd and 4th column with NA if empty' >> 3.2_biomart_dl.sh
+echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart3.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart3a.txt # fill the 2nd and 3rd column with NA if empty' >> 3.2_biomart_dl.sh
+echo -e "\tawk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart4.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart4a.txt # fill the 2nd and 3rd column with NA if empty' >> 3.2_biomart_dl.sh
+echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$3]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA";}}'"' "'${i}_biomart1a.txt ${i}_biomart2a.txt > ${i}_biomart1-2a.txt' >> 3.2_biomart_dl.sh
+echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart3a.txt ${i}_biomart1-2a.txt > ${i}_biomart1-2-3a.txt' >> 3.2_biomart_dl.sh
+echo -e '\tawk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart4a.txt ${i}_biomart1-2-3a.txt > ${i}_biomart.tmp.txt' >> 3.2_biomart_dl.sh
+echo -e '\tcat biomart_headers ${i}_biomart.tmp.txt | awk '"'{print "'$1,$2,$3,$4,$5,$6,$8,$9,$11,$12,$14,$15}'"' OFS='\t' | awk '{print "'$5,$6,$1,$7,$8,$2,$3,$4,$9,$10,$11,$12}'"' OFS='\t' > "'${i}_biomart.txt' >> 3.2_biomart_dl.sh
+echo -e '\trm ${i}_biomart.tmp.txt' >> 3.2_biomart_dl.sh
+echo "done < $biomartspecies" >> 3.2_biomart_dl.sh
 
 echo '# -- 2a. Peak annotation has completed -- #'
 
@@ -1358,7 +1736,7 @@ echo '# -- 2b. Fraction of Reads in annotated regions has completed -- #'
 
 echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
 
-JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} 2.2_biomart_dl.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
+JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} 3.2_biomart_dl.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
 
 
 # # while loop original placed in script above, and a while loop version of the longer version below
@@ -2002,8 +2380,12 @@ done
 ## This article details different methods with scripts for differential accessibility analysis: https://epigeneticsandchromatin.biomedcentral.com/articles/10.1186/s13072-020-00342-y
 ## Best to analyse the narrow peaks only - narrow peaks are generally analysed for TF-binding and broad peaks for histone modifications
 
-## FOR SIMPLE DIFFERENTIAL ANALYSIS OF PEAKS, USE HOMER; SOME CODE HERE: https://dtc-coding-dojo.github.io/main//blog/Analysing_ATAC_and_CHIPseq_data/
-## Then use DiffBind to:
+## DiffBind:
+# The core functionality of DiffBind is the differential binding affinity analysis, which enables binding sites to be identified that are statistically significantly differentially bound between sample groups.
+# The core analysis routines are executed, by default using DESeq2.
+# This will assign a p-value and FDR to each candidate binding site indicating confidence that they are differentially bound.
+
+## Use DiffBind to:
   # A. Determine tissue-specific peaks in each species
     # Tissue-specificity of ATAC-seq peaks was determined using DiffBind (https://www.bioconductor.org/packages/release/bioc/ html/DiffBind.html),
     # This provided the peak coordinates for each of the biological replicates of all tissues profiled as input, plus the mapped and shifted sequencing reads (parameters ‘method = DBA_EDGER, bFullLibrarySize = FALSE, bSubControl = FALSE, bTagwise = FALSE’).
