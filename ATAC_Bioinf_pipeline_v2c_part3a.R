@@ -105,7 +105,7 @@ gal <- readBamFile(bamfile, tag=tags, asMates=TRUE, bigFile=TRUE)
 shiftedbamfile.labels <- gsub(".bam", ".shifted.bam", basename(bamfile))
 shiftedBamfile <- file.path(outPath, shiftedbamfile.labels)
 gal1 <- shiftGAlignmentsList(gal, outbam=shiftedBamfile)
-print("4. BAM file processed, read start sites shifted and outfile created")
+print("4a. BAM file processed, read start sites shifted and outfile created")
 
 ### Promoter/Transcript body (PT) score
 # PT score is calculated as the coverage of promoter divided by the coverage of its transcript body.
@@ -123,7 +123,7 @@ plot(pt$log2meanCoverage, pt$PT_score,
      main="Promoter/Transcript body (PT) score")
 dev.off()
 
-print("4. Promoter/Transcript body (PT) score completed and image outputted")
+print("4b. Promoter/Transcript body (PT) score completed and image outputted")
 
 
 ### Nucleosome Free Regions (NFR) score
@@ -171,7 +171,7 @@ rownames(tssenrichsum2)[rownames(tssenrichsum2) == "x"] <- sampleID
 # tssenrichsum2$cutoff <- cut(as.numeric(tssenrichsum2$Mean), c(-Inf,5,7,Inf), c("concerning", "acceptable", "ideal")) # this works in Rstudio but not HPC?
 tssenrichsum2$cutoff <- NA
 tssenrichsum2$cutoff[which(tssenrichsum2$Mean<5)] <- "concerning"
-tssenrichsum2$cutoff[which(tssenrichsum2$Mean>=5 & tssenrichsum2$cutoff<7)] <- "acceptable"
+tssenrichsum2$cutoff[which(tssenrichsum2$Mean>=5 & tssenrichsum2$Mean<7)] <- "acceptable"
 tssenrichsum2$cutoff[which(tssenrichsum2$Mean>=7)] <- "ideal"
 tssenrichsum2 <- cbind(rownames(tssenrichsum2), data.frame(tssenrichsum2, row.names=NULL))
 colnames(tssenrichsum2)[1] <- "sample"
@@ -234,18 +234,16 @@ bamfiles <- file.path(outPath,
                      "dinucleosome.bam",
                      "trinucleosome.bam"))
 
-## Plot the cumulative percentage of tag allocation in nucleosome-free and mononucleosome bam files.
-tiff(c, units="in", width=5, height=5, res=100)
-# tiff("zz.tiff", units="in", width=5, height=5, res=100)
-cumulativePercentage(bamfiles[1:2], as(seqinfo(genome), "GRanges"))
-dev.off()
 
-# Error in (function (classes, fdef, mtable)  :
-#   unable to find an inherited method for function 'seqinfo' for signature '"character"'
-# Calls: cumulativePercentage ... stopifnot -> is -> as -> .class1 -> seqinfo -> <Anonymous>
-# Execution halted
+## Plot the cumulative percentage of tag allocation in nucleosome-free and mononucleosome bam files. - THIS IS FAILING ON HPC?!? Works interactively though?
+# gr <- as(seqinfo(a), "GRanges")
+# tiff(c, units="in", width=5, height=5, res=100)
+# # tiff("zz.tiff", units="in", width=5, height=5, res=100)
+# cumulativePercentage(bamfiles[1:2], gr)
+# # cumulativePercentage(bamfiles[1:2], as(seqinfo(genome), "GRanges"))
+# dev.off()
 
-print("9. Heatmap and coverage curve for nucleosome positions outputted")
+print("9. Defining promoter and TSS regions to generate heatmap and coverage curve for nucleosome positions...")
 
 ## define the promoter and TSS regions
 TSS <- promoters(txs, upstream=0, downstream=1)
