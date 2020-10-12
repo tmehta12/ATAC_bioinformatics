@@ -125,7 +125,6 @@ dev.off()
 
 print("4b. Promoter/Transcript body (PT) score completed and image outputted")
 
-
 ### Nucleosome Free Regions (NFR) score
 
 # NFR score is a ratio between cut signal adjacent to TSS and that flanking the corresponding TSS.
@@ -146,8 +145,6 @@ plot(nfr$log2meanCoverage, nfr$NFR_score,
 dev.off()
 
 print("5. Nucleosome Free Regions (NFR) score completed and image outputted")
-
-
 
 ### Transcription Start Site (TSS) Enrichment Score
 
@@ -180,7 +177,6 @@ write.table(tssenrichsum2, file = t, quote = FALSE, sep = "\t", row.names = FALS
 
 print("6. Transcription Start Site (TSS) Enrichment Score completed and table outputted")
 
-
 ### Split reads
 
 # The shifted reads will be split into different bins, namely
@@ -200,7 +196,6 @@ print("6. Transcription Start Site (TSS) Enrichment Score completed and table ou
 
 print("7. Splitting reads .. ")
 
-
 ## Since we need to use custom genomes that are different to those available, forge a BSgenome package using bare sequences
 # The seedfile, fasta sequences and BSgenome package build for this have been prepped in ATAC_Bioinf_pipeline_v2c.sh
 # library(BSgenome.Abur.Ensembl.AstBur1.0)
@@ -216,7 +211,6 @@ null <- writeListOfGAlignments(objs, outPath)
 # dir(outPath) # list the files generated
 
 print("8. Reads have been split into NucleosomeFree, mononucleosome, dinucleosome and trinucleosome ")
-
 
 ### Heatmap and coverage curve for nucleosome positions
 
@@ -234,14 +228,16 @@ bamfiles <- file.path(outPath,
                      "dinucleosome.bam",
                      "trinucleosome.bam"))
 
-
-## Plot the cumulative percentage of tag allocation in nucleosome-free and mononucleosome bam files. - THIS IS FAILING ON HPC?!? Works interactively though?
-# gr <- as(seqinfo(a), "GRanges")
-# tiff(c, units="in", width=5, height=5, res=100)
-# # tiff("zz.tiff", units="in", width=5, height=5, res=100)
-# cumulativePercentage(bamfiles[1:2], gr)
-# # cumulativePercentage(bamfiles[1:2], as(seqinfo(genome), "GRanges"))
-# dev.off()
+# Plot the cumulative percentage of tag allocation in nucleosome-free and mononucleosome bam files. - THIS IS FAILING ON HPC?!? Works interactively though?
+# NOTE: using 'try' here as it has been failing
+try({
+  gr <- as(seqinfo(a), "GRanges")
+  tiff(c, units="in", width=5, height=5, res=100)
+  # tiff("zz.tiff", units="in", width=5, height=5, res=100)
+  cumulativePercentage(bamfiles[1:2], gr)
+  # cumulativePercentage(bamfiles[1:2], as(seqinfo(genome), "GRanges"))
+  dev.off()
+})
 
 print("9. Defining promoter and TSS regions to generate heatmap and coverage curve for nucleosome positions...")
 
@@ -257,18 +253,32 @@ print("10. Calculate the signals around TSSs .. ")
 ## calculate the signals around TSSs.
 NTILE <- 101
 dws <- ups <- 1010
+seqlev = seqlevels(TSS) # use all the chr/scaffold sequences
+
 # seqlev <- "JH425323.1" # only used for subsampling for a quick run; remove if running on whole BAM
+# sigs <- enrichedFragments(gal=objs[c("NucleosomeFree",
+#                                      "mononucleosome",
+#                                      "dinucleosome",
+#                                      "trinucleosome")],
+#                           TSS=TSS,
+#                           librarySize=librarySize,
+#                           seqlev=seqlev, # this can be used for subsampling if you name the chr e.g. seqlev <- "JH425323.1"
+#                           TSS.filter=0.5,
+#                           n.tile = NTILE,
+#                           upstream = ups,
+#                           downstream = dws)
+
 sigs <- enrichedFragments(gal=objs[c("NucleosomeFree",
-                                     "mononucleosome",
-                                     "dinucleosome",
-                                     "trinucleosome")],
-                          TSS=TSS,
-                          librarySize=librarySize,
-                          # seqlev=seqlev, # this is only used for subsampling
-                          TSS.filter=0.5,
-                          n.tile = NTILE,
-                          upstream = ups,
-                          downstream = dws)
+                                       "mononucleosome",
+                                       "dinucleosome",
+                                       "trinucleosome")],
+                            TSS=TSS,
+                            librarySize=librarySize,
+                            seqlev=seqlev, # this can be used for subsampling if you name the chr e.g. seqlev <- "JH425323.1"
+                            TSS.filter=0.5,
+                            n.tile = NTILE,
+                            upstream = ups,
+                            downstream = dws)
 
 ## log2 transformed signals
 sigs.log2 <- lapply(sigs, function(.ele) log2(.ele+1))
@@ -305,6 +315,7 @@ dev.off()
 print("12. Signals normalized for nucleosome-free and nucleosome-bound regions and image outputted ")
 
 print("13. ATACseqQC run complete - END of Script")
+
 
 # ### The following is a copy of above but is a better way as it passes flags with arguments from the command line (but requires the 'optparse' library)
 #
