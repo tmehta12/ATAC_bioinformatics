@@ -1387,6 +1387,24 @@ JOBID7d=$( sbatch --dependency=afterok:${JOBID6} ${speciesid4}_$atacqcscript2 | 
 JOBID7e=$( sbatch --dependency=afterok:${JOBID6} ${speciesid5}_$atacqcscript2 | awk '{print $4}' ) # JOB7e depends on JOB6 completing successfully
 JOBID7f=$( sbatch -W --dependency=afterok:${JOBID6} ${speciesid6}_$atacqcscript2 | awk '{print $4}' ) # JOB7f depends on JOB6 completing successfully
 
+# Collate images/QC in one folder
+mkdir ${annotdir}/QCimages
+
+for i in *_*_ATAC/*.tiff; do
+  cp $i ${annotdir}/QCimages
+done
+
+for i in $scripts/*_*_ATAC/3.Mtfilt_fragcnt/*.nochrM.fraglength.pdf; do
+  cp $i ${annotdir}/QCimages
+done
+
+printf 'Sample\tMean\tCutoff\n' > ${annotdir}/QCimages/TSSscore_collated.txt
+for i in *_*_ATAC/*_TSSscore.txt; do
+  sample=$(cut -f1 $i | tail -1)
+  mean=$(cut -f5 $i | tail -1)
+  cutoff=$(cut -f8 $i | tail -1)
+  echo -e $sample'\t'$mean'\t'$cutoff >> ${annotdir}/QCimages/TSSscore_collated.txt
+done
 
 ## 2b. Fraction of reads in annotated regions
 
@@ -1420,8 +1438,8 @@ awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,$14,$7}}' $annotAcg | tr -d
 # output: reverse complemented fasta sequences of the regions extracted above, with the last gene on scaffold error corrected for.
 
 awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Mzgannotbed > $Mzgannotbedtmp
-awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Pngannotbed > $Pngannotbedtmp
-awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Abgannotbed > $Abgannotbedtmp
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Pngannotbed | grep -v 'ENSPNYG00000004989' > $Pngannotbedtmp # ENSPNYG00000004970 and ENSPNYG00000004989 overlap the same scaffold, remove the shortest
+awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Abgannotbed | grep -v 'ENSHBUG00000015584' > $Abgannotbedtmp
 awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Nbgannotbed > $Nbgannotbedtmp
 awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Ongannotbed > $Ongannotbedtmp
 awk '{print $1,$2,$3,$4,$6}' OFS='\t' $Acgannotbed > $Acgannotbedtmp
@@ -1441,13 +1459,13 @@ rm $Nbgannotbedtmp
 rm $Ongannotbedtmp
 rm $Acgannotbedtmp
 
-# this corrects the 5kb promoters so that they don't go over the scaffold ends
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Mzgchr $Mz5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Mz5kbpromannot
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Pngchr $Pn5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Pn5kbpromannot
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Abgchr $Ab5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Ab5kbpromannot
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Nbgchr $Nb5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Nb5kbpromannot
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Ongchr $On5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $On5kbpromannot
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Acgchr $Ac5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' > $Ac5kbpromannot
+# this corrects the 5kb promoters so that they don't go over the scaffold ends, re-order cols and remove same start and end gene promoters
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Mzgchr $Mz5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $Mz5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Pngchr $Pn5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $Pn5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Abgchr $Ab5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $Ab5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Nbgchr $Nb5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $Nb5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Ongchr $On5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $On5kbpromannot
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $Acgchr $Ac5kbpromannottmp | awk '{if($3 > $7){print $1,$2,$7,$4,$5,$5;}else {print $1,$2,$3,$4,$5,$5;}}' OFS='\t' | awk '{if($2>$3)print $1,$3,$2,$4,$5,$6;else print $1,$2,$3,$4,$5,$6;}' OFS='\t' | awk '{print $1,$2,$3,$5,$6,$4}' OFS='\t' | awk '$2!=$3' > $Ac5kbpromannot
 
 rm $Mz5kbpromannottmp
 rm $Pn5kbpromannottmp
@@ -1464,7 +1482,7 @@ python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FANbg $
 python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAOng $On5kbpromannot
 python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAAcg $Ac5kbpromannot
 
-# For each annotation BED file, run fraction of reads in annotated region - run this in a while loop (using an amended $fripprefix as input) where you also output the sample ID
+# For each annotation BED file, run fraction of reads in annotated region - run this as an array where you also output the sample ID
 # for this, add the the following to $fripprefix:
   # col1 - species id e.g. Mz, Pn, etc.
   # col2 - sample id
@@ -1472,63 +1490,246 @@ python ATAC_Bioinf_pipeline_v2c_part2biii.promSeqs_fromBED5_stranded.py $FAAcg $
   # remove the last col
 
 awk -F'_' '{print $1}' $fripprefix | sed 's/1a//g' | sed 's/1b//g' | sed 's/2a//g' | sed 's/2b//g' | sed 's/3a//g' | sed 's/3b//g' | sed 's/[0-9]//g' | sed 's/Pnm/Pn/g' > $fripprefix2.tmp1 # strip all other characters to expose only species ID
-awk '{print $1,$2}' OFS='\t' $fripprefix2 > $fripprefix2.tmp2
+awk '{print $1,$2}' OFS='\t' $fripprefix > $fripprefix2.tmp2
 paste $fripprefix2.tmp1 $fripprefix2.tmp2 > $fripprefix2 # create a new file that has species ID alongside the sample ID
 rm $fripprefix2.tmp1 $fripprefix2.tmp2
 
-echo '#!/bin/bash -e' > $friarscript
-echo "#SBATCH -p tgac-medium # partition (queue)" >> $friarscript
-echo "#SBATCH -N 1 # number of nodes" >> $friarscript
-echo "#SBATCH -n 1 # number of tasks" >> $friarscript
-echo "#SBATCH --mem-per-cpu 60000" >> $friarscript
-echo "#SBATCH -t 1-23:59" >> $friarscript
-echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $friarscript
-echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $friarscript
-echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $friarscript
-echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $friarscript
-printf '\n' >> $friarscript
-echo 'source bedtools-2.26.0' >> $friarscript
-printf '\n' >> $friarscript
-echo '# output is sample id, gene fraction, promoter fraction' >> $friarscript
-echo 'while read -r i1 i2 i3; do' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $friarscript
-echo -e "\t\tcd $scripts/${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Mzgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$Mz5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $friarscript
-echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Pngannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$Pn5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $friarscript
-echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Abgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ab5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $friarscript
-echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Nbgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$Nb5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $friarscript
-echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Ongannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$On5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $friarscript
-echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
-echo -e '\t\tgenefr=$(bedtools sort -i '$Acgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ac5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
-echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr >> '"$friarout" >> $friarscript
-echo -e '\tfi' >> $friarscript
-echo "done < $fripprefix2" >> $friarscript
+# iv. Get total number of samples for each species and assign to variable
+sp1friarcount=$(grep -F "$speciesid1" $fripprefix2 | wc -l )
+sp2friarcount=$(grep -F "$speciesid2" $fripprefix2 | wc -l )
+sp3friarcount=$(grep -F "$speciesid3" $fripprefix2 | wc -l )
+sp4friarcount=$(grep -F "$speciesid4" $fripprefix2 | wc -l )
+sp5friarcount=$(grep -F "$speciesid5" $fripprefix2 | wc -l )
+sp6friarcount=$(grep -F "$speciesid6" $fripprefix2 | wc -l )
 
+# v. Minus one from the total for each species for the array
+sp1numberfriararray=$(expr $sp1friarcount - 1)
+sp2numberfriararray=$(expr $sp2friarcount - 1)
+sp3numberfriararray=$(expr $sp3friarcount - 1)
+sp4numberfriararray=$(expr $sp4friarcount - 1)
+sp5numberfriararray=$(expr $sp5friarcount - 1)
+sp6numberfriararray=$(expr $sp6friarcount - 1)
+
+# vi. Set up the array to run friar on each sample - first prepare species specific sample ID files for iterating in array
+grep -F "$speciesid1" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp1.txt"
+grep -F "$speciesid2" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp2.txt"
+grep -F "$speciesid3" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp3.txt"
+grep -F "$speciesid4" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp4.txt"
+grep -F "$speciesid5" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp5.txt"
+grep -F "$speciesid6" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_sp6.txt"
+
+# vii. run the array for calculating fraction of reads in annotated regions
+echo '#!/bin/bash -e' > ${speciesid1}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid1}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$friarscript
+echo '#SBATCH --array=0-'"$sp1numberfriararray" >> ${speciesid1}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid1}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid1}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid1}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid1}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid1}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid1}_$friarscript
+printf '\n' >> ${speciesid1}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid1}_$friarscript
+printf '\n' >> ${speciesid1}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid1}_$friarscript
+printf '\n' >> ${speciesid1}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp1.txt" # assign as elements to variable' >> ${speciesid1}_$friarscript
+printf '\n' >> ${speciesid1}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid1}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid1}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Mzgannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid1}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid1}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$Mz5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid1}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid1}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid1}_$friarscript
+
+echo '#!/bin/bash -e' > ${speciesid2}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid2}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$friarscript
+echo '#SBATCH --array=0-'"$sp2numberfriararray" >> ${speciesid2}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid2}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid2}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid2}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid2}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid2}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid2}_$friarscript
+printf '\n' >> ${speciesid2}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid2}_$friarscript
+printf '\n' >> ${speciesid2}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid2}_$friarscript
+printf '\n' >> ${speciesid2}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp2.txt" # assign as elements to variable' >> ${speciesid2}_$friarscript
+printf '\n' >> ${speciesid2}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid2}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid2}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Pngannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid2}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid2}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$Pn5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid2}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid2}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid2}_$friarscript
+
+echo '#!/bin/bash -e' > ${speciesid3}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid3}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$friarscript
+echo '#SBATCH --array=0-'"$sp3numberfriararray" >> ${speciesid3}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid3}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid3}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid3}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid3}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid3}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid3}_$friarscript
+printf '\n' >> ${speciesid3}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid3}_$friarscript
+printf '\n' >> ${speciesid3}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid3}_$friarscript
+printf '\n' >> ${speciesid3}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp3.txt" # assign as elements to variable' >> ${speciesid3}_$friarscript
+printf '\n' >> ${speciesid3}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid3}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid3}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Abgannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid3}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid3}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$Ab5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid3}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid3}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid3}_$friarscript
+
+echo '#!/bin/bash -e' > ${speciesid4}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid4}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$friarscript
+echo '#SBATCH --array=0-'"$sp4numberfriararray" >> ${speciesid4}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid4}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid4}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid4}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid4}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid4}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid4}_$friarscript
+printf '\n' >> ${speciesid4}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid4}_$friarscript
+printf '\n' >> ${speciesid4}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid4}_$friarscript
+printf '\n' >> ${speciesid4}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp4.txt" # assign as elements to variable' >> ${speciesid4}_$friarscript
+printf '\n' >> ${speciesid4}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid4}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid4}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Nbgannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid4}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid4}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$Nb5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid4}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid4}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid4}_$friarscript
+
+echo '#!/bin/bash -e' > ${speciesid5}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid5}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$friarscript
+echo '#SBATCH --array=0-'"$sp5numberfriararray" >> ${speciesid5}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid5}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid5}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid5}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid5}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid5}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid5}_$friarscript
+printf '\n' >> ${speciesid5}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid5}_$friarscript
+printf '\n' >> ${speciesid5}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid5}_$friarscript
+printf '\n' >> ${speciesid5}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp5.txt" # assign as elements to variable' >> ${speciesid5}_$friarscript
+printf '\n' >> ${speciesid5}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid5}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid5}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Ongannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid5}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid5}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$On5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid5}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid5}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid5}_$friarscript
+
+echo '#!/bin/bash -e' > ${speciesid6}_$friarscript
+echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid6}_$friarscript
+echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$friarscript
+echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$friarscript
+echo '#SBATCH --array=0-'"$sp6numberfriararray" >> ${speciesid6}_$friarscript
+echo '#SBATCH --mem-per-cpu 28000' >> ${speciesid6}_$friarscript
+echo '#SBATCH -t 0-00:45' >> ${speciesid6}_$friarscript
+echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> ${speciesid6}_$friarscript
+echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> ${speciesid6}_$friarscript
+echo '#SBATCH -o slurm.%A.%a.out # STDOUT' >> ${speciesid6}_$friarscript
+echo '#SBATCH -e slurm.%A.%a.err # STDERR' >> ${speciesid6}_$friarscript
+printf '\n' >> ${speciesid6}_$friarscript
+echo 'source bedtools-2.26.0' >> ${speciesid6}_$friarscript
+printf '\n' >> ${speciesid6}_$friarscript
+echo '# output is sample id, gene fraction, promoter fraction' >> ${speciesid6}_$friarscript
+printf '\n' >> ${speciesid6}_$friarscript
+echo 'mapfile -t samples < "$(basename "'$fripprefix2'" .txt)_sp6.txt" # assign as elements to variable' >> ${speciesid6}_$friarscript
+printf '\n' >> ${speciesid6}_$friarscript
+echo "cd ${annotdir}/"'${samples[${SLURM_ARRAY_TASK_ID}]}' >> ${speciesid6}_$friarscript
+echo 'total=$(zcat '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz | wc -l)' >> ${speciesid6}_$friarscript
+echo 'genefr=$(bedtools sort -i '"$Acgannotbed"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid6}_$friarscript
+echo 'geneperc=$(perl -E "say ${genefr}/${total}*100")' >> ${speciesid6}_$friarscript
+echo 'promoterfr=$(bedtools sort -i '"$Ac5kbpromannot"' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a '"${scripts}"'/${samples[${SLURM_ARRAY_TASK_ID}]}/5.peak_calling/${samples[${SLURM_ARRAY_TASK_ID}]}.tn5.tagAlign.gz -b stdin | wc -l)' >> ${speciesid6}_$friarscript
+echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid6}_$friarscript
+echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid6}_$friarscript
+
+# ## This is for running as a while loop - lot slower
+# echo '#!/bin/bash -e' > $friarscript
+# echo "#SBATCH -p tgac-medium # partition (queue)" >> $friarscript
+# echo "#SBATCH -N 1 # number of nodes" >> $friarscript
+# echo "#SBATCH -n 1 # number of tasks" >> $friarscript
+# echo "#SBATCH --mem-per-cpu 60000" >> $friarscript
+# echo "#SBATCH -t 0-14:59" >> $friarscript
+# echo "#SBATCH --mail-type=ALL # notifications for job done & fail" >> $friarscript
+# echo "#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address" >> $friarscript
+# echo "#SBATCH -o slurm.%N.%j.out # STDOUT" >> $friarscript
+# echo "#SBATCH -e slurm.%N.%j.err # STDERR" >> $friarscript
+# printf '\n' >> $friarscript
+# echo 'source bedtools-2.26.0' >> $friarscript
+# printf '\n' >> $friarscript
+# echo '# output is sample id, gene fraction, promoter fraction' >> $friarscript
+# echo 'while read -r i1 i2 i3; do' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid1'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Mzgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$Mz5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid2'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Pngannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$Pn5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid3'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Abgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ab5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid4'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Nbgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$Nb5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid5'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Ongannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$On5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo -e '\tif [[ "$i1" == "'$speciesid6'" ]]; then' >> $friarscript
+# echo -e "\t\tcd ${annotdir}/"'$i2' >> $friarscript
+# echo -e '\t\tgenefr=$(bedtools sort -i '$Acgannotbed' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\tpromoterfr=$(bedtools sort -i '$Ac5kbpromannot' | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)' >> $friarscript
+# echo -e '\t\techo -e $i2'"'\t'"'$genefr'"'\t'"'$promoterfr > '"$friarout" >> $friarscript
+# echo -e '\tfi' >> $friarscript
+# echo "done < $fripprefix2" >> $friarscript
+#
+## This the same while loop as above just no sbatch
 # source bedtools-2.26.0
 # # output is sample id, gene fraction, promoter fraction
 # while read -r i1 i2 i3; do
@@ -1536,37 +1737,37 @@ echo "done < $fripprefix2" >> $friarscript
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Mzgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $Mz5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 #   if [[ "$i1" == "$speciesid2" ]]; then
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Pngannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $Pn5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 #   if [[ "$i1" == "$speciesid3" ]]; then
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Abgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $Ab5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 #   if [[ "$i1" == "$speciesid4" ]]; then
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Nbgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $Nb5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 #   if [[ "$i1" == "$speciesid5" ]]; then
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Ongannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $On5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 #   if [[ "$i1" == "$speciesid6" ]]; then
 #     cd ${annotdir}/$i2
 #     genefr=$(bedtools sort -i $Acgannotbed | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
 #     promoterfr=$(bedtools sort -i $Ac5kbpromannot | bedtools merge -i stdin | bedtools intersect -u -nonamecheck -a ${i3} -b stdin | wc -l)
-#     echo -e $i2'\t'$genefr'\t'$promoterfr >> $friarout
+#     echo -e $i2'\t'$genefr'\t'$promoterfr > $friarout
 #   fi
 # done < $fripprefix2
 
@@ -1574,7 +1775,18 @@ echo '# -- 2aBc. Peak annotation has completed: ATACseqQC completed -- #'
 
 echo '# -- 2b. Fraction of Reads in annotated regions has started -- #'
 
-JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} $friarscript | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
+# JOBID8=$( sbatch -W --dependency=afterok:${JOBID7} $friarscript | awk '{print $4}' ) # JOB8 depends on JOB7 completing successfully
+
+JOBID8a=$( sbatch --dependency=afterok:${JOBID7f} ${speciesid1}_$friarscript | awk '{print $4}' ) # JOB8a depends on JOB7f completing successfully
+JOBID8b=$( sbatch --dependency=afterok:${JOBID7f} ${speciesid2}_$friarscript | awk '{print $4}' ) # JOB8b depends on JOB7f completing successfully
+JOBID8c=$( sbatch --dependency=afterok:${JOBID7f} ${speciesid3}_$friarscript | awk '{print $4}' ) # JOB8c depends on JOB7f completing successfully
+JOBID8d=$( sbatch --dependency=afterok:${JOBID7f} ${speciesid4}_$friarscript | awk '{print $4}' ) # JOB8d depends on JOB7f completing successfully
+JOBID8e=$( sbatch --dependency=afterok:${JOBID7f} ${speciesid5}_$friarscript | awk '{print $4}' ) # JOB8e depends on JOB7f completing successfully
+JOBID8f=$( sbatch -W --dependency=afterok:${JOBID7f} ${speciesid6}_$friarscript | awk '{print $4}' ) # JOB8f depends on JOB7f completing successfully
+
+# viii. collate all the fraction of reads in annotated regions and move to QC folder
+printf 'sample\ttotal_peaks\tgene_fraction\tgene_perc\tpromoter_fraction\tpromoter_perc\n' > ${annotdir}/QCimages/fraction_of_reads_in_annotatedregions_collated.txt
+for i in *_*_ATAC/fraction_of_reads_in_annotatedregions.txt; do j=$(cat $i); echo $j | sed 's| |\t|g' >> ${annotdir}/QCimages/fraction_of_reads_in_annotatedregions_collated.txt; done
 
 ################################################################################################################
 
@@ -1736,7 +1948,7 @@ echo '# -- 2b. Fraction of Reads in annotated regions has completed -- #'
 
 echo '# -- 3a. TF footprinting preparation has started - bioMart alias, annotations and data.config prep -- #'
 
-JOBID9=$( sbatch -W --dependency=afterok:${JOBID8} 3.2_biomart_dl.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
+JOBID9=$( sbatch -W --dependency=afterok:${JOBID8f} 3.2_biomart_dl.sh | awk '{print $4}' ) # JOB9 depends on JOB8 completing successfully
 
 
 # # while loop original placed in script above, and a while loop version of the longer version below
