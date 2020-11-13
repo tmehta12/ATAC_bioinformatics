@@ -213,7 +213,7 @@ PnggenRS=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.
 AbggenRS=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.generegions_RefSeq.bed
 NbggenRS=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.generegions_RefSeq.bed
 OnggenRS=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.generegions_RefSeq.bed
-AcgenRS=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_RefSeq.bed
+AcggenRS=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.generegions_RefSeq.bed
 # assign the species you require for downloading BioMart gene alias annotations here - for my pipeline there are five species (but only four have biomart entries - for other species, check the biomart identifier for the database e.g. mzebra_gene_ensembl, and amend below)
 # this will then use the variables below to add to a file 'biomart_sp.txt' - this will then be read, line by line to download and process the biomart databases
 sp1=mzebra_gene_ensembl
@@ -249,6 +249,7 @@ biomartfiles=(biomartfilepaths.txt)
 removesp=(neolamprologus_brichardi)
 genalpaths=(genealiaspaths.txt)
 rgtdatapath=(~/rgtdata) # insert path to RGT data folder for where RGT installed
+# NOTE: Many of the variables below are hardcoded into "${!Dfpsp}"'_TFfp.sh' script below - if changed here then ALSO change in the script
 rgtidsp1='[MzebraUMD2a]'
 rgtidsp2='[PunNye1.0]'
 rgtidsp3='[AstBur1.0]'
@@ -275,7 +276,38 @@ pwmsp4=nb
 pwmsp5=on
 pwmsp6=ac
 j=9 # this is the preceding JOBID number (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
+k=15 # this is the preceding JOBID number - work out by j + [sp_number e.g. 6] (change this if required e.g. more or less than five species analysed, otherwise JOBIDs will be 'off' - will also then need to change within sbatch while loop and other proceeding JOBIDs)
 
+genomesdir=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes)
+mzeb=($genomesdir/Mzebra)
+mzebgenome=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa
+pnye=($genomesdir/Pnyererei)
+pnyegenome=$pnye/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa
+abur=($genomesdir/Aburtoni)
+aburgenome=$abur/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
+nbri=($genomesdir/Nbrichardi)
+nbrigenome=$nbri/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa
+onil=($genomesdir/Oniloticus)
+onilgenome=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa
+acal=($genomesdir/Acalliptera)
+acalgenome=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa
+
+Mzgenomechr=$mzeb/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+Pngenomechr=$pnye/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa.chrom.sizes
+Abgenomechr=$abur/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
+Nbgenomechr=$nbri/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa.chrom.sizes
+Ongenomechr=$onil/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+Acgenomechr=$acal/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+
+repdiffmpbs=repdiffmpbs_paths.txt
+repdiffread=repdiffread_paths.txt
+repdiffcond=repdiffcond_paths.txt
+repdiffout=repdiffout_paths.txt
+
+spdiffmpbs=spdiffmpbs_paths.txt
+spdiffread=spdiffread_paths.txt
+spdiffcond=spdiffcond_paths.txt
+spdiffout=spdiffout_paths.txt
 
 ### 4. Differential analysis of peaks
 
@@ -602,6 +634,16 @@ while IFS=$'\t' read -r a b c; do
   fi
 done < $FRIP.temp
 rm $FRIP.temp
+
+# Get IDR stats
+echo "IDR stats outputted to: IDRstats.txt"
+for i in *ATAC_peaks.final.narrowPeak; do
+  sample=$(echo $i | sed 's/_peaks.final.narrowPeak//g')
+  total=$(wc -l ${i} | awk '{print $1}')
+  true=$(awk '$11=="T"' ${i} | wc -l)
+  false=$(awk '$11=="F"' ${i} | wc -l)
+  echo -e "$sample\t$total\t$true\t$false" >> IDRstats.txt
+done
 
 ################################################################################################################
 
@@ -1837,7 +1879,7 @@ cd $tffprdir
 # Ab. Two gene regions file in bed format
 ## 1. For the genes_Gencode file use ensemblIDS
 while read -r b; do
-  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $(echo "${b}" | sed 's/100.gtf/100.generegions_Gencode.bed/g')
+  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $(echo "${b}" | sed 's/101.gtf/101.generegions_Gencode.bed/g')
 done < $antfiles
 
 # cat $annotAbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$10,".",$7}}' | tr -d '";' > $AbggenGC
@@ -1849,7 +1891,7 @@ done < $antfiles
 
 ## 2. For the genes_RefSeq file use gene symbol
 while read -r b; do
-  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $(echo "${b}" | sed 's/100.gtf/100.generegions_RefSeq.bed/g')
+  cat ${b} | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $(echo "${b}" | sed 's/101.gtf/101.generegions_RefSeq.bed/g')
 done < $antfiles
 
 # cat $annotAbg | awk 'OFS="\t" {if ($3=="gene") {print $1,$4-1,$5,$14,".",$7}}' | tr -d '";' | sed 's/ensembl/NA/g' > $AbggenRS
@@ -1869,9 +1911,9 @@ while read -r c; do
   awk '{print $10,$14}' OFS='\t' |
   sed 's/"//g' | sed 's/;//g' |
   awk '{$2=tolower($2);print}' OFS='\t' |
-  sed 's/ensembl/NA/g' > $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g')
-  cat tmpgenealias_header.txt $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g') > $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp1/g')
-  rm $(echo "${c}" | sed 's/.gtf/.genealias.txt.tmp0/g')
+  sed 's/ensembl/NA/g' > $(echo "${c}" | sed 's/101.gtf/101.genealias.txt.tmp0/g')
+  cat tmpgenealias_header.txt $(echo "${c}" | sed 's/101.gtf/101.genealias.txt.tmp0/g') > $(echo "${c}" | sed 's/101.gtf/101.genealias.txt.tmp1/g')
+  rm $(echo "${c}" | sed 's/101.gtf/101.genealias.txt.tmp0/g')
 done < $antfiles
 
 # Ac-2. Download the following for each genome from BIOMART (below are the col headers)
@@ -1917,16 +1959,16 @@ echo "USERNAME=$Usr" >> 3.2_biomart_dl.sh
 echo 'HOSTNAME="software"' >> 3.2_biomart_dl.sh
 echo "PWD=$(pwd)" >> 3.2_biomart_dl.sh
 printf '\n' >> 3.2_biomart_dl.sh
-echo 'SCRIPT="cd ${PWD}; sh 2.2_biomart_dl_script.sh"' >> 3.2_biomart_dl.sh
+echo 'SCRIPT="cd ${PWD}; sh 3.2_biomart_dl_script.sh"' >> 3.2_biomart_dl.sh
 printf '\n' >> 3.2_biomart_dl.sh
-echo "cd ${PWD}" > 2.2_biomart_dl_script.sh
-echo "while read -r i; do" >> 2.2_biomart_dl_script.sh
-echo -e '\twget -O ${i}_biomart1.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_gene_id" /><Attribute name = "ensembl_gene_id_version" /><Attribute name = "ensembl_transcript_id" /><Attribute name = "ensembl_transcript_id_version" /><Attribute name = "hgnc_id" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
-echo -e '\twget -O ${i}_biomart2.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "hgnc_symbol" /><Attribute name = "entrezgene_accession" /><Attribute name = "refseq_mrna_predicted" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
-echo -e '\twget -O ${i}_biomart3.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "uniprotswissprot" /><Attribute name = "wikigene_name" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
-echo -e '\twget -O ${i}_biomart4.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "zfin_id_id" /><Attribute name = "wikigene_id" /></Dataset></Query>'"'" >> 2.2_biomart_dl_script.sh
-echo "done < $biomartspecies" >> 2.2_biomart_dl_script.sh
-echo 'exit' >> 2.2_biomart_dl_script.sh
+echo "cd ${PWD}" > 3.2_biomart_dl_script.sh ## THIS IS PURPOSELY RENAMED DIFFERENTLY!!
+echo "while read -r i; do" >> 3.2_biomart_dl_script.sh
+echo -e '\twget -O ${i}_biomart1.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_gene_id" /><Attribute name = "ensembl_gene_id_version" /><Attribute name = "ensembl_transcript_id" /><Attribute name = "ensembl_transcript_id_version" /><Attribute name = "hgnc_id" /></Dataset></Query>'"'" >> 3.2_biomart_dl_script.sh
+echo -e '\twget -O ${i}_biomart2.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "hgnc_symbol" /><Attribute name = "entrezgene_accession" /><Attribute name = "refseq_mrna_predicted" /></Dataset></Query>'"'" >> 3.2_biomart_dl_script.sh
+echo -e '\twget -O ${i}_biomart3.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "uniprotswissprot" /><Attribute name = "wikigene_name" /></Dataset></Query>'"'" >> 3.2_biomart_dl_script.sh
+echo -e '\twget -O ${i}_biomart4.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "zfin_id_id" /><Attribute name = "wikigene_id" /></Dataset></Query>'"'" >> 3.2_biomart_dl_script.sh
+echo "done < $biomartspecies" >> 3.2_biomart_dl_script.sh
+echo 'exit' >> 3.2_biomart_dl_script.sh
 echo 'ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 3.2_biomart_dl.sh
 printf '\n' >> 3.2_biomart_dl.sh
 echo "printf 'ensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > "'biomart_headers # NOTE - many of these cols will get removed later' >> 3.2_biomart_dl.sh
@@ -2070,7 +2112,7 @@ JOBID9=$( sbatch -W --dependency=afterok:${JOBID8f} 3.2_biomart_dl.sh | awk '{pr
 # Ac-3. awk match files '$file1' and '$file2' above to create two files:
 
 # Ac-3a. One tab delimited file WITH HEADERS > ${Mz,Pn,Ab,Nb,On,Ac}ggenaltsv (these are stored in the species gtf dir), and
-sed 's/.gtf/.genealias.txt.tmp1/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv
+sed 's/101.gtf/101.genealias.txt.tmp1/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv
 
 while read -r i; do
   echo ${i}_biomart.txt >> $biomartfiles.tmp
@@ -2082,7 +2124,7 @@ do
   awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA";}}' ${file2} ${file1} | awk '{print $1,$14,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12}' OFS='\t' > $(echo "${file2}" | sed 's/.txt.tmp1/.tsv/g')
 done 3<$biomartfiles 4<$processggenaltsv
 
-Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/.gtf/.genealias.txt.tmp1/g'); cp $Nbggenaltsvtmp $Nbggenaltsv # just copy the tmp1 file and rename for this (since no biomart db exists)
+Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/101.gtf/101.genealias.txt.tmp1/g'); cp $Nbggenaltsvtmp $Nbggenaltsv # just copy the tmp1 file and rename for this (since no biomart db exists)
 
 # Ac-3b. Using the file from 'Ac-3a' above, prepare the gene alias files with correct format (plus ensure to exclude any NA/na columns)
 # example format (3 col, tab delimited)
@@ -2092,7 +2134,7 @@ Nbggenaltsvtmp=$(echo "$annotNbg" | sed 's/.gtf/.genealias.txt.tmp1/g'); cp $Nbg
 awk 'NR>1 {print $1,$2,$1"&"$2}' OFS='\t' $Nbggenaltsv | sed 's/\&NA//g' > $Nbggenal
 
 # merge rows with same first column (ensembl_gene_id) and obtain unique cells in each row only for the output
-sed 's/.gtf/.genealias.tsv/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv2
+sed 's/101.gtf/101.genealias.tsv/g' $antfiles | grep -v $removesp | sort -u > $processggenaltsv2
 
 while read -r i; do
   awk -F'\t' 'NF>1{a[$1] = a[$1]"\t"$0};END{for(i in a)print i"\t"a[i]}' ${i} |
@@ -2109,7 +2151,7 @@ echo $(ls -1 $Nbggenal) >> $genalpaths
 
 while read -r d; do
 # for d in "$Mzgannot" "$Pngannot" "$Abgannot" "$Nbgannot" "$Ongannot" "$Acgannot"; do
-  rm $(echo "${d}" | sed 's/.gtf/.genealias.txt.tmp1/g')
+  rm $(echo "${d}" | sed 's/101.gtf/101.genealias.txt.tmp1/g')
 done < $antfiles
 
 # B. Create data.config.user file with species specific entries
@@ -2177,13 +2219,14 @@ echo "logo_dataset: logos" >> $rgtdatapath/data.config.user # Contains the path 
 echo "repositories: cichlidmzCSsp, cichlidpnCSsp, cichlidabCSsp, cichlidnbCSsp, cichlidonCSsp, cichlidacCSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco, jaspar_plants, uniprobe_primary, uniprobe_secondary" >> $rgtdatapath/data.config.user #  	The PWM repositories that will be used in the analyses. It is a comma-separated list of folders inside <pwm_dataset> (see this option above) folder.
 printf '\n' >> $rgtdatapath/data.config.user
 
-# C. Create an array to work on files of each species
+## C. Create an array to work on files of each species
 
 # Create narrowPeak file paths for each species - can change species IDs for footprinting here
 for Afpsp in "${!fpsp@}"; do
   # echo "$Afpsp is set to ${!Afpsp}"
   ls -1 $idrdir/"${!Afpsp}"*.final.narrowPeak >> $tffprdir/"${!Afpsp}"peakpaths.txt
 done
+# ls -1 $idrdir/*Ac*.final.narrowPeak > $tffprdir/Acpeakpaths.txt # Ac filenames are a little different so above will not work!!
 
 # this will assign peakpaths files to ${fpsp@}peaks variables e.g. $Abpeaks
 for Bfpsp in "${!fpsp@}"; do
@@ -2199,9 +2242,9 @@ for Cfpsp in "${!fpsp@}"; do
   eval "${!Cfpsp}"FPscript="${!Cfpsp}"_TFfp.sh
 done
 
-# D. run TF footprinting and creating signal tracks e.g. https://www.regulatory-genomics.org/hint/tutorial/
+## D. run TF footprinting and creating signal tracks e.g. https://www.regulatory-genomics.org/hint/tutorial/
 
-# Da. Prepare PWM files/folders and data.config.user to use own motifs and genome info
+## Da. Prepare PWM files/folders and data.config.user to use own motifs and genome info
 
 # ## Daa. Prepare and move pwm's to specfic path - NOTE: this is relatively hardcoded and thus needs changing for future work
 #
@@ -2314,7 +2357,7 @@ done
 #
 # cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/mz/JPoldPWMformat
 # ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidmzCSsp.mtf.tmp1
-# awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidmzCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","."}' OFS='\t' > cichlidmzCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidmzCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","4,8,12,16,20,24"}' OFS='\t' > cichlidmzCSsp.mtf.tmp2
 #
 # # # pull out all gene symbols in $cichlidmeta file using ensemblID
 # # while read -r a b c d e f g h i j k; do
@@ -2344,32 +2387,32 @@ done
 # # echo
 # # } | column -t -s "$(printf '%b' '\t')" > cichlidmzCSsp.mtf.tmp4
 # #
-# # awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$5]){print $0,a[$5];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".","NO","NO";}}' cichlidmzCSsp.mtf.tmp4 cichlidmzCSsp.mtf.tmp2 | awk '{print $4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","."}' OFS='\t' > cichlidmzCSsp.mtf.tmp5
+# # awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$5]){print $0,a[$5];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".","NO","NO";}}' cichlidmzCSsp.mtf.tmp4 cichlidmzCSsp.mtf.tmp2 | awk '{print $4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Metriaclima_zebra","4,8,12,16,20,24"}' OFS='\t' > cichlidmzCSsp.mtf.tmp5
 #
 # awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidmzCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidmzCSsp.mtf
 # rm cichlidmzCSsp.mtf.tmp*
 #
 # cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/pn/JPoldPWMformat
 # ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidpnCSsp.mtf.tmp1
-# awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidpnCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Pundamilia_nyererei","."}' OFS='\t' > cichlidpnCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidpnCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Pundamilia_nyererei","4,8,12,16,20,24"}' OFS='\t' > cichlidpnCSsp.mtf.tmp2
 # awk 'BEGIN{OFS="\t"}NR==FNR{a[$3]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidpnCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidpnCSsp.mtf
 # rm cichlidpnCSsp.mtf.tmp*
 #
 # cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/ab/JPoldPWMformat
 # ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidabCSsp.mtf.tmp1
-# awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidabCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Astatotilapia_burtoni","."}' OFS='\t' > cichlidabCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidabCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Astatotilapia_burtoni","4,8,12,16,20,24"}' OFS='\t' > cichlidabCSsp.mtf.tmp2
 # awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidabCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidabCSsp.mtf
 # rm cichlidabCSsp.mtf.tmp*
 #
 # cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/nb/JPoldPWMformat
 # ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidnbCSsp.mtf.tmp1
-# awk 'BEGIN{OFS="\t"}NR==FNR{a[$7]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidnbCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Neolamprologus_brichardi","."}' OFS='\t' > cichlidnbCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$7]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidnbCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Neolamprologus_brichardi","4,8,12,16,20,24"}' OFS='\t' > cichlidnbCSsp.mtf.tmp2
 # awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidnbCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidnbCSsp.mtf
 # rm cichlidnbCSsp.mtf.tmp*
 #
 # cd /Users/mehtat/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/on/JPoldPWMformat
 # ls -1 *.pwm | awk '{print $1,$1}' OFS='\t' | awk -F'_' '{print $0,$7}' OFS='\t' | awk '{print $1,$3}' OFS='\t' | awk -F"\t" '{gsub(".ig","",$2)}1' OFS='\t' > cichlidonCSsp.mtf.tmp1
-# awk 'BEGIN{OFS="\t"}NR==FNR{a[$8]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidonCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Oreochromis_niloticus","."}' OFS='\t' > cichlidonCSsp.mtf.tmp2
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$8]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,".","NULL",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".";}}' $JPv2018map cichlidonCSsp.mtf.tmp1 | awk '{print $2,$4"_CS_"$2,$1,"CS_v1",$4,$20,".","Integrative","vertebrates","Oreochromis_niloticus","4,8,12,16,20,24"}' OFS='\t' > cichlidonCSsp.mtf.tmp2
 # awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA","NA";}}' $ogids cichlidonCSsp.mtf.tmp2 | awk '{if($5 == "NULL")print $26"_CS_"$1,$3,$4,$26,$6,$7,$8,$9,$10,$11;else print $2,$3,$4,$5,$6,$7,$8,$9,$10,$11;}' OFS='\t' > cichlidonCSsp.mtf
 # rm cichlidonCSsp.mtf.tmp*
 #
@@ -2442,7 +2485,71 @@ done
 # echo "repositories: cichlidmzCSsp, cichlidpnCSsp, cichlidabCSsp, cichlidnbCSsp, cichlidonCSsp, cichlidacCSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco, jaspar_plants, uniprobe_primary, uniprobe_secondary" >> $rgtdatapath/data.config.user #  	The PWM repositories that will be used in the analyses. It is a comma-separated list of folders inside <pwm_dataset> (see this option above) folder.
 
 
-# Db. Prepare scripts for footprinting
+## Db. Prepare scripts for footprinting + motif matching
+
+##### ~~~~~ #####
+# NOTE: for each run, the following was ran/loaded for footprinting
+# pseudocounts: 1.0
+# used database(s): cichlid{mz,pn,ab,nb,on,ac}CSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco
+# fpr threshold for footprinting: 0.0001
+# motifs loaded: 2042
+##### ~~~~~ #####
+
+############################################################################################################################
+
+# rgt-hint footprinting output is a bed-file and .info file for number of peaks and footprints (but no overlapping motif information)
+# bed file output: col1 - chr, col2 - start, col3 - end, col4 - footprintID, col5 - score?, col6 - .
+
+# The output of HINT-ATAC footprinting is a.bed-file of footprint ranges ranked by tag count.
+# All TFBS overlapping a footprint with more than 2/3 of the TFBS bases was assumed to be bound and scored using the tag count of the footprint.
+# The rest of the TFBS (within peaks) were set to score 0 (low chance of protein binding).
+# The auROC was calculated based on the ability of these scores to predict true protein binding.
+# It should be noted that this affects the shape of the ROC curve, as all TFBS without overlaps are assumed to have the same probability of being bound.
+# However, this is a characteristic of the method, and HINT-ATAC was therefore evaluated on the same premise as other tools.
+
+# rgt-motifanalysis matching
+# output is a BED file for each input file, containing the matched motif instances for each footprint region. The 4th column contains the motif name and the 5th column the bit-score of the motif match.
+
+# rgt-hint differential
+# output are lineplots of the footprinting - can be run for single and/or multiple samples
+############################################################################################################################
+
+
+# NOTE: in below, the following VARIABLES are harcoded into the script - IF the species id etc. are changed at the top then they ALSO NEED TO BE CHANGED IN THE SCRIPT BELOW!!!!!!
+# fpsp*
+# rgtidsp*
+# rgtidsp*a
+# pwmsp*
+# NOTE: In the /hpc-home/mehtat/rgtdata/motifs/cichlid*.mtf files, you have arbitrarily set the FPR thresholds to the following:
+# 0.005 = 4
+# 0.001 = 8
+# 0.0005 = 12
+# 0.0001 = 16
+# 0.00005 = 20
+# 0.00001 = 24
+# If you want to change this then you have to change in all the cichlid*.mtf files - only picked arbitrary numbers as simply entering a '.' does not work (even though the documentation said it does!)
+# script to do this:
+# for i in ~/rgtdata/motifs/cichlid*.mtf; do
+#   #awk '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,".,.,.,.,.,."}' OFS='\t' $i > ${i}2
+#   awk '{print $1,$2,$3,$4,$5,$6,$7,$8,$9,"4,8,12,16,20,24"}' OFS='\t' $i > ${i}2
+#   rm $i
+#   mv ${i}2 $i
+# done
+
+
+# The samtools sort and index doesn't finish before RGT-HINT starts and thus, does not run; therefore there are two for loops below to create two separate scripts
+
+# create the relevant files for mapping in array
+for Dfpsp in "${!fpsp@}"; do
+  # echo "$Dfpsp is set to ${!Dfpsp}"
+  # 1. prepare a prefix file using the peaks file e.g. $Abpeaks
+  awk -F'/' ' { print $NF } ' $(eval echo \$"${!Dfpsp}"peaks) | sed 's/_peaks.final.narrowPeak//g' > "${!Dfpsp}"prefixes.txt
+  # 2. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
+  sed "s|$idrdir|$annotdir|g" "${!Dfpsp}"peakpaths.txt | sed 's/_peaks.final.narrowPeak//g' | awk -F'/' ' { print $0"/"$NF } ' | sed 's|$|.nochrM.nodup.filt.shifted.bam|g' > "${!Dfpsp}"inputBAM.txt
+  # 3. create signal prefix file
+  sed 's/$/_BC/g' "${!Dfpsp}"prefixes.txt > "${!Dfpsp}"signalprefixes.txt
+done
+
 for Dfpsp in "${!fpsp@}"; do
   # echo "$Dfpsp is set to ${!Dfpsp}"
   echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp.sh'
@@ -2450,8 +2557,9 @@ for Dfpsp in "${!fpsp@}"; do
   echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH -n 1 # number of tasks' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"peararrayend")" >> "${!Dfpsp}"'_TFfp.sh'
-  echo '#SBATCH --mem-per-cpu 32000' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --mem-per-cpu 48000' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH -t 0-05:59' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH --constraint=intel' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Dfpsp}"'_TFfp.sh'
@@ -2460,13 +2568,38 @@ for Dfpsp in "${!fpsp@}"; do
   echo "ml samtools/1.7" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'export PATH="$PATH:/hpc-home/mehtat/.local/bin/"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp1='[MzebraUMD2a]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp2='[PunNye1.0]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp3='[AstBur1.0]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp4='[NeoBri1.0]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp5='[OniloticusUMD]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp6='[fAstCal1.2]'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp1a='MzebraUMD2a'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp2a='PunNye1.0'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp3a='AstBur1.0'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp4a='NeoBri1.0'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp5a='OniloticusUMD'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "rgtidsp6a='fAstCal1.2'" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp1=Mz" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp2=Pn" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp3=Ab" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp4=Nb" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp5=On" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "fpsp6=Ac" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp1=mz" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp2=pn" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp3=ab" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp4=nb" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp5=on" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "pwmsp6=ac" >> "${!Dfpsp}"'_TFfp.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 0. mapfile the narrowPeak files' >> "${!Dfpsp}"'_TFfp.sh'
   echo "mapfile -t ${!Dfpsp}peakarray < $(eval "echo \$"${!Dfpsp}peaks) # assign files to variable for array" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 0. mapfile the narrowPeak files ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 1. prepare a prefix file using the peaks file e.g. $Abpeaks' >> "${!Dfpsp}"'_TFfp.sh'
   echo "${!Dfpsp}prefix=(${!Dfpsp}prefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
-  echo "awk -F'/' ' { print "'$NF } '"' $(eval "echo \$"${!Dfpsp}peaks) | sed 's/_peaks.final.narrowPeak//g' > \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp.sh'
+  echo "#awk -F'/' ' { print "'$NF } '"' $(eval "echo \$"${!Dfpsp}peaks) | sed 's/_peaks.final.narrowPeak//g' > \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 1. prepare a prefix file using the peaks file e.g. $Abpeaks ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 2. mapfile the above file' >> "${!Dfpsp}"'_TFfp.sh'
@@ -2475,7 +2608,7 @@ for Dfpsp in "${!fpsp@}"; do
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)' >> "${!Dfpsp}"'_TFfp.sh'
   echo "${!Dfpsp}BAM=(${!Dfpsp}inputBAM.txt)" >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$annotdir/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed '"'s/_peaks.final.narrowPeak/.shifted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$annotdir/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed '"'s/_peaks.final.narrowPeak/.nochrM.nodup.filt.shifted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder) ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
   printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
   echo '# 4. mapfile the file from above' >> "${!Dfpsp}"'_TFfp.sh'
@@ -2486,26 +2619,164 @@ for Dfpsp in "${!fpsp@}"; do
   echo 'samtools sort '"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]} -o "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'samtools index "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam"' >> "${!Dfpsp}"'_TFfp.sh'
   echo 'echo "# 5. run samtools sort and index and drop in this folder ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
-  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
-  echo '# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp.sh'
-  echo "mkdir -p $tffprdir/"'$(eval echo $output)_fp' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'echo "# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
-  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
-  echo '# B. outputs signals for visualization in a genome browser' >> "${!Dfpsp}"'_TFfp.sh'
-  echo "${!Dfpsp}signalprefix=(${!Dfpsp}signalprefixes.txt)" >> "${!Dfpsp}"'_TFfp.sh'
-  echo "sed 's"'/$/_BC/'"g' \$${!Dfpsp}prefix > \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
-  echo "mapfile -t ${!Dfpsp}signalprefix < \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) $(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'echo "# B. outputs signals for visualization in a genome browser ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
-  printf '\n' >> "${!Dfpsp}"'_TFfp.sh'
-  echo '# C. find associated TFs' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'rgt-motifanalysis matching --filter "database:cichlid$(eval echo $output)CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$(eval echo $organism) --input-files '"$tffprdir"'/$(eval echo $output)'"_fp"'/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bed' >> "${!Dfpsp}"'_TFfp.sh'
-  echo 'echo "# C. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp.sh'
 done
 
+for Dfpsp in "${!fpsp@}"; do
+  # echo "$Dfpsp is set to ${!Dfpsp}"
+  echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -n 1 # number of tasks' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"peararrayend")" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH --mem-per-cpu 32000' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -t 1-23:59' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH --constraint=intel' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "ml samtools/1.7" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'export PATH="$PATH:/hpc-home/mehtat/.local/bin/"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp1='[MzebraUMD2a]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp2='[PunNye1.0]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp3='[AstBur1.0]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp4='[NeoBri1.0]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp5='[OniloticusUMD]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp6='[fAstCal1.2]'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp1a='MzebraUMD2a'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp2a='PunNye1.0'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp3a='AstBur1.0'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp4a='NeoBri1.0'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp5a='OniloticusUMD'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "rgtidsp6a='fAstCal1.2'" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp1=Mz" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp2=Pn" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp3=Ab" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp4=Nb" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp5=On" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "fpsp6=Ac" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp1=mz" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp2=pn" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp3=ab" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp4=nb" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp5=on" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "pwmsp6=ac" >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# 0. mapfile the narrowPeak files' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "mapfile -t ${!Dfpsp}peakarray < $(eval "echo \$"${!Dfpsp}peaks) # assign files to variable for array" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# 0. mapfile the narrowPeak files ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# 1. prepare a prefix file using the peaks file e.g. $Abpeaks' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "${!Dfpsp}prefix=(${!Dfpsp}prefixes.txt)" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "#awk -F'/' ' { print "'$NF } '"' $(eval "echo \$"${!Dfpsp}peaks) | sed 's/_peaks.final.narrowPeak//g' > \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# 1. prepare a prefix file using the peaks file e.g. $Abpeaks ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# 2. mapfile the above file' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "mapfile -t ${!Dfpsp}prefixes < \$${!Dfpsp}prefix" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# 2. mapfile the above file ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "${!Dfpsp}BAM=(${!Dfpsp}inputBAM.txt)" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#echo '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|'"$idrdir|$annotdir/\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed '"'s/_peaks.final.narrowPeak/.nochrM.nodup.filt.shifted.bam/g' >> \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the *peakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder) ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# 4. mapfile the file from above' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "mapfile -t ${!Dfpsp}BAM < \$${!Dfpsp}BAM" >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# 4. mapfile the file from above ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo "#mkdir -p $tffprdir/"'$(eval echo $output)_fp/${'"${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#rgt-hint footprinting --atac-seq --paired-end --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp/${'"${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# A. call footprints - input BAM is the query indexed and sorted of ATAC reads aligned to genome, mtDNA removed ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo '# B. outputs signals for visualization in a genome browser' >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo "${!Dfpsp}signalprefix=(${!Dfpsp}signalprefixes.txt)" >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo "#sed 's"'/$/_BC/'"g' \$${!Dfpsp}prefix > \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo "mapfile -t ${!Dfpsp}signalprefix < \$${!Dfpsp}signalprefix" >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo 'rgt-hint tracks --bc --bigWig --organism=$(eval echo $organism) --output-location='"$tffprdir"'/$(eval echo $output)_fp/${'"${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "'"\${${!Dfpsp}"'BAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" '"\${${!Dfpsp}"'peakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix='"\${${!Dfpsp}"'signalprefix[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp_b.sh'
+  # echo 'echo "# B. outputs signals for visualization in a genome browser ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+  # printf '\n' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '# B. find associated TFs' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'rgt-motifanalysis matching --filter "database:cichlid$(eval echo $output)CSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco" --organism $(eval echo $organism) --output-location '"$tffprdir"'/$(eval echo $output)_fp/${'"${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]} --input-files '"$tffprdir"'/$(eval echo $output)'"_fp"'/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}/'"\${${!Dfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bed' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo 'echo "# B. find associated TFs ~~ DONE"' >> "${!Dfpsp}"'_TFfp_b.sh'
+done
+
+
+# ## Doing some individual runs of motif matching that didn't run due to node issues
+# cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ac_fp/3bAc_12dpf_ATAC
+#
+# nano motifmatch.sh # this code holds the most promise as actually loading files - basically the same as original
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-medium # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --mem-per-cpu 32000
+# #SBATCH -t 0-23:59
+# #SBATCH --constraint=intel
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# export PATH="$PATH:/hpc-home/mehtat/.local/bin/"
+#
+# rgtidsp6='[fAstCal1.2]'
+# rgtidsp6a='fAstCal1.2'
+# fpsp6=Ac
+# pwmsp6=ac
+#
+# # A. find associated TFs
+# organism=\$"$(echo fpsp6 | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/$/a/')"
+# output=\$"$(echo fpsp6 | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"
+#
+# rgt-motifanalysis matching --filter "database:cichlidacCSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco" --organism fAstCal1.2 --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ac_fp/3bAc_12dpf_ATAC --input-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ac_fp/3bAc_12dpf_ATAC/3bAc_12dpf_ATAC.bed
+# rgt-motifanalysis matching  --organism fAstCal1.2 --filter "database:cichlidacCSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco" --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ac_fp/3bAc_12dpf_ATAC --input-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ac_fp/3bAc_12dpf_ATAC/3bAc_12dpf_ATAC.bed
+#
+# echo "# A. find associated TFs ~~ DONE"
+#
+# ## run the above
+# sbatch motifmatch.sh
+#
+# cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/nb_fp/Nb4_B_ATAC
+#
+# nano motifmatch.sh # this code holds the most promise as actually loading files - basically the same as original
+#
+# #!/bin/bash -e
+# #SBATCH -p tgac-medium # partition (queue)
+# #SBATCH -N 1 # number of nodes
+# #SBATCH -n 1 # number of tasks
+# #SBATCH --mem-per-cpu 32000
+# #SBATCH -t 0-23:59
+# #SBATCH --constraint=intel
+# #SBATCH --mail-type=ALL # notifications for job done & fail
+# #SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+# #SBATCH -o slurm.%N.%j.out # STDOUT
+# #SBATCH -e slurm.%N.%j.err # STDERR
+#
+# export PATH="$PATH:/hpc-home/mehtat/.local/bin/"
+#
+# fpsp4=Nb
+# pwmsp4=nb
+#
+# # mkdir v1
+#
+# # A. find associated TFs
+# organism=\$"$(echo fpsp4 | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/$/a/')"
+# output=\$"$(echo fpsp4 | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"
+#
+# rgt-motifanalysis matching --filter "database:cichlidnbCSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco" --organism NeoBri1.0 --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/nb_fp/Nb4_B_ATAC --input-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/nb_fp/Nb4_B_ATAC/Nb4_B_ATAC.bed
+#
+# echo "# A. find associated TFs ~~ DONE"
+#
+# ## run the above
+# sbatch motifmatch.sh
+
+## These are non-echo scripts - not amended so won't be 100% same as echo scripts (use the output of those for reference)
 # scripts=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2)
 # ml samtools/1.7
 # # idrdir=($scripts/1.IDR)
@@ -2523,7 +2794,7 @@ done
 #
 # 3. prepare another file to iterate the input BAM files (can use the array on this) - echo the Abpeakarray and sed replace to prepare the path (will have to use the mapfile from above to add the prefix to peak calling folder)
 # AbBAM=(AbinputBAM.txt)
-# echo ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$annotdir/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed 's/_peaks.final.narrowPeak/.shifted.bam/g' >> $AbBAM
+# echo ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} | sed "s|$idrdir|$annotdir/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}|g" | sed 's/_peaks.final.narrowPeak/.nochrM.nodup.filt.shifted.bam/g' >> $AbBAM
 #
 # this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
 # AbBAM=(AbinputBAM.txt)
@@ -2552,10 +2823,10 @@ done
 # # export PATH="$PATH:/hpc-home/mehtat/.local/lib/python3.7/site-packages/rgt"
 # # RGTDATA=(~/rgtdata)
 # export PATH="$PATH:/hpc-home/mehtat/.local/bin/"
-# mkdir -p $tffprdir/${pwmsp3}_fp
-# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
+# mkdir -p $tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}
+# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
 # this is for the non-shifted BAM - best to use the shifted BAM from ATACseqQC
-# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
+# rgt-hint footprinting --atac-seq --paired-end --organism=$rgtidsp3a --output-location=$tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Abprefixes[${SLURM_ARRAY_TASK_ID}]} "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]}
 #
 # # B. outputs signals for visualization in a genome browser
 # Absignalprefix=(Absignalprefixes.txt)
@@ -2566,26 +2837,1251 @@ done
 # rgt-hint tracks --bc --bigWig --organism=$rgtidsp3a "$(basename "${AbBAM[${SLURM_ARRAY_TASK_ID}]}" .querysorted.bam).sorted.bam" ${Abpeakarray[${SLURM_ARRAY_TASK_ID}]} --output-prefix=${Absignalprefix[${SLURM_ARRAY_TASK_ID}]}
 #
 # # C. find associated TFs
-# rgt-motifanalysis matching --filter "database:cichlid${pwmsp3}CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$rgtidsp3a --input-files $tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}.bed
+# rgt-motifanalysis matching --filter "database:cichlid${pwmsp3}CSsp, cichlidCW, cichlidJASPAR, jaspar_vertebrates, hocomoco" --organism=$rgtidsp3a --input-files $tffprdir/${pwmsp3}_fp/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}/${Abprefixes[${SLURM_ARRAY_TASK_ID}]}.bed
+
+
+### Generating comparative lineplots of TF footprinting
+# Using the following:
+# --bc: all analysis will be based on bias corrected signal
+# fdr: 0.05
+
+## Comparisons to do
+# For each, you need to create the following to array on:
+  # a. mpbs-files: ./MotifMatching/MEP1_mpbs.bed,./MotifMatching/MEP1_mpbs.bed
+    # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/ab_fp/Ab5_B_ATAC/Ab5_B_ATAC_mpbs.bed
+  # b. reads-files: ./BamFiles/MEP1.bam,./BamFiles/MEP2.bam
+    # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/2.Annotation/1aAc_3dpf_ATAC/1aAc_3dpf_ATAC.nochrM.nodup.filt.shifted.bam
+  # c. conditions: MEP1,MEP2
+  # d. output-location: MEP1_MEP2
+
+# A. Between same species and tissue replicates
+# a. mpbs-files
+awk '{if($1 ~ "Mz")print $1, $2, "mz_fp";if($1 ~ "Ac")print $1, $2, "ac_fp";if($1 ~ "Pn")print $1, $2, "pn_fp";if($1 ~ "Ab")print $1, $2, "ab_fp";if($1 ~ "Nb")print $1, $2, "nb_fp";if($1 ~ "On")print $1, $2, "on_fp";}' OFS='\t' $prefixpairs | awk -F'\t' -v wd="$scripts" '{print wd"/3.TFfprint_SignalTrack/"$3"/"$1"/"$1"_mpbs.bed,"wd"/3.TFfprint_SignalTrack/"$3"/"$2"/"$2"_mpbs.bed"}' > $repdiffmpbs
+# b. reads-files
+awk '{if($1 ~ "Mz")print $1, $2, "mz_fp";if($1 ~ "Ac")print $1, $2, "ac_fp";if($1 ~ "Pn")print $1, $2, "pn_fp";if($1 ~ "Ab")print $1, $2, "ab_fp";if($1 ~ "Nb")print $1, $2, "nb_fp";if($1 ~ "On")print $1, $2, "on_fp";}' OFS='\t' $prefixpairs | awk -F'\t' -v wd="$scripts" '{print wd"/2.Annotation/"$1"/"$1".nochrM.nodup.filt.shifted.bam,"wd"/2.Annotation/"$2"/"$2".nochrM.nodup.filt.shifted.bam"}' > $repdiffread
+# c. conditions
+awk '{print $1","$2}' $prefixpairs > $repdiffcond
+# d. output-location
+awk '{print $1"__"$2}' $prefixpairs > $repdiffout # check if you need to mkdir
+# e. create species specific files for the array
+for i in Mz Ac Pn Ab Nb On; do
+  grep $i $repdiffmpbs > "$( basename "${repdiffmpbs}" .txt)_${i}.txt"
+  grep $i $repdiffread > "$( basename "${repdiffread}" .txt)_${i}.txt"
+  grep $i $repdiffcond > "$( basename "${repdiffcond}" .txt)_${i}.txt"
+  grep $i $repdiffout > "$( basename "${repdiffout}" .txt)_${i}.txt"
+done
+
+# # B. Between species same tissues - currently this cannot be done since one organism is required?
+# awk '{if($1 ~ "Mz")print $1,"mz_fp";if($1 ~ "Ac")print $1,"ac_fp";if($1 ~ "Pn")print $1,"pn_fp";if($1 ~ "Ab")print $1,"ab_fp";if($1 ~ "Nb")print $1,"nb_fp";if($1 ~ "On")print $1,"on_fp";}' OFS='\t' $prefixATAC > sp.tmp
+# # a. mpbs-files
+# for i in dpf B_ATAC E_ATAC G_ATAC L_ATAC T_ATAC; do
+#   grep $i sp.tmp |
+#   awk -F'\t' -v wd="$scripts" '{print wd"/3.TFfprint_SignalTrack/"$2"/"$1"/"$1"_mpbs.bed"}' |
+#   awk 'BEGIN { ORS = "," } { print }' | sed 's/.$/\n/' >> $spdiffmpbs
+# done
+# # b. reads-files
+# for i in dpf B_ATAC E_ATAC G_ATAC L_ATAC T_ATAC; do
+#   grep $i sp.tmp |
+#   awk -F'\t' -v wd="$scripts" '{print wd"/2.Annotation/"$1"/"$1".nochrM.nodup.filt.shifted.bam"}' |
+#   awk 'BEGIN { ORS = "," } { print }' | sed 's/.$/\n/' >> $spdiffread
+# done
+# # c. conditions
+# for i in dpf B_ATAC E_ATAC G_ATAC L_ATAC T_ATAC; do
+#   grep $i sp.tmp | awk '{print $1}' |
+#   awk 'BEGIN { ORS = "," } { print }' | sed 's/.$/\n/'>> $spdiffcond
+# done
+#
+# # d. output-location
+# for i in dpf B_ATAC E_ATAC G_ATAC L_ATAC T_ATAC; do
+#   # grep $i sp.tmp | awk '{print $1}' |
+#   # awk 'BEGIN { ORS = "__" } { print }' | sed 's/.$/\n/'>> $spdiffout
+#   echo ${i}_ATAC | sed 's/_ATAC_ATAC/_ATAC/g' >> $spdiffout
+# done
+#
+# rm sp.tmp
+
+# get the total number of files and assign to variables
+for Cfpsp in "${!fpsp@}"; do
+  # echo "$Cfpsp is set to ${!Cfpsp}"
+  eval "${!Cfpsp}"motifarrayend=$(wc -l repdiffmpbs_paths_"${!Cfpsp}".txt | awk -v e="$e" '{print ($1 - e)}')
+done
+
+for Dfpsp in "${!fpsp@}"; do
+  # echo "$Dfpsp is set to ${!Dfpsp}"
+  echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -p ei-largemem # partition (queue)' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -c 32 # number of cores' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"motifarrayend")" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH --mem 512GB' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -t 3-23:59' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH --constraint=intel' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> "${!Dfpsp}"'_TFfp_c.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'export PATH="$PATH:/hpc-home/mehtat/.local/bin/"' >> "${!Dfpsp}"'_TFfp_c.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp1='[MzebraUMD2a]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp2='[PunNye1.0]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp3='[AstBur1.0]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp4='[NeoBri1.0]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp5='[OniloticusUMD]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp6='[fAstCal1.2]'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp1a='MzebraUMD2a'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp2a='PunNye1.0'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp3a='AstBur1.0'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp4a='NeoBri1.0'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp5a='OniloticusUMD'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "rgtidsp6a='fAstCal1.2'" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp1=Mz" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp2=Pn" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp3=Ab" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp4=Nb" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp5=On" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "fpsp6=Ac" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp1=mz" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp2=pn" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp3=ab" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp4=nb" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp5=on" >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo "pwmsp6=ac" >> "${!Dfpsp}"'_TFfp_c.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'mapfile '"${!Dfpsp}"'mpbs < repdiffmpbs_paths_'"${!Dfpsp}"'.txt' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'mapfile '"${!Dfpsp}"'read < repdiffread_paths_'"${!Dfpsp}"'.txt' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'mapfile '"${!Dfpsp}"'cond < repdiffcond_paths_'"${!Dfpsp}"'.txt' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'mapfile '"${!Dfpsp}"'out < repdiffout_paths_'"${!Dfpsp}".'txt' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp_c.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'rgt-hint differential --organism $(eval echo $organism) --bc --nc 32 --mpbs-files ${'"${!Dfpsp}"'mpbs[${SLURM_ARRAY_TASK_ID}]} --reads-files ${'"${!Dfpsp}"'read[${SLURM_ARRAY_TASK_ID}]} --conditions ${'"${!Dfpsp}"'cond[${SLURM_ARRAY_TASK_ID}]} --output-location ${'"${!Dfpsp}"'out[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp_c.sh'
+  printf '\n' >> "${!Dfpsp}"'_TFfp_c.sh'
+  echo 'echo "# C. TF footprinting lineplots ~~ DONE"' >> "${!Dfpsp}"'_TFfp_c.sh'
+done
+
+# for i in Mz Ac Pn Ab Nb On; do sbatch ${i}_TFfp_c.sh; done
+
+# this runs for a single sample
+# rgt-hint differential --organism $(eval echo $organism) --bc --nc 30 --mpbs-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/$(eval echo $output)_fp/1aAc_3dpf_ATAC/v1/1aAc_3dpf_ATAC_mpbs.bed --reads-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/2.Annotation/1aAc_3dpf_ATAC/1aAc_3dpf_ATAC.nochrM.nodup.filt.shifted.bam --conditions 1aAc_3dpf_ATAC --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/$(eval echo $output)_fp/1aAc_3dpf_ATAC/v1/diff
+
+## Dc. Create signal tracks using a modified bedtools approach - this is outputted to '$scripts/*_*_ATAC/5.peak_calling'
+
+# # DcA. Create the bedgraph to bigwig script - this is required (instead of running bedGraphToBigWig from bedtools which does not fix for the shifting and extsize smoothing you did in MACS2 - this gives errors of coordinates beyond the scaffolds)
+# echo '#!/bin/bash' > bdg2bw.sh
+# echo '# check commands: slopBed, bedGraphToBigWig and bedClip' >> bdg2bw.sh
+# echo 'which bedtools &>/dev/null || { echo "bedtools not found! Download bedTools: <http://code.google.com/p/bedtools/>"; exit 1; }' >> bdg2bw.sh
+# echo 'which bedGraphToBigWig &>/dev/null || { echo "bedGraphToBigWig not found! Download: <http://hgdownload.cse.ucsc.edu/admin/exe/>"; exit 1; }' >> bdg2bw.sh
+# echo 'which bedClip &>/dev/null || { echo "bedClip not found! Download: <http://hgdownload.cse.ucsc.edu/admin/exe/>"; exit 1; }' >> bdg2bw.sh
+# echo '# end of checking' >> bdg2bw.sh
+# echo 'if [ $# -lt 2 ];then' >> bdg2bw.sh
+# echo -e '\techo "Need 2 parameters! <bedgraph> <chrom info>"' >> bdg2bw.sh
+# echo -e '\texit' >> bdg2bw.sh
+# echo 'fi' >> bdg2bw.sh
+# echo 'F=$1' >> bdg2bw.sh
+# echo 'G=$2' >> bdg2bw.sh
+# echo 'LC_COLLATE=C sort -k1,1 -k2,2n ${F} > ${F}.sort' >> bdg2bw.sh
+# echo 'head -n -1 ${F}.sort > ${F}.re.sort' >> bdg2bw.sh
+# echo 'bedClip ${F}.re.sort ${G} ${F}.re.sort.clip' >> bdg2bw.sh
+# echo 'bedGraphToBigWig ${F}.re.sort.clip ${G} ${F/bdg/bw}' >> bdg2bw.sh
+# echo 'rm -f ${F}.sort ${F}.re.sort ${F}.re.sort.clip' >> bdg2bw.sh
+
+# DcA. signal tracks require scaffold length files (previously generated)
+# variables at the top - generated using bioawk script in 'ATAC_Bioinf_pipeline_v2b.sh'
+
+# DcB. signal track generation script - array for running on each sample and genome
+
+# get a list of all the bdg paths for each species, and prep a prefixes filefor output
+for Efpsp in "${!fpsp@}"; do
+  # echo "$Efpsp is set to ${!Efpsp}"
+  ls -1 $scripts/*"${!Efpsp}"*_*_ATAC/5.peak_calling/*FE.bdg > $tffprdir/"${!Efpsp}"bdgpaths.txt
+  ls -1 $scripts/*"${!Efpsp}"*_*_ATAC/5.peak_calling/*logLR.bdg >> $tffprdir/"${!Efpsp}"bdgpaths.txt
+  awk -F'/' ' { print $NF } ' $tffprdir/"${!Efpsp}"bdgpaths.txt | sed 's/_FE.bdg//g' | sed 's/_logLR.bdg//g' > $tffprdir/"${!Efpsp}"sigprefixes.txt
+done
+
+# get the total number of files for array and assign to variables, and then assign script variables for running signal tracks
+for Ffpsp in "${!fpsp@}"; do
+  # echo "$Ffpsp is set to ${!Ffpsp}"
+  eval "${!Ffpsp}"sigarrayend=$(wc -l "${!Ffpsp}"bdgpaths.txt | awk -v e="$e" '{print ($1 - e)}')
+  eval "${!Ffpsp}"sigscript="${!Ffpsp}"_sigtrack.sh
+done
+
+for Gfpsp in "${!fpsp@}"; do
+  # echo "$Dfpsp is set to ${!Dfpsp}"
+  echo '#!/bin/bash -e' > "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -N 1 # number of nodes' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -n 1 # number of tasks' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH --array=0-'"$(eval "echo \$"${!Gfpsp}"sigarrayend")" >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH --mem-per-cpu 32000' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -t 0-10:59' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> "${!Gfpsp}"'_sigtrack.sh'
+  printf '\n' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'ml ucsc_utils' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'ml bedtools' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'ml OpenSSL' >> "${!Gfpsp}"'_sigtrack.sh'
+  printf '\n' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#output=\$"$(echo '"$Gfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo "mapfile -t ${!Gfpsp}sigfiles < $(eval "echo "$tffprdir/"${!Gfpsp}"bdgpaths.txt) # assign files to variable for array" >> "${!Gfpsp}"'_sigtrack.sh'
+  echo "mapfile -t ${!Gfpsp}prefixes < ${!Gfpsp}sigprefixes.txt" >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#sort -k1,1 -k2,2n ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]} > ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.sorted' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#sh bdg2bw.sh ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]} '"$(eval "echo \$"${!Gfpsp}"genomechr") $tffprdir"'/$(eval echo $output)_fp/${'"${!Gfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}/${'"${!Gfpsp}"'prefixes[${SLURM_ARRAY_TASK_ID}]}.bw' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#sh bdg2bw.sh ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]} '"$(eval "echo \$"${!Gfpsp}"genomechr")" >> "${!Gfpsp}"'_sigtrack.sh' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'LC_COLLATE=C sort -k1,1 -k2,2n ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]} > ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.sort' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'head -n -1 ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.sort > ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'bedClip ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort '"$(eval "echo \$"${!Gfpsp}"genomechr")"' ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort.clip' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'bedGraphToBigWig ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort.clip '"$(eval "echo \$"${!Gfpsp}"genomechr")"' ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.bw' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo 'rm -f ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.sort ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort ${'"${!Gfpsp}"'sigfiles[${SLURM_ARRAY_TASK_ID}]}.re.sort.clip' >> "${!Gfpsp}"'_sigtrack.sh'
+done
+
+
+# # collate all bigwig files for copying locally, then delete the copied files
+# mkdir $scripts/3a.bigwigs_collated
+# cp /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/*_*_ATAC/5.peak_calling/*.bw $scripts/3a.bigwigs_collated
+# rm -r $scripts/3a.bigwigs_collated
 
 echo '# -- 3a. TF footprinting preparation has completed - bioMart alias, annotations and data.config prep -- #'
 
 echo '# -- 3b. TF footprinting and creation of signal tracks started -- #'
 
-
-## This will need six jobs - put in a while loop using fpsp
+## This will need six (x4) jobs (so 24 in total for six species) - put in a while loop using fpsp
 for Efpsp in "${!fpsp@}"; do
   jobidadd=$(echo $Efpsp | grep -Eo '[0-9]')
   jobidadd2=`expr $j + $jobidadd`
   # echo $jobidadd
   # echo $jobidadd2
-  JOBID"${jobidadd2}"=$( sbatch -W --dependency=afterok:${JOBID9} "${!Efpsp}"'_TFfp.sh' | awk '{print $4}' ) # JOB10-JOB15
+  JOBID"${jobidadd2}"=$( sbatch -W --dependency=afterok:${JOBID9} "${!Efpsp}"'_TFfp.sh' | awk '{print $4}' ) # JOB10-JOB15 - this runs the footprinting
 done
+
+for Efpsp in "${!fpsp@}"; do
+  jobidadd3=$(echo $Efpsp | grep -Eo '[0-9]')
+  jobidadd4=`expr $j + $jobidadd`
+  # echo $jobidadd3
+  # echo $jobidadd4
+  JOBID"${jobidadd4}"=$( sbatch -W --dependency=afterok:${JOBID15} "${!Efpsp}"'_TFfp_b.sh' | awk '{print $4}' ) # JOB16-JOB21 - this runs the motif matching of footprinting
+done
+
+for Efpsp in "${!fpsp@}"; do
+  jobidadd5=$(echo $Efpsp | grep -Eo '[0-9]')
+  jobidadd6=`expr $j + $jobidadd`
+  # echo $jobidadd5
+  # echo $jobidadd6
+  JOBID"${jobidadd6}"=$( sbatch -W --dependency=afterok:${JOBID21} "${!Efpsp}"'_TFfp_c.sh' | awk '{print $4}' ) # JOB21-JOB26 - this runs the footprinting lineplot generation
+done
+
+for Efpsp in "${!fpsp@}"; do
+  jobidadd7=$(echo $Efpsp | grep -Eo '[0-9]')
+  jobidadd8=`expr $j + $jobidadd`
+  # echo $jobidadd7
+  # echo $jobidadd8
+  JOBID"${jobidadd8}"=$( sbatch -W --dependency=afterok:${JOBID26} "${!Efpsp}"'_sigtrack.sh' | awk '{print $4}' ) # JOB26-JOB31 - this will generate the signal tracks and place them in $scripts/*_*_ATAC/5.peak_calling
+done
+
+# Check the word count on each footprinting out bed file
+echo 'Word count on each footprinting out bed file:'
+for i in *_fp/*/*.bed; do wc -l $i; done
+# 132867 ab_fp/Ab5_B_ATAC/Ab5_B_ATAC.bed
+# 742930 ab_fp/Ab5_E_ATAC/Ab5_E_ATAC.bed
+# 1691522 ab_fp/Ab5_L_ATAC/Ab5_L_ATAC.bed
+# 1465168 ab_fp/Ab5_T_ATAC/Ab5_T_ATAC.bed
+# 206181 ab_fp/Ab6_B_ATAC/Ab6_B_ATAC.bed
+# 1611707 ab_fp/Ab6_E_ATAC/Ab6_E_ATAC.bed
+# 1035342 ab_fp/Ab6_L_ATAC/Ab6_L_ATAC.bed
+# 1542899 ab_fp/Ab6_T_ATAC/Ab6_T_ATAC.bed
+# 1797640 ac_fp/1aAc_3dpf_ATAC/1aAc_3dpf_ATAC.bed
+# 1075030 ac_fp/1bAc_3dpf_ATAC/1bAc_3dpf_ATAC.bed
+# 1022180 ac_fp/2aAc_7dpf_ATAC/2aAc_7dpf_ATAC.bed
+# 741576 ac_fp/2bAc_7dpf_ATAC/2bAc_7dpf_ATAC.bed
+# 1429942 ac_fp/3aAc_12dpf_ATAC/3aAc_12dpf_ATAC.bed
+# 1488086 ac_fp/3bAc_12dpf_ATAC/3bAc_12dpf_ATAC.bed
+# 2750326 mz_fp/Mz1_B_ATAC/Mz1_B_ATAC.bed
+# 883811 mz_fp/Mz1_E_ATAC/Mz1_E_ATAC.bed
+# 1403796 mz_fp/Mz1_L_ATAC/Mz1_L_ATAC.bed
+# 1919127 mz_fp/Mz1_T_ATAC/Mz1_T_ATAC.bed
+# 934004 mz_fp/Mz2_B_ATAC/Mz2_B_ATAC.bed
+# 964930 mz_fp/Mz2_E_ATAC/Mz2_E_ATAC.bed
+# 1216842 mz_fp/Mz2_L_ATAC/Mz2_L_ATAC.bed
+# 1675454 mz_fp/Mz2_T_ATAC/Mz2_T_ATAC.bed
+# 1301291 nb_fp/Nb4_B_ATAC/Nb4_B_ATAC.bed
+# 1678525 nb_fp/Nb4_E_ATAC/Nb4_E_ATAC.bed
+# 1528449 nb_fp/Nb4_L_ATAC/Nb4_L_ATAC.bed
+# 2396335 nb_fp/Nb4_T_ATAC/Nb4_T_ATAC.bed
+# 1396611 nb_fp/Nb5_B_ATAC/Nb5_B_ATAC.bed
+# 1616953 nb_fp/Nb5_E_ATAC/Nb5_E_ATAC.bed
+# 1833427 nb_fp/Nb5_L_ATAC/Nb5_L_ATAC.bed
+# 1971488 nb_fp/Nb5_T_ATAC/Nb5_T_ATAC.bed
+# 1137721 on_fp/On1_B_ATAC/On1_B_ATAC.bed
+# 1735366 on_fp/On1_E_ATAC/On1_E_ATAC.bed
+# 2081502 on_fp/On1_G_ATAC/On1_G_ATAC.bed
+# 1716098 on_fp/On1_L_ATAC/On1_L_ATAC.bed
+# 1010130 on_fp/On1_T_ATAC/On1_T_ATAC.bed
+# 1135606 on_fp/On2_B_ATAC/On2_B_ATAC.bed
+# 824709 on_fp/On2_E_ATAC/On2_E_ATAC.bed
+# 3105424 on_fp/On2_G_ATAC/On2_G_ATAC.bed
+# 1603638 on_fp/On2_L_ATAC/On2_L_ATAC.bed
+# 1274977 on_fp/On2_T_ATAC/On2_T_ATAC.bed
+# 1384413 on_fp/On3_B_ATAC/On3_B_ATAC.bed
+# 1628421 on_fp/On3_E_ATAC/On3_E_ATAC.bed
+# 1837893 on_fp/On3_G_ATAC/On3_G_ATAC.bed
+# 1154997 on_fp/On3_L_ATAC/On3_L_ATAC.bed
+# 1781584 on_fp/On3_T_ATAC/On3_T_ATAC.bed
+# 827611 pn_fp/Pnm1_B_ATAC/Pnm1_B_ATAC.bed
+# 1798549 pn_fp/Pnm1_L_ATAC/Pnm1_L_ATAC.bed
+# 1021005 pn_fp/Pnm1_T_ATAC/Pnm1_T_ATAC.bed
+# 727600 pn_fp/Pnm2_B_ATAC/Pnm2_B_ATAC.bed
+# 1403290 pn_fp/Pnm2_E_ATAC/Pnm2_E_ATAC.bed
+# 760949 pn_fp/Pnm2_L_ATAC/Pnm2_L_ATAC.bed
+# 1029351 pn_fp/Pnm2_T_ATAC/Pnm2_T_ATAC.bed
+# 956980 pn_fp/Pnm3_B_ATAC/Pnm3_B_ATAC.bed
+# 373402 pn_fp/Pnm3_E_ATAC/Pnm3_E_ATAC.bed
+# 161 pn_fp/Pnm3_L_ATAC/Pnm3_L_ATAC.bed
+# 1021517 pn_fp/Pnm3_T_ATAC/Pnm3_T_ATAC.bed
+# 815213 pn_fp/Pnm4_B_ATAC/Pnm4_B_ATAC.bed
+# 1232728 pn_fp/Pnm4_E_ATAC/Pnm4_E_ATAC.bed
+# 1005072 pn_fp/Pnm4_L_ATAC/Pnm4_L_ATAC.bed
+# 734552 pn_fp/Pnm4_T_ATAC/Pnm4_T_ATAC.bed
+
+# check the output of the lineplots
+linp=$(cat repdiffmpbs_paths_*.txt | wc -l)
+lout=$(ls -1 *_*_*__*_*_*/differential_statistics.pdf | wc -l)
+lfail="$(($linp-$lout))"
+echo "Number of input comparisons for rgt-hint differential: $linp" # 51
+echo "Number of folders with lineplot differential stats: $lout" # 42
+echo "Number of failed comparisons not creating differential stats: $lfail" # 9
+
+for i in *_*_*__*_*_*/Lineplots; do
+  if [[ "$(ls -A $i)" ]]; then
+    echo -e "$i:\tDir not empty - Lineplots have been generated"
+  else
+    echo -e "$i:\tDir is empty - Lineplots have NOT been generated, check the stdout for the run"
+  fi
+done
+
+# 1aAc_3dpf_ATAC__1bAc_3dpf_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# 2aAc_7dpf_ATAC__2bAc_7dpf_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# 3aAc_12dpf_ATAC__3bAc_12dpf_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Ab5_B_ATAC__Ab6_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Ab5_E_ATAC__Ab6_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Ab5_L_ATAC__Ab6_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Ab5_T_ATAC__Ab6_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Mz1_B_ATAC__Mz2_B_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# Mz1_E_ATAC__Mz2_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Mz1_L_ATAC__Mz2_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Mz1_T_ATAC__Mz2_T_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# Nb4_B_ATAC__Nb5_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Nb4_E_ATAC__Nb5_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Nb4_L_ATAC__Nb5_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Nb4_T_ATAC__Nb5_T_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# On1_B_ATAC__On2_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_B_ATAC__On3_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_E_ATAC__On2_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_E_ATAC__On3_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_G_ATAC__On2_G_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# On1_G_ATAC__On3_G_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# On1_L_ATAC__On2_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_L_ATAC__On3_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_T_ATAC__On2_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On1_T_ATAC__On3_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On2_B_ATAC__On3_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On2_E_ATAC__On3_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On2_G_ATAC__On3_G_ATAC/Lineplots:	Dir is empty - Lineplots have NOT been generated, check the stdout for the run
+# On2_L_ATAC__On3_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# On2_T_ATAC__On3_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_B_ATAC__Pnm2_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_B_ATAC__Pnm3_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_B_ATAC__Pnm4_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_L_ATAC__Pnm2_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_L_ATAC__Pnm3_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_L_ATAC__Pnm4_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_T_ATAC__Pnm2_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_T_ATAC__Pnm3_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm1_T_ATAC__Pnm4_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_B_ATAC__Pnm3_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_B_ATAC__Pnm4_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_E_ATAC__Pnm3_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_E_ATAC__Pnm4_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_L_ATAC__Pnm3_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_L_ATAC__Pnm4_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_T_ATAC__Pnm3_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm2_T_ATAC__Pnm4_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm3_B_ATAC__Pnm4_B_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm3_E_ATAC__Pnm4_E_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm3_L_ATAC__Pnm4_L_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+# Pnm3_T_ATAC__Pnm4_T_ATAC/Lineplots:	Dir not empty - Lineplots have been generated
+
+## The ones that didn't run are (mostly) related to memory issues - give them 1Tb of memory each
+
+# # parse the files to selecte those just for the re-run
+# for i in repdiff*_paths_Mz.txt; do
+#   sed '2,3d' ${i} > "$(basename "${i}" .txt).rerun.txt"
+# done
+#
+# for i in repdiff*_paths_Nb.txt; do
+#   tail -1 ${i} > "$(basename "${i}" .txt).rerun.txt"
+# done
+#
+# for i in repdiff*_paths_On.txt; do
+#   awk 'NR==5,NR==13' ${i} | sed '3,8d' > "$(basename "${i}" .txt).rerun.txt"
+# done
+#
+# rerunsp1=Mz
+# rerunsp4=Nb
+# rerunsp5=On
+#
+# for Cfpsp in "${!rerunsp@}"; do
+#   # echo "$Cfpsp is set to ${!Cfpsp}"
+#   eval "${!Cfpsp}"motifarrayendrerun=$(wc -l repdiffmpbs_paths_"${!Cfpsp}".rerun.txt | awk -v e="$e" '{print ($1 - e)}')
+# done
+#
+# for Dfpsp in "${!rerunsp@}"; do
+#   # echo "$Dfpsp is set to ${!Dfpsp}"
+#   echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -p ei-largemem # partition (queue)' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -c 32 # number of cores' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"motifarrayendrerun")" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH --mem 1012GB' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -t 3-23:59' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH --constraint=intel' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -o slurm.%N.%j.out # STDOUT' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo '#SBATCH -e slurm.%N.%j.err # STDERR' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   printf '\n' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'export PATH="$PATH:/hpc-home/mehtat/.local/bin/"' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   printf '\n' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp1='[MzebraUMD2a]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp2='[PunNye1.0]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp3='[AstBur1.0]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp4='[NeoBri1.0]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp5='[OniloticusUMD]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp6='[fAstCal1.2]'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp1a='MzebraUMD2a'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp2a='PunNye1.0'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp3a='AstBur1.0'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp4a='NeoBri1.0'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp5a='OniloticusUMD'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rgtidsp6a='fAstCal1.2'" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp1=Mz" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp2=Pn" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp3=Ab" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp4=Nb" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp5=On" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "rerunsp6=Ac" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp1=mz" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp2=pn" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp3=ab" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp4=nb" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp5=on" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo "pwmsp6=ac" >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   printf '\n' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'mapfile '"${!Dfpsp}"'mpbs < repdiffmpbs_paths_'"${!Dfpsp}"'.rerun.txt' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'mapfile '"${!Dfpsp}"'read < repdiffread_paths_'"${!Dfpsp}"'.rerun.txt' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'mapfile '"${!Dfpsp}"'cond < repdiffcond_paths_'"${!Dfpsp}"'.rerun.txt' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'mapfile '"${!Dfpsp}"'out < repdiffout_paths_'"${!Dfpsp}".'rerun.txt' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'organism=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/rgtidsp/' | sed 's/"'$/a/'"')"'"' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'output=\$"$(echo '"$Dfpsp | sed 's/[^0-9]//g' | sed 's/^/pwmsp/')"'"' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   printf '\n' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'rgt-hint differential --organism $(eval echo $organism) --bc --nc 32 --mpbs-files ${'"${!Dfpsp}"'mpbs[${SLURM_ARRAY_TASK_ID}]} --reads-files ${'"${!Dfpsp}"'read[${SLURM_ARRAY_TASK_ID}]} --conditions ${'"${!Dfpsp}"'cond[${SLURM_ARRAY_TASK_ID}]} --output-location ${'"${!Dfpsp}"'out[${SLURM_ARRAY_TASK_ID}]}' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   printf '\n' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+#   echo 'echo "# C. TF footprinting lineplots ~~ DONE"' >> "${!Dfpsp}"'_TFfp_rerun.sh'
+# done
+#
+# for i in *_TFfp_rerun.sh; do sbatch $i; done
+
+##### NOTE:
+### When using the Lineplots, consider viewing/using only those where the p-val is < 0.05 in the 'differential_statistics.txt' file of each comparison
+## e.g. awk '$9<0.05' $scripts/3.TFfprint_SignalTrack/Mz1_T_ATAC__Mz2_T_ATAC/differential_statistics.txt | sort -k9,9rn
+# report how many of the comparisons have lineplots of motif differentials with p<0.05
+
+for i in *_*_ATAC__*_*_ATAC/differential_statistics.txt; do
+  sample=$(echo $i | sed 's|/differential_statistics.txt||g')
+  total=$(wc -l $i | awk '{print $1}')
+  p001=$(awk '$9<0.01' $i | wc -l)
+  p005=$(awk '$9<0.05' $i | wc -l)
+  echo -e "$sample\t$total\t$p001\t$p005"
+done
+
+##### ~~~~~ #####
+# NOTE: for each run, the following was ran/loaded for the original footprinting
+# pseudocounts: 1.0
+# used database(s): cichlid{mz,pn,ab,nb,on,ac}CSsp,cichlidCW,cichlidJASPAR,jaspar_vertebrates,hocomoco
+# fpr threshold for footprinting: 0.0001
+# motifs loaded: 2042
+##### ~~~~~ #####
+# motifs outputted for differential analysis: 1719
+##### ~~~~~ #####
+
+# sample  total p<0.01  p<0.05
+# 1aAc_3dpf_ATAC__1bAc_3dpf_ATAC	1719	39	110
+# 2aAc_7dpf_ATAC__2bAc_7dpf_ATAC	1719	39	98
+# 3aAc_12dpf_ATAC__3bAc_12dpf_ATAC	1719	53	106
+# Ab5_B_ATAC__Ab6_B_ATAC	1719	41	85
+# Ab5_E_ATAC__Ab6_E_ATAC	1719	16	68
+# Ab5_L_ATAC__Ab6_L_ATAC	1719	27	92
+# Ab5_T_ATAC__Ab6_T_ATAC	1719	50	103
+# Mz1_B_ATAC__Mz2_B_ATAC	1719	49	80
+# Mz1_E_ATAC__Mz2_E_ATAC	1719	51	89
+# Mz1_L_ATAC__Mz2_L_ATAC	1719	42	102
+# Mz1_T_ATAC__Mz2_T_ATAC	1719	43	81
+# Nb4_B_ATAC__Nb5_B_ATAC	1719	24	71
+# Nb4_E_ATAC__Nb5_E_ATAC	1719	26	115
+# Nb4_L_ATAC__Nb5_L_ATAC	1719	31	108
+# Nb4_T_ATAC__Nb5_T_ATAC	1719	6	59
+# On1_B_ATAC__On2_B_ATAC	1719	52	104
+# On1_B_ATAC__On3_B_ATAC	1719	20	73
+# On1_E_ATAC__On2_E_ATAC	1719	37	73
+# On1_E_ATAC__On3_E_ATAC	1719	38	63
+# On1_G_ATAC__On2_G_ATAC	1719	52	95
+# On1_G_ATAC__On3_G_ATAC	1719	34	117
+# On1_L_ATAC__On2_L_ATAC	1719	27	57
+# On1_L_ATAC__On3_L_ATAC	1719	44	106
+# On1_T_ATAC__On2_T_ATAC	1719	53	82
+# On1_T_ATAC__On3_T_ATAC	1719	46	75
+# On2_B_ATAC__On3_B_ATAC	1719	27	51
+# On2_E_ATAC__On3_E_ATAC	1719	29	89
+# On2_G_ATAC__On3_G_ATAC	1719	30	112
+# On2_L_ATAC__On3_L_ATAC	1719	49	99
+# On2_T_ATAC__On3_T_ATAC	1719	43	81
+# Pnm1_B_ATAC__Pnm2_B_ATAC	1719	52	96
+# Pnm1_B_ATAC__Pnm3_B_ATAC	1719	31	60
+# Pnm1_B_ATAC__Pnm4_B_ATAC	1719	40	77
+# Pnm1_L_ATAC__Pnm2_L_ATAC	1719	43	90
+# Pnm1_L_ATAC__Pnm4_L_ATAC	1719	37	96
+# Pnm1_T_ATAC__Pnm2_T_ATAC	1719	45	108
+# Pnm1_T_ATAC__Pnm3_T_ATAC	1719	30	94
+# Pnm1_T_ATAC__Pnm4_T_ATAC	1719	28	98
+# Pnm2_B_ATAC__Pnm3_B_ATAC	1719	44	86
+# Pnm2_B_ATAC__Pnm4_B_ATAC	1719	45	99
+# Pnm2_E_ATAC__Pnm3_E_ATAC	1719	42	60
+# Pnm2_E_ATAC__Pnm4_E_ATAC	1719	38	103
+# Pnm2_L_ATAC__Pnm4_L_ATAC	1719	42	84
+# Pnm2_T_ATAC__Pnm3_T_ATAC	1719	30	86
+# Pnm2_T_ATAC__Pnm4_T_ATAC	1719	30	85
+# Pnm3_B_ATAC__Pnm4_B_ATAC	1719	57	106
+# Pnm3_E_ATAC__Pnm4_E_ATAC	1719	40	97
+# Pnm3_T_ATAC__Pnm4_T_ATAC	1719	42	97
+
+################################################################################################################
+
+### 4. Peak orthology
+
+# A. Generate a presence and absence matrix at gene level for the peaks
+# 		i. In each species, associate each peak in each tissue with a gene - this is based on the peaks being in the up to 5kb promoter region (irrespective of it's position)
+# 		ii. Using gene orthology, create a unified matrix for all species. For each species, have five cols - B, E, L, T and any tissue: mark a 1 or 0 for presence or absence. Have extra cols for On G and Ac embryos.
+# B. Start to analyse/subset the main tables, getting the values on
+# 		i. Presence and absence of peaks in genes (in general) according to tissue and species
+# 		ii. Flag genes falling 10-20bp from TSS and their presence/absence
+# C. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs.
+# D. Get a paired nt conservation score - run phylop
+
+################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
+
+peakorth=($scripts/4.Peak_Orth) # assign raw reads dir
+# mkdir $peakorth
+cd $peakorth
+
+# A. Generate a presence and absence matrix at gene level for the peaks
+# 		i. In each species, associate each peak in each tissue with a gene - this is based on the peaks being in the up to 5kb promoter region (irrespective of it's position)
+
+# parse the orthology file into a readable format: col1-orthID; col2-Mz; col3-Ac; col4-Pn; col5-Ab; col6-Nb; col7-On
+# a. map the $orthmat2 to $orthid2 to extract the geneIDs and re-collate to create a new orthogroups file that has gene IDs instead
+
+# copy orthology info here
+# orthdir=(/ei/projects/9/9904ef47-97da-40a2-9cdc-f0e00f3c8378/scratch/OMAens/Output)
+# orthinfo=($orthdir/OrthologousGroups.txt)
+# orthmat=($orthdir/OrthologousMatrix.txt)
+# orthid=($orthdir/Map-SeqNum-ID.txt)
+# cp $orthinfo $peakorth
+# cp $orthmat $peakorth
+# cp $orthid $peakorth
+orthinfo2=(OrthologousGroups.txt)
+orthmat2=(OrthologousMatrix.txt)
+orthid2=(Map-SeqNum-ID.txt)
+orthENS=OrthologousGroups_ENSgene.txt
+orthGS=OrthologousGroups_unifiedGeneSymbols.txt
+orthENSGS=OrthologousGroups_ENS_GeneSymbols.txt
+orthENSGScich=OrthologousGroups_ENS_GeneSymbols_6cich.txt
+orthENSGS5cich=OrthologousGroups_ENS_GeneSymbols_5cich1to1.txt
+
+
+cut -f1 ${orthmat2} | sed '1,5d' > Abur.${orthmat2}
+cut -f2 ${orthmat2} | sed '1,5d' > Acal.${orthmat2}
+cut -f3 ${orthmat2} | sed '1,5d' > Acit.${orthmat2}
+cut -f4 ${orthmat2} | sed '1,5d' > Cmil.${orthmat2}
+cut -f5 ${orthmat2} | sed '1,5d' > Drer.${orthmat2}
+cut -f6 ${orthmat2} | sed '1,5d' > Gast.${orthmat2}
+cut -f7 ${orthmat2} | sed '1,5d' > Hsap.${orthmat2}
+cut -f8 ${orthmat2} | sed '1,5d' > Lcha.${orthmat2}
+cut -f9 ${orthmat2} | sed '1,5d' > Locu.${orthmat2}
+cut -f10 ${orthmat2} | sed '1,5d' > Mmus.${orthmat2}
+cut -f11 ${orthmat2} | sed '1,5d' > Mzeb.${orthmat2}
+cut -f12 ${orthmat2} | sed '1,5d' > Nbri.${orthmat2}
+cut -f13 ${orthmat2} | sed '1,5d' > Oaur.${orthmat2}
+cut -f14 ${orthmat2} | sed '1,5d' > Olat.${orthmat2}
+cut -f15 ${orthmat2} | sed '1,5d' > Omos.${orthmat2}
+cut -f16 ${orthmat2} | sed '1,5d' > Onil.${orthmat2}
+cut -f17 ${orthmat2} | sed '1,5d' > Pmar.${orthmat2}
+cut -f18 ${orthmat2} | sed '1,5d' > Pnye.${orthmat2}
+cut -f19 ${orthmat2} | sed '1,5d' > Trub.${orthmat2}
+
+for i in Abur Acal Acit Cmil Drer Gast Hsap Lcha Locu Mmus Mzeb Nbri Oaur Olat Omos Onil Pmar Pnye Trub; do
+  grep $i $orthid2 > ${i}.${orthid2} # separate the geneIDs
+done
+
+for i in Abur Acal Acit Cmil Drer Gast Hsap Lcha Locu Mmus Mzeb Nbri Oaur Olat Omos Onil Pmar Pnye Trub; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL | NULL | NULL | NULL";}}' ${i}.${orthid2} ${i}.${orthmat2} | sed 's/|/\t/g' | cut -f7 > ${i}.${orthmat2}.tmp # match the matrixIDs to geneIDs - if you don't cut -f7 then you can retain other ensembl IDs
+done
+
+cut -f1 $orthinfo2 | sed '1,4d' > $orthinfo2.tmp
+printf 'Orthogroup\tAbur\tAcal\tAcit\tCmil\tDrer\tGast\tHsap\tLcha\tLocu\tMmus\tMzeb\tNbri\tOaur\tOlat\tOmos\tOnil\tPmar\tPnye\tTrub\n' > Orthheaders
+paste -d'\t' $orthinfo2.tmp Abur.${orthmat2}.tmp Acal.${orthmat2}.tmp Acit.${orthmat2}.tmp Cmil.${orthmat2}.tmp Drer.${orthmat2}.tmp Gast.${orthmat2}.tmp Hsap.${orthmat2}.tmp Lcha.${orthmat2}.tmp Locu.${orthmat2}.tmp Mmus.${orthmat2}.tmp Mzeb.${orthmat2}.tmp Nbri.${orthmat2}.tmp Oaur.${orthmat2}.tmp Olat.${orthmat2}.tmp Omos.${orthmat2}.tmp Onil.${orthmat2}.tmp Pmar.${orthmat2}.tmp Pnye.${orthmat2}.tmp Trub.${orthmat2}.tmp > $orthinfo2.tmp2
+cat Orthheaders $orthinfo2.tmp2 | sed 's/ //g' > "$(basename "$orthinfo2.tmp2" .txt.tmp2)_ENSgene.txt"
+
+rm *.tmp
+
+# b. map the gene IDs to each species gene symbol
+
+# b-i. get the gene symbols from gtf
+
+# # get the biomart details - NOTE: originally tried to get the gene symbols from biomart but this approach yields very little gene symbols for some species, use the gtf instead
+# bmsp1=hburtoni_gene_ensembl
+# bmsp2=acalliptera_gene_ensembl
+# bmsp3=acitrinellus_gene_ensembl
+# #bmsp4=cmilii_gene_ensembl #no annotation on biomart
+# bmsp5=drerio_gene_ensembl
+# bmsp6=gaculeatus_gene_ensembl
+# bmsp7=hsapiens_gene_ensembl
+# bmsp8=lchalumnae_gene_ensembl
+# bmsp9=loculatus_gene_ensembl
+# bmsp10=mmusculus_gene_ensembl
+# bmsp11=mzebra_gene_ensembl
+# # bmsp12=nbrichardi_gene_ensembl
+# bmsp13=oaureus_gene_ensembl
+# bmsp14=olatipes_gene_ensembl
+# # bmsp15=omossambicus_gene_ensembl
+# bmsp16=oniloticus_gene_ensembl
+# bmsp17=pmarinus_gene_ensembl
+# bmsp18=pnyererei_gene_ensembl
+# bmsp19=trubripes_gene_ensembl
+#
+# biomartspeciesv2=biomart_sp_all.txt
+# for var in "${!bm@}"; do
+#   # echo "$var is set to ${!var}"
+#   echo "${!var}" >> $biomartspeciesv2
+# done
+
+# Manually downloaded the N. brichardi details from online biomart
+# awk '!$5{print $0,"NA";next}1' nbrichardi_gene_ensembl_biomart1.txt | sed '1,1d' > nbrichardi_gene_ensembl_biomart1a.txt # fill the 5th column with NA if empty
+# cat biomart_headers nbrichardi_gene_ensembl_biomart1a.txt > nbrichardi_gene_ensembl_biomart.txt
+# awk '!$5{print $0,"NA";next}1' cmilii_gene_ensembl_biomart1.txt | sed '1,1d' > cmilii_gene_ensembl_biomart1a.txt # fill the 5th column with NA if empty
+# cat biomart_headers cmilii_gene_ensembl_biomart1a.txt > cmilii_gene_ensembl_biomart.txt
+
+# echo '#!/bin/bash -e' > 4_biomart_dl.sh
+# echo '#SBATCH -p tgac-short # partition (queue)' >> 4_biomart_dl.sh
+# echo '#SBATCH -N 1 # number of nodes' >> 4_biomart_dl.sh
+# echo '#SBATCH -c 1 # number of cores' >> 4_biomart_dl.sh
+# echo '#SBATCH --mem 8000 # memory pool for all cores' >> 4_biomart_dl.sh
+# echo '#SBATCH -t 0-00:45 # time (D-HH:MM)' >> 4_biomart_dl.sh
+# echo '#SBATCH -o slurm.%j.out # STDOUT' >> 4_biomart_dl.sh
+# echo '#SBATCH -e slurm.%j.err # STDERR' >> 4_biomart_dl.sh
+# echo '#SBATCH --mail-type=END,FAIL,TIME_LIMIT_75 # notifications for job done & fail' >> 4_biomart_dl.sh
+# echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to addressUSERNAME=mehtat' >> 4_biomart_dl.sh
+# printf '\n' >> 4_biomart_dl.sh
+# echo "# this script will access the software node to download the biomart dbs" >> 4_biomart_dl.sh
+# echo 'source wget-1.14' >> 4_biomart_dl.sh
+# echo "USERNAME=$Usr" >> 4_biomart_dl.sh
+# echo 'HOSTNAME="software"' >> 4_biomart_dl.sh
+# echo "PWD=$(pwd)" >> 4_biomart_dl.sh
+# printf '\n' >> 4_biomart_dl.sh
+# echo 'SCRIPT="cd ${PWD}; sh 4_biomart_dl_script.sh"' >> 4_biomart_dl.sh
+# printf '\n' >> 4_biomart_dl.sh
+# echo "cd ${PWD}" > 4_biomart_dl_script.sh ## THIS IS PURPOSELY RENAMED DIFFERENTLY!!
+# echo "while read -r i; do" >> 4_biomart_dl_script.sh
+# echo -e '\twget -O ${i}_biomart1.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_gene_id" /><Attribute name = "ensembl_gene_id_version" /><Attribute name = "ensembl_transcript_id" /><Attribute name = "ensembl_transcript_id_version" /><Attribute name = "hgnc_symbol" /></Dataset></Query>'"'" >> 4_biomart_dl_script.sh
+# echo -e '\t#wget -O ${i}_biomart2.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "hgnc_symbol" /><Attribute name = "entrezgene_accession" /><Attribute name = "refseq_mrna_predicted" /></Dataset></Query>'"'" >> 4_biomart_dl_script.sh
+# echo -e '\t#wget -O ${i}_biomart3.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "uniprotswissprot" /><Attribute name = "wikigene_name" /></Dataset></Query>'"'" >> 4_biomart_dl_script.sh
+# echo -e '\t#wget -O ${i}_biomart4.txt '"'"'http://www.ensembl.org/biomart/martservice?query=<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Query><Query  virtualSchemaName = "default" formatter = "TSV" header = "0" uniqueRows = "0" count = "" datasetConfigVersion = "0.6" ><Dataset name = "'"'"'${i}'"'"'" interface = "default" ><Attribute name = "ensembl_transcript_id" /><Attribute name = "zfin_id_id" /><Attribute name = "wikigene_id" /></Dataset></Query>'"'" >> 4_biomart_dl_script.sh
+# echo "done < $biomartspeciesv2" >> 4_biomart_dl_script.sh
+# echo 'exit' >> 4_biomart_dl_script.sh
+# echo 'ssh -o StrictHostKeyChecking=no -l ${USERNAME} ${HOSTNAME} "${SCRIPT}"' >> 4_biomart_dl.sh
+# printf '\n' >> 4_biomart_dl.sh
+# echo "printf 'ensembl_transcript_id\thgnc_symbol\tentrezgene_accession\trefseq_mrna_predicted\tensembl_gene_id\tensembl_gene_id_version\tensembl_transcript_id\tensembl_transcript_id_version\thgnc_id\tensembl_transcript_id\tuniprotswissprot\twikigene_name\tensembl_transcript_id\tzfin_id_id\twikigene_id\n' > "'biomart_headers # NOTE - many of these cols will get removed later' >> 4_biomart_dl.sh
+# echo "while read -r i; do" >> 4_biomart_dl.sh
+# echo -e "\tawk '"'!$5{print $0,"NA";next}1'"' "'${i}_biomart1.txt'" | sed '1,1d' "'> ${i}_biomart1a.txt # fill the 5th column with NA if empty' >> 4_biomart_dl.sh
+# echo -e "\t#awk '"'!$5{print $0,"NA";next}1'"' "'${i}_biomart1.txt > ${i}_biomart1a.txt # fill the 5th column with NA if empty' >> 4_biomart_dl.sh
+# echo -e "\t#awk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart2.txt | awk '"'"'!$3{print $0,"NA";next}1'"' | awk '"'!$4{print $0,"NA";next}1'"' > "'${i}_biomart2a.txt # fill the 2nd, 3rd and 4th column with NA if empty' >> 4_biomart_dl.sh
+# echo -e "\t#awk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart3.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart3a.txt # fill the 2nd and 3rd column with NA if empty' >> 4_biomart_dl.sh
+# echo -e "\t#awk '"'!$2{print $0,"NA";next}1'"' "'${i}_biomart4.txt | awk '"'"'!$3{print $0,"NA";next}1'"' > "'${i}_biomart4a.txt # fill the 2nd and 3rd column with NA if empty' >> 4_biomart_dl.sh
+# echo -e '\t#awk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$3]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA","NA","NA";}}'"' "'${i}_biomart1a.txt ${i}_biomart2a.txt > ${i}_biomart1-2a.txt' >> 4_biomart_dl.sh
+# echo -e '\t#awk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart3a.txt ${i}_biomart1-2a.txt > ${i}_biomart1-2-3a.txt' >> 4_biomart_dl.sh
+# echo -e '\t#awk '"'BEGIN{OFS="'"\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA","NA","NA";}}'"' "'${i}_biomart4a.txt ${i}_biomart1-2-3a.txt > ${i}_biomart.tmp.txt' >> 4_biomart_dl.sh
+# echo -e '\tcat biomart_headers ${i}_biomart1a.txt > ${i}_biomart.txt' >> 4_biomart_dl.sh
+# echo -e '\t#cat biomart_headers ${i}_biomart.tmp.txt | awk '"'{print "'$1,$2,$3,$4,$5,$6,$8,$9,$11,$12,$14,$15}'"' OFS='\t' | awk '{print "'$5,$6,$1,$7,$8,$2,$3,$4,$9,$10,$11,$12}'"' OFS='\t' > "'${i}_biomart.txt' >> 4_biomart_dl.sh
+# echo -e '\t#rm ${i}_biomart.tmp.txt' >> 4_biomart_dl.sh
+# echo "done < $biomartspeciesv2" >> 4_biomart_dl.sh
+#
+# while read -r i; do
+#   awk '!$5{print $0,"NA";next}1' ${i}_biomart1.txt | sed '1,1d' > ${i}_biomart1a.txt # fill the 5th column with NA if empty
+#   cat biomart_headers ${i}_biomart1a.txt > ${i}_biomart.txt
+# done < $biomartspeciesv2
+
+# for i in *_gene_ensembl_biomart.txt; do
+#   count=$(awk '$5!="NA"' $i | wc -l)
+#   echo -e $i'\t'$count
+# done
+
+# NOTE: the biomart approach yields very little gene symbols - instead, use the gtf's to get the gene symbols
+# acalliptera_gene_ensembl_biomart.txt	2793
+# acitrinellus_gene_ensembl_biomart.txt	2208
+# cmilii_gene_ensembl_biomart.txt	34114
+# drerio_gene_ensembl_biomart.txt	1142
+# gaculeatus_gene_ensembl_biomart.txt	2036
+# hburtoni_gene_ensembl_biomart.txt	2827
+# hsapiens_gene_ensembl_biomart.txt	215312
+# lchalumnae_gene_ensembl_biomart.txt	13582
+# loculatus_gene_ensembl_biomart.txt	2205
+# mmusculus_gene_ensembl_biomart.txt	4
+# mzebra_gene_ensembl_biomart.txt	2553
+# nbrichardi_gene_ensembl_biomart.txt	2159
+# oaureus_gene_ensembl_biomart.txt	4839
+# olatipes_gene_ensembl_biomart.txt	2551
+# omossambicus_gene_ensembl_biomart.txt	5287
+# oniloticus_gene_ensembl_biomart.txt	5245
+# pmarinus_gene_ensembl_biomart.txt	749
+# pnyererei_gene_ensembl_biomart.txt	2336
+# trubripes_gene_ensembl_biomart.txt	3946
+
+
+printf 'ensembl_gene_id_version\tensembl_gene_id\tensembl_transcript_id\tensembl_transcript_id_version\tgene_symbol\n' > biomart_headers # create a headers file for the output gene symbol annotations
+
+# create two files to run a while read array to generate the gene symbol annotations - file1: paths to gtf and file2: output filename (make sure ordering is the same!)
+ls -1 /tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/*/*/current_gtf/*/*100.gtf.gz > gtf_paths.txt # file1
+
+echo 'hburtoni_gene_ensembl.txt' > gs_out2.txt # file3
+echo 'acalliptera_gene_ensembl.txt' >> gs_out2.txt
+echo 'acitrinellus_gene_ensembl.txt' >> gs_out2.txt
+echo 'mzebra_gene_ensembl.txt' >> gs_out2.txt
+echo 'nbrichardi_gene_ensembl.txt' >> gs_out2.txt
+echo 'oaureus_gene_ensembl.txt' >> gs_out2.txt
+echo 'oniloticus_gene_ensembl.txt' >> gs_out2.txt
+echo 'pnyererei_gene_ensembl.txt' >> gs_out2.txt
+echo 'hsapiens_gene_ensembl.txt' >> gs_out2.txt
+echo 'mmusculus_gene_ensembl.txt' >> gs_out2.txt
+echo 'drerio_gene_ensembl.txt' >> gs_out2.txt
+echo 'gaculeatus_gene_ensembl.txt' >> gs_out2.txt
+echo 'loculatus_gene_ensembl.txt' >> gs_out2.txt
+echo 'olatipes_gene_ensembl.txt' >> gs_out2.txt
+echo 'trubripes_gene_ensembl.txt' >> gs_out2.txt
+echo 'cmilii_gene_ensembl.txt' >> gs_out2.txt
+echo 'lchalumnae_gene_ensembl.txt' >> gs_out2.txt
+echo 'pmarinus_gene_ensembl.txt' >> gs_out2.txt
+
+sed 's/.txt/.txt.tmp/g' gs_out2.txt > gs_out1.txt # file2
+
+while read -u 3 -r file1 && read -u 4 -r file2 && read -u 5 -r file3
+do
+  zcat ${file1} | awk '$3=="transcript"' | cut -f9 | awk -F';' '{print $1,$2,$3,$4,$5}' OFS='\t' | sed 's/"//g' | sed 's/gene_id //g' | sed 's/gene_name //g' | sed 's/gene_source //g' | sed 's/ensembl/NA/g' | sed 's/gene_version //g' | sed 's/transcript_id //g' | sed 's/transcript_version //g' | awk '{print $1,$1"."$2,$3,$3"."$4,$5}' OFS='\t' > ${file2}
+  cat biomart_headers ${file2} > ${file3}
+  rm ${file2}
+done 3<gtf_paths.txt 4<gs_out1.txt 5<gs_out2.txt
+
+# these are example individual ones
+# cmgtf=/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/vertebrates/Cmilii/current_gtf/callorhinchus_milii/Callorhinchus_milii.Callorhinchus_milii-6.1.3.100.gtf.gz
+# zcat $cmgtf | awk '$3=="transcript"' | cut -f9 | awk -F';' '{print $1,$2,$3,$4,$5}' OFS='\t' | sed 's/"//g' | sed 's/gene_id //g' | sed 's/gene_name //g' | sed 's/gene_source //g' | sed 's/ensembl/NA/g' | sed 's/gene_version //g' | sed 's/transcript_id //g' | sed 's/transcript_version //g' | awk '{print $1,$1"."$2,$3,$3"."$4,$5}' OFS='\t' > cmilii_gene_ensembl_biomart.txt.tmp
+# cat biomart_headers cmilii_gene_ensembl_biomart.txt.tmp > cmilii_gene_ensembl_biomart.txt
+# rm cmilii_gene_ensembl_biomart.txt.tmp
+#
+# hsgtf=/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/mammals/Hsapiens/current_gtf/homo_sapiens/Homo_sapiens.GRCh38.100.gtf.gz
+# zcat $hsgtf | awk '$3=="transcript"' | cut -f9 | awk -F';' '{print $1,$2,$3,$4,$5}' OFS='\t' | sed 's/"//g' | sed 's/gene_id //g' | sed 's/gene_name //g' | sed 's/gene_source //g' | sed 's/ensembl/NA/g' | sed 's/gene_version //g' | sed 's/transcript_id //g' | sed 's/transcript_version //g' | awk '{print $1,$1"."$2,$3,$3"."$4,$5}' OFS='\t' > hsapiens_gene_ensembl_biomart.txt.tmp
+# cat biomart_headers hsapiens_gene_ensembl_biomart.txt.tmp > hsapiens_gene_ensembl_biomart.txt
+# rm hsapiens_gene_ensembl_biomart.txt
+#
+# mmgtf=/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/mammals/Mmusculus/current_gtf/mus_musculus/Mus_musculus.GRCm38.100.gtf.gz
+# zcat $mmgtf | awk '$3=="transcript"' | cut -f9 | awk -F';' '{print $1,$2,$3,$4,$5}' OFS='\t' | sed 's/"//g' | sed 's/gene_id //g' | sed 's/gene_name //g' | sed 's/gene_source //g' | sed 's/ensembl/NA/g' | sed 's/gene_version //g' | sed 's/transcript_id //g' | sed 's/transcript_version //g' | awk '{print $1,$1"."$2,$3,$3"."$4,$5}' OFS='\t' > mmusculus_gene_ensembl_biomart.txt.tmp
+# cat biomart_headers mmusculus_gene_ensembl_biomart.txt.tmp > mmusculus_gene_ensembl_biomart.txt
+# rm mmusculus_gene_ensembl_biomart.txt
+
+
+# # b-ii. process the O. mossamibicus (they're mapped to ENSONIP IDs so use those gene symbols) and C. milii gene IDs separately based on annotation
+omfuncannot=/ei/projects/f/fabef620-281f-4a74-beb6-9adbe4f03af8/data/results/CB-GENANNO-466_Oreochromis_mossambicus_annotation/Data_Package/OREMO8127_EIv1.0_Frozen_release_11May2020/EIv1.0/annotation/OREMO8127_EIv1.0.annotation.gff3.pep.fasta.functional_annotation.tsv
+awk '{print $2,$1,$2,$1,$6}' OFS='\t' $omfuncannot | sed '1,1d' | sed 's/\.1//g' > OREMO8127_EIv1.0.annotation.gff3.Onorth.txt
+# sed 's/ENSONIG/ENSONIP/g' oniloticus_gene_ensembl_biomart.txt | cut -f1,5 > oniloticus_gene_ensembl_biomart.txt.tmp
+## NOTE: the above mapping is very poor - try to use the On gtf instead to generate a mapping file
+ongtf=/tgac/workarea/group-vh/Tarang/Reference_Genomes/ensembl/cichlids/Oniloticus/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf.gz
+zcat $ongtf | awk '$3=="transcript"' | cut -f9 | awk -F';' '{print $1,$2,$3,$4,$5}' OFS='\t' | sed 's/"//g' | sed 's/gene_id //g' | sed 's/gene_name //g' | sed 's/gene_source //g' | sed 's/ensembl/NA/g' | sed 's/gene_version //g' | sed 's/transcript_id //g' | sed 's/transcript_version //g' | cut -f1,5 | sed 's/ENSONIG/ENSONIP/g' > oniloticus_gene_ensembl_biomart.txt.tmp2
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$5]){print $0,a[$5];}else{print $0,"NA","NA","NA","NA";}}' oniloticus_gene_ensembl_biomart.txt.tmp2 OREMO8127_EIv1.0.annotation.gff3.Onorth.txt | awk '{print $1,$2,$3,$4,$7}' OFS='\t' > omossambicus_gene_ensembl_biomart.txt.tmp
+cat biomart_headers omossambicus_gene_ensembl_biomart.txt.tmp > omossambicus_gene_ensembl.txt
+rm omossambicus_gene_ensembl_biomart.txt.tmp oniloticus_gene_ensembl_biomart.txt.tmp2
+
+for i in *_gene_ensembl.txt; do
+  count=$(awk '$5!="NA"' $i | wc -l)
+  echo -e $i'\t'$count
+done
+
+## This is much better for gene symbols so USE these!!
+# acalliptera_gene_ensembl.txt	27701
+# acitrinellus_gene_ensembl.txt	21040
+# cmilii_gene_ensembl.txt	34114
+# drerio_gene_ensembl.txt	59847
+# gaculeatus_gene_ensembl.txt	21515
+# hburtoni_gene_ensembl.txt	25659
+# hsapiens_gene_ensembl.txt	227955
+# lchalumnae_gene_ensembl.txt	18016
+# loculatus_gene_ensembl.txt	19850
+# mmusculus_gene_ensembl.txt	142700
+# mzebra_gene_ensembl.txt	25651
+# nbrichardi_gene_ensembl.txt	21250
+# oaureus_gene_ensembl.txt	44882
+# olatipes_gene_ensembl.txt	26270
+# omossambicus_gene_ensembl.txt	5288
+# oniloticus_gene_ensembl.txt	55956
+# pmarinus_gene_ensembl.txt	6276
+# pnyererei_gene_ensembl.txt	22018
+# trubripes_gene_ensembl.txt	41879
+
+# # b-iii. map each species gene symbol to gene ID
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$2]){print $0,a[$2];}else{print $0,"NA";}}' hburtoni_gene_ensembl.txt $orthENS > $orthENS.tmp1
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$3]){print $0,a[$3];}else{print $0,"NA";}}' acalliptera_gene_ensembl.txt $orthENS.tmp1 > $orthENS.tmp2
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NA";}}' acitrinellus_gene_ensembl.txt $orthENS.tmp2 > $orthENS.tmp3
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$5]){print $0,a[$5];}else{print $0,"NA";}}' cmilii_gene_ensembl.txt $orthENS.tmp3 > $orthENS.tmp4
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$6]){print $0,a[$6];}else{print $0,"NA";}}' drerio_gene_ensembl.txt $orthENS.tmp4 > $orthENS.tmp5
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$7]){print $0,a[$7];}else{print $0,"NA";}}' gaculeatus_gene_ensembl.txt $orthENS.tmp5 > $orthENS.tmp6
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$8]){print $0,a[$8];}else{print $0,"NA";}}' hsapiens_gene_ensembl.txt $orthENS.tmp6 > $orthENS.tmp7
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$9]){print $0,a[$9];}else{print $0,"NA";}}' lchalumnae_gene_ensembl.txt $orthENS.tmp7 > $orthENS.tmp8
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$10]){print $0,a[$10];}else{print $0,"NA";}}' loculatus_gene_ensembl.txt $orthENS.tmp8 > $orthENS.tmp9
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$11]){print $0,a[$11];}else{print $0,"NA";}}' mmusculus_gene_ensembl.txt $orthENS.tmp9 > $orthENS.tmp10
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$12]){print $0,a[$12];}else{print $0,"NA";}}' mzebra_gene_ensembl.txt $orthENS.tmp10 > $orthENS.tmp11
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$13]){print $0,a[$13];}else{print $0,"NA";}}' nbrichardi_gene_ensembl.txt $orthENS.tmp11 > $orthENS.tmp12
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$14]){print $0,a[$14];}else{print $0,"NA";}}' oaureus_gene_ensembl.txt $orthENS.tmp12 > $orthENS.tmp13
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NA";}}' olatipes_gene_ensembl.txt $orthENS.tmp13 > $orthENS.tmp14
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$16]){print $0,a[$16];}else{print $0,"NA";}}' omossambicus_gene_ensembl.txt $orthENS.tmp14 > $orthENS.tmp15
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$17]){print $0,a[$17];}else{print $0,"NA";}}' oniloticus_gene_ensembl.txt $orthENS.tmp15 > $orthENS.tmp16
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$18]){print $0,a[$18];}else{print $0,"NA";}}' pmarinus_gene_ensembl.txt $orthENS.tmp16 > $orthENS.tmp17
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$19]){print $0,a[$19];}else{print $0,"NA";}}' pnyererei_gene_ensembl.txt $orthENS.tmp17 > $orthENS.tmp18
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$5;next}{if(a[$20]){print $0,a[$20];}else{print $0,"NA";}}' trubripes_gene_ensembl.txt $orthENS.tmp18 > $orthENS.tmp19
+
+# b-iv. create a unified (best) gene symbol column (so that there is no NA), reorder cols (so that a. phylo order, and b. best gene symbol is first after orth) and add headers
+# NOTE: the unified best gene symbol column will be a combination of all unique gene symbols separated with ',' e.g. geneAa,geneAb
+cut -f1,21-39 $orthENS.tmp19 | sed '1,1d' | sed $'s/NA\t//g' | sed $'s/\tNA//g' | awk '{print tolower($0)}' | awk '$1=toupper($1)' OFS='\t' | awk '{ n=split($0,a,FS); $0=""; j=1; delete u; for (i=1; i<=n; i++) if (!u[a[i]]++) $(j++) = a[i]; print }' OFS='\t' | awk '!$2{print $0,"NA";next}1' OFS='\t' | sed $'s/\t/,/g' | sed $'s/,/\t/' > $orthGS # this creates a two column file with OG and unique genes symbols separated by comma
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$2;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NA";}}' $orthGS $orthENS.tmp19 | sed '1,1d' | awk '{print $1,$8,$11,$9,$3,$12,$19,$2,$13,$14,$17,$16,$4,$15,$7,$20,$6,$10,$5,$18,$40,$27,$30,$28,$22,$31,$38,$21,$32,$33,$36,$35,$23,$34,$26,$39,$25,$29,$24,$37}' OFS='\t' > $orthENSGS.tmp # this creates the penultimate file (no headers)
+printf 'Orthogroup\tHsap_ENS\tMmus_ENS\tLcha_ENS\tAcal_ENS\tMzeb_ENS\tPnye_ENS\tAbur_ENS\tNbri_ENS\tOaur_ENS\tOnil_ENS\tOmos_ENS\tAcit_ENS\tOlat_ENS\tGacu_ENS\tTrub_ENS\tDrer_ENS\tLocu_ENS\tCmil_ENS\tPmar_ENS\tUnified_GeneSymbol\tHsap_GS\tMmus_GS\tLcha_GS\tAcal_GS\tMzeb_GS\tPnye_GS\tAbur_GS\tNbri_GS\tOaur_GS\tOnil_GS\tOmos_GS\tAcit_GS\tOlat_GS\tGacu_GS\tTrub_GS\tDrer_GS\tLocu_GS\tCmil_GS\tPmar_GS\n' > Orthheaders2
+cat Orthheaders2 $orthENSGS.tmp > $orthENSGS
+
+# c. prepare the file so that it is 6 sp cichlid species (and remove all the transcript versions) and orthogroups with NULL for any
+cut -f1,5-9,11,21,25-29,31 $orthENSGS | awk -F '\t' 'function GSUB(F) {gsub("\\..*","",$F)} {GSUB(2);GSUB(3);GSUB(4);GSUB(5);GSUB(6);GSUB(7)}1' OFS='\t' | awk '$2!="NULL" || $3!="NULL" || $4!="NULL" || $5!="NULL" || $6!="NULL" || $7!="NULL"' > $orthENSGScich
+
+# d. overlap IDR (narrow) peaks with 5kb promoter regions for each species
+# i. overlaps do not have to be fully inside the promoter (can extend 5' or 3')
+# ii. report amount (bp's) of promoter that have the peak using the -wao option in bedtools
+# iii. use the IDR peak files - T (True) or F (False) indicate peaks passing IDR
+# iv. in the final outputted file, remove peaks not overlapping a promoter (and report numbers - input > output)
+Ac5kbpromannot=$Acg/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.5kb_promoters.bed
+Mz5kbpromannot=$Mzg/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.5kb_promoters.bed
+Pn5kbpromannot=$Png/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.5kb_promoters.bed
+Ab5kbpromannot=$Abg/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.5kb_promoters.bed
+Nb5kbpromannot=$Nbg/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.5kb_promoters.bed
+On5kbpromannot=$Ong/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.5kb_promoters.bed
+
+
+ml bedtools/2.25.0
+
+for i in $idrdir/*Ac*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $Ac5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+for i in $idrdir/Mz*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $Mz5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+for i in $idrdir/Pn*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $Pn5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+for i in $idrdir/Ab*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $Ab5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+for i in $idrdir/Nb*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $Nb5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+for i in $idrdir/On*ATAC_peaks.final.narrowPeak; do
+  bedtools intersect -a ${i} -b $On5kbpromannot -wao | awk '$13!="-1"' > "$(basename "${i}" ).promoverlap"
+done
+
+# get promoter mapping stats
+echo 'Peak-Promoter mapping stats outputted to: PeakProm_overlap_stats.txt'
+for i in *.promoverlap; do
+  sample=$(echo $i | sed 's/_peaks.final.narrowPeak.promoverlap//g')
+  total=$(wc -l ${i} | awk '{print $1}')
+  true=$(awk '$11=="T"' ${i} | wc -l)
+  false=$(awk '$11=="F"' ${i} | wc -l)
+  echo -e "$sample\t$total\t$true\t$false" >> PeakProm_overlap_stats.txt
+done
+
+
+# e. Map gene promoter bed files to orthology info
+# the native awk output + amendments for cols will be:
+printf 'Orthogroup\tAc_ENS\tMz_ENS\tPn_ENS\tAb_ENS\tNb_ENS\tOn_ENS\tUnified_GeneSymbol\tAc_GS\tMz_GS\tPn_GS\tAb_GS\tNb_GS\tOn_GS\tPeak_scaff\tPeak_start\tPeak_end\tPeak_ID\tMACS2_integer_score\tstrand\tFC_peaksummit\tpval\tqval\tSummit_to_PeakStart\tIDR\tProm_scaff\tProm_start\tProm_end\tProm_geneENS\tProm_geneENS\tProm_strand\tPeak_Prom_overlap\tTSS_start\n' > promheaders1
+
+for i in *Ac*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+for i in Mz*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$3]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+for i in Pn*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$4]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+for i in Ab*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+for i in Nb*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$6]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+for i in On*_peaks.final.narrowPeak.promoverlap; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$7]=$0;next}{if(a[$15]){print $0,a[$15];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $orthENSGScich ${i} | sed '1,1d' | sed 's|/ei/projects/.*5.peak_calling/||g' | awk '{print $19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18}' OFS='\t' | awk '{print $0,$28+1}' OFS='\t' > ${i}.orth.tmp
+  cat promheaders1 ${i}.orth.tmp > ${i}.orth1
+  rm ${i}.orth.tmp
+done
+
+# 1.simplify cols; 2.remove peaks that did not map to an OG; 3. sort based on orthogroup (ignoring header line)
+for i in *Ac*.orth1; do
+  cut -f1,2,8,9,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # Ac
+done
+
+for i in Mz*.orth1; do
+  cut -f1,3,8,10,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # Mz
+done
+
+for i in Pn*.orth1; do
+  cut -f1,4,8,11,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # Pn
+done
+
+for i in Ab*.orth1; do
+  cut -f1,5,8,12,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # Ab
+done
+
+for i in Nb*.orth1; do
+  cut -f1,6,8,13,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # Nb
+done
+
+for i in On*.orth1; do
+  cut -f1,7,8,14,15-28,32,33 ${i} | awk '$1!="NULL"' > "$(basename "${i}" .orth1).orth2" # On
+done
+
+
+# for i in *Ac*.orth1; do
+#   cut -f1,2,8,9,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # Ac
+# done
+#
+# for i in Mz*.orth1; do
+#   cut -f1,3,8,10,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # Mz
+# done
+#
+# for i in Pn*.orth1; do
+#   cut -f1,4,8,11,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # Pn
+# done
+#
+# for i in Ab*.orth1; do
+#   cut -f1,5,8,12,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # Ab
+# done
+#
+# for i in Nb*.orth1; do
+#   cut -f1,6,8,13,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # Nb
+# done
+#
+# for i in On*.orth1; do
+#   cut -f1,7,8,14,15-28,31,32 ${i} | awk '{if($20 == "1") print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"NULL"; else print $0;}' OFS='\t' > "$(basename "${i}" .orth1).orth2" # On
+# done
+
+## Using the simplified cols:
+# first, sort the peaks based on 1. Orthogroup; 2. True for IDR, then 3. Summit of peak distance from TSS (but will numeric sort negative numbers at top e.g. -100, -20, 0, 10, 20 etc.), then 4. lowest qval > *.orth3
+# second, pick the best 'representative' peak for each orthogroup by sorting based on orthogroup and then selecting the top based on the sort of *.orth3 > *.orth4
+
+printf 'Orthogroup\tSp_ENS\tUnified_GeneSymbol\tSp_GS\tPeak_scaff\tPeak_start\tPeak_end\tPeak_ID\tMACS2_integer_score\tstrand\tFC_peaksummit\tpval\tqval\tSummit_to_PeakStart\tIDR\tProm_scaff\tProm_start\tProm_end\tPeak_Prom_overlap\tTSS_start\tPeak_summit_pos\tSummit_to_TSS\n' > orth3_4_header
+
+for i in *.orth2; do
+  sed '1,1d' ${i} | awk '$1!="NULL"' | awk '{print $0,$6+$14}' OFS='\t' > ${i}.tmp
+  awk '{print $0,$20-$21}' OFS='\t' ${i}.tmp | sort -k1,1 -k15,15r -k22,22g -k13,13r > "$(basename "${i}" .orth2).orth3.tmp"
+  cat orth3_4_header "$(basename "${i}" .orth2).orth3.tmp" > "$(basename "${i}" .orth2).orth3"
+  sed '1,1d' "$(basename "${i}" .orth2).orth3" | sort -k1,1 -u  > "$(basename "${i}" .orth2).orth4.tmp"
+  cat orth3_4_header "$(basename "${i}" .orth2).orth4.tmp" > "$(basename "${i}" .orth2).orth4"
+  rm ${i}.tmp
+  rm "$(basename "${i}" .orth2).orth3.tmp"
+  rm "$(basename "${i}" .orth2).orth4.tmp"
+done
+
+# second, map the 'representative' peaks to all orthogroups, inserting NULL if no peaks present - this will be used for the PA matrix > *.orth5
+
+for i in *Ac*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$2,$8,$9,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+for i in Mz*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$3,$8,$10,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+for i in Pn*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$4,$8,$11,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+for i in Ab*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$5,$8,$12,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+for i in Nb*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$6,$8,$13,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+for i in On*.orth4; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' ${i} $orthENSGScich | awk '{print $1,$7,$8,$14,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36}' OFS='\t' > "$(basename "${i}" .orth4).orth5"
+done
+
+# final files to use for presence/absence mapping are *.orth5
+
+# 		ii. Using gene orthology, create a unified matrix for all species (only Mz, Pn, Ab, Nb, and On). For each species, have five cols - B, E, L, T and any tissue: mark a 1 or 0 for presence or absence. Have an extra col for On G.
+#     At this stage, create a separate presence-absence matrix for the Ac embryos (3, 7 and 12 dpf)
+
+# create two unified matrices - one for IDR True and another for IDR False peaks
+# col1:Orthogroup, col2:Unified_GeneSymbol, col3-n:Samples
+
+Tmat=MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_1.txt
+Fmat=MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_1.txt
+AcTmat=Ac_3_7_12dpf_ATAC_TrueIDR_PAmat_1.txt
+AcFmat=Ac_3_7_12dpf_ATAC_FalseIDR_PAmat_1.txt
+
+for i in *.orth5; do
+  sample=$(echo ${i} | sed 's/_ATAC_peaks.final.narrowPeak.promoverlap.orth5//g')
+  printf "Orthogroup\tUnified_GeneSymbol\t$sample\n" > ${i}.True
+  awk '{if($8!="NULL" && $15 == "T") print $1,$3,"1"; else print $1,$3,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.True
+  printf "Orthogroup\tUnified_GeneSymbol\t$sample\n" > ${i}.False
+  awk '{if($8!="NULL" && $15 == "F") print $1,$3,"1"; else print $1,$3,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.False
+done # for loop to generate intermediate matrix files for each sample - one for true IDR and one for false IDR
+
+# for loop over all true and all false files to create the unified matrix
+i=0
+cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim   ## use first two columns as delimiter (as thye will be the same for all files)
+for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.True; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f3 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.True__*.temp > $Tmat # do the join
+
+i=0
+for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.False; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f3 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.False__*.temp > $Fmat # do the join
+
+i=0
+for file in *Ac_*_ATAC_peaks*.True; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f3 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim *Ac_*_ATAC_peaks*.True__*.temp > $AcTmat # do the join
+
+i=0
+for file in *Ac_*_ATAC_peaks*.False; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f3 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim *Ac_*_ATAC_peaks*.False__*.temp > $AcFmat # do the join
+
+rm *orth5.True *orth5.False *__*.temp delim
+#### AT THIS POINT, YOU STOPPED WORKING WITH THE Ac DATA
+
+
+# B. Start to analyse/subset the main tables, getting the values on (remember, this is generic presence/absence - any peak within the promoter is a 1)
+
+#     i. Presence and absence of peaks in 1-to-1 (5 sp) orthologs only
+awk '$3!="NULL" && $4!="NULL" && $5!="NULL" && $6!="NULL" && $7!="NULL"' $orthENSGScich | cut -f1,3-8,10-14 > $orthENSGS5cich # 13,997 1-to-1 orthologs between the 5 species
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Tmat | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Tmat" 1.txt)2.txt" # 13,997
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Fmat | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Fmat" 1.txt)2.txt" # 13,997
+
+# 		ii. Presence and absence of peaks in genes (in general) according to tissue and species - run on 1-to-1 above and first filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
+################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
+
+# first, filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
+awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat" 1.txt)2.txt" |
+awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+awk '$12==$16 || $12==$24 || $16==$24' |
+awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+awk '$15==$19 || $15==$23 || $19==$23' |
+awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+awk '$42==$47 || $42==$52 || $47==$52' |
+awk '$43==$48 || $43==$53 || $48==$53' |
+awk '$44==$49 || $44==$54 || $49==$54' |
+awk '$45==$50 || $45==$55 || $50==$55' |
+awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Tmat" 1.txt)3.txt" # 3005
+
+awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Fmat" 1.txt)2.txt" |
+awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+awk '$12==$16 || $12==$24 || $16==$24' |
+awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+awk '$15==$19 || $15==$23 || $19==$23' |
+awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+awk '$42==$47 || $42==$52 || $47==$52' |
+awk '$43==$48 || $43==$53 || $48==$53' |
+awk '$44==$49 || $44==$54 || $49==$54' |
+awk '$45==$50 || $45==$55 || $50==$55' |
+awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Fmat" 1.txt)3.txt" # 1923
+
+head -1 $Tmat > MzPnAbNbOn_BELT_G_ATAC_header.txt
+for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt; do
+  cat MzPnAbNbOn_BELT_G_ATAC_header.txt $i > ${i}.tmp
+  rm ${i}
+  mv ${i}.tmp ${i}
+done
+
+for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_2.txt; do
+  sed '1,1d' $i > ${i}.tmp
+  rm ${i}
+  mv ${i}.tmp ${i}
+done
+
+# second, create a general presence and absence of peaks in genes according to tissue and species
+
+for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_3.txt; do
+  awk '{print $1,$2,$3"|"$7,$4"|"$8,$5"|"$9,$6"|"$10,$11"|"$14"|"$18"|"$22,$12"|"$16"|"$24,$13"|"$17"|"$21"|"$25,$15"|"$19"|"$23,$26"|"$30,$27"|"$31,$28"|"$32,$29"|"$33,$34"|"$38,$35"|"$39,$36"|"$40,$37"|"$41,$42"|"$47"|"$52,$43"|"$48"|"$53,$44"|"$49"|"$54,$45"|"$50"|"$55,$46"|"$51"|"$56}' OFS='\t' ${i} > "$(basename "${i}" 3.txt)4.txt"
+done
+
+printf 'Orthogroup\tUnified_GeneSymbol\tMz_B\tMz_E\tMz_L\tMz_T\tPnm_B\tPnm_L\tPnm_T\tPnm_E\tAb_B\tAb_E\tAb_L\tAb_T\tNb_B\tNb_E\tNb_L\tNb_T\tOn_B\tOn_E\tOn_G\tOn_L\tOn_T\n' > MzPnAbNbOn_BELT_G_ATAC_header # create a header
+
+for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_4.txt; do
+  awk '{if($3 == "0|0")print $1,$2,"0",$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,"1",$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' ${i} | awk '{if($4 == "0|0")print $1,$2,$3,"0",$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,"1",$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($5 == "0|0")print $1,$2,$3,$4,"0",$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,"1",$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($6 == "0|0")print $1,$2,$3,$4,$5,"0",$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,"1",$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($7 == "0|0|0|0")print $1,$2,$3,$4,$5,$6,"0",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|0|0|0")print $1,$2,$3,$4,$5,$6,"0",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|1|0|0")print $1,$2,$3,$4,$5,$6,"0",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|0|1|0")print $1,$2,$3,$4,$5,$6,"0",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|0|0|1")print $1,$2,$3,$4,$5,$6,"0",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|0|0|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|1|0|0")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|1|1|0")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|0|1|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|1|0|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|0|1|0")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|1|1|0")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "0|1|1|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|1|0|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|0|1|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($7 == "1|1|1|1")print $1,$2,$3,$4,$5,$6,"1",$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($8 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,"0",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,"0",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,"0",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,"0",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,"1",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,"1",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,"1",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($8 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,"1",$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($9 == "0|0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,"0",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,"0",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,"0",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,"0",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,"0",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "0|1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($9 == "1|1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,"1",$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($10 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"0",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"0",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"0",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"0",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"1",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"1",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"1",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;if($10 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,"1",$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($11 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,"0",$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,"1",$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($12 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,"0",$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,"1",$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($13 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,"0",$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,"1",$14,$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($14 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,"0",$15,$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,"1",$15,$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($15 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,"0",$16,$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,"1",$16,$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($16 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,"0",$17,$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,"1",$17,$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($17 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,"0",$18,$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,"1",$18,$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($18 == "0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,"0",$19,$20,$21,$22,$23;else print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,"1",$19,$20,$21,$22,$23;}' OFS='\t' | awk '{if($19 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"0",$20,$21,$22,$23;if($19 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"0",$20,$21,$22,$23;if($19 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"0",$20,$21,$22,$23;if($19 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"0",$20,$21,$22,$23;if($19 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"1",$20,$21,$22,$23;if($19 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"1",$20,$21,$22,$23;if($19 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"1",$20,$21,$22,$23;if($19 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,"1",$20,$21,$22,$23;}' OFS='\t' | awk '{if($20 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"0",$21,$22,$23;if($20 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"0",$21,$22,$23;if($20 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"0",$21,$22,$23;if($20 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"0",$21,$22,$23;if($20 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"1",$21,$22,$23;if($20 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"1",$21,$22,$23;if($20 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"1",$21,$22,$23;if($20 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,"1",$21,$22,$23;}' OFS='\t' | awk '{if($21 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"0",$22,$23;if($21 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"0",$22,$23;if($21 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"0",$22,$23;if($21 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"0",$22,$23;if($21 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"1",$22,$23;if($21 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"1",$22,$23;if($21 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"1",$22,$23;if($21 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,"1",$22,$23;}' OFS='\t' | awk '{if($22 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"0",$23;if($22 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"0",$23;if($22 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"0",$23;if($22 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"0",$23;if($22 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"1",$23;if($22 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"1",$23;if($22 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"1",$23;if($22 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,"1",$23;}' OFS='\t' | awk '{if($23 == "0|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"0";if($23 == "1|0|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"0";if($23 == "0|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"0";if($23 == "0|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"0";if($23 == "0|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"1";if($23 == "1|1|0")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"1";if($23 == "1|0|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"1";if($23 == "1|1|1")print $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,"1";}' OFS='\t' > ${i}.tmp
+  cat MzPnAbNbOn_BELT_G_ATAC_header ${i}.tmp | awk '{print $1,$2,$3,$4,$5,$6,$7,$10,$8,$9,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$22,$23,$21}' OFS='\t' > "$(basename "${i}" 4.txt)5.txt"
+  rm ${i}.tmp
+done
+
+#### FINAL (BASIC) PRESENCE-ABSENCE MATRIX FILES
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_1.txt # 38,445 - total number of orthogroups/genes with peaks mapped in the five cichlid species
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_2.txt # 13,998 - total number of 1-to-1 orthogroups/genes with peaks mapped in the five cichlid species
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt # 3005 (True) and 1923 (False) - total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_4.txt # 3005 (True) and 1923 (False) - simplified (collated '|' separated replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_5.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+
+# 		iii. Flag genes falling +-100bp from TSS and their presence/absence - NOTE: this method is good for parsing ANYTHING from *.orth5 e.g. peak summits, peak lengths etc. to create and add to the matrices
+# first, parse the *.orth5 files for orthogroups with peak summits falling +-100bp TSS (use the 'Summit_to_TSS' col - col22). This outputs Orthogroup, Unified_GeneSymbol, Summit_to_TSS and a 1 or 0 for peak +/-100bp (or equal to)
+for i in *.orth5; do
+  sample=$(echo ${i} | sed 's/_ATAC_peaks.final.narrowPeak.promoverlap.orth5/_peakTSS+-100/g')
+  sample2=$(echo ${i} | sed 's/_ATAC_peaks.final.narrowPeak.promoverlap.orth5//g')
+  printf "Orthogroup\tUnified_GeneSymbol\t${sample2}_Summit_to_TSS\t$sample\n" > ${i}.True
+  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1"; else print $1,$3,$22,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.True
+  printf "Orthogroup\tUnified_GeneSymbol\t$sample\n" > ${i}.False
+  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1"; else print $1,$3,$22,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.False
+done # for loop to generate intermediate matrix files for each sample - one for true IDR and one for false IDR
+
+# for loop over all true and all false files to create the unified matrix - at this point remove the *_Summit_to_TSS column for ease
+Tmat2=MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmatTSS_1.txt
+Fmat2=MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmatTSS_1.txt
+
+i=0
+cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim   ## use first two columns as delimiter (as they will be the same for all files)
+for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.True; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f4 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.True__*.temp > $Tmat2 # do the join
+
+i=0
+for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.False; do
+  i=$(($i+1))  ## for adding count to distinguish files from original ones
+  cut -f4 $file > ${file}__${i}.temp
+done
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.False__*.temp > $Fmat2 # do the join
+
+rm *orth5.True *orth5.False *__*.temp delim
+
+#     i. Presence and absence of peaks in 1-to-1 (5 sp) orthologs only
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Tmat2 | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Tmat2" 1.txt)2.txt" # 13,997
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Fmat2 | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Fmat2" 1.txt)2.txt" # 13,997
+
+# second, for each species tissue replicates, determine the orthogroups with consistent peak summits falling +-100bp TSS
+# filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
+awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat2" 1.txt)2.txt" |
+awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+awk '$12==$16 || $12==$24 || $16==$24' |
+awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+awk '$15==$19 || $15==$23 || $19==$23' |
+awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+awk '$42==$47 || $42==$52 || $47==$52' |
+awk '$43==$48 || $43==$53 || $48==$53' |
+awk '$44==$49 || $44==$54 || $49==$54' |
+awk '$45==$50 || $45==$55 || $50==$55' |
+awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Tmat2" 1.txt)3.txt" # 4074
+
+awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Fmat2" 1.txt)2.txt" |
+awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+awk '$12==$16 || $12==$24 || $16==$24' |
+awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+awk '$15==$19 || $15==$23 || $19==$23' |
+awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+awk '$42==$47 || $42==$52 || $47==$52' |
+awk '$43==$48 || $43==$53 || $48==$53' |
+awk '$44==$49 || $44==$54 || $49==$54' |
+awk '$45==$50 || $45==$55 || $50==$55' |
+awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Fmat2" 1.txt)3.txt" # 4075
+
+head -1 $Tmat2 > MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt
+for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_3.txt; do
+  cat MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt $i > ${i}.tmp
+  rm ${i}
+  mv ${i}.tmp ${i}
+done
+
+for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_2.txt; do
+  sed '1,1d' $i > ${i}.tmp
+  rm ${i}
+  mv ${i}.tmp ${i}
+done
+
+# Create a general presence and absence of peaks in genes according to tissue and species - don't create a unified one using the crazy awk script so that you can see if maybe one peak is near a TSS and identify which simply
+for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmatTSS_3.txt; do
+  awk '{print $1,$2,$3"|"$7,$4"|"$8,$5"|"$9,$6"|"$10,$11"|"$14"|"$18"|"$22,$12"|"$16"|"$24,$13"|"$17"|"$21"|"$25,$15"|"$19"|"$23,$26"|"$30,$27"|"$31,$28"|"$32,$29"|"$33,$34"|"$38,$35"|"$39,$36"|"$40,$37"|"$41,$42"|"$47"|"$52,$43"|"$48"|"$53,$44"|"$49"|"$54,$45"|"$50"|"$55,$46"|"$51"|"$56}' OFS='\t' ${i} > "$(basename "${i}" 3.txt)4.txt"
+done
+
+# third (and finally), map the orthogroups (for each species tissue) that have consistent peak summits falling +-100bp TSS, otherwise, show as NULLs > MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Tmat2}" 1.txt)4.txt" "$(basename "${Tmat}" 1.txt)5.txt" | cut -f1-23,26-46 > "$(basename "${Tmat}" 1.txt)6.txt"
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Fmat2}" 1.txt)4.txt" "$(basename "${Fmat}" 1.txt)5.txt" | cut -f1-23,26-46 > "$(basename "${Fmat}" 1.txt)6.txt"
+
+#### FINAL (BASIC) PRESENCE-ABSENCE MATRIX FILE
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks and peak summits falling +-100bp TSS that are present in at least two replicates of each species tissue
+
+
+# C. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs.
+
+
+
+
+# D. Get a paired nt conservation score - run phylop
+# this is ran in script '/Users/mehtat/github/ATAC_bioinformatics/Multiple_genome_alignments_Cactus.sh'
+
 
 
 ################################################################################################################
 
-### 4. Differential analysis of peaks
+### 5. Differential analysis of peaks
 
 ### NOTE: be careful when considering differential peaks as some may be only offset by a few bases. In this scenario, consider the average number of mapped reads over a window.
 
@@ -2603,8 +4099,9 @@ done
     # This provided the peak coordinates for each of the biological replicates of all tissues profiled as input, plus the mapped and shifted sequencing reads (parameters ‘method = DBA_EDGER, bFullLibrarySize = FALSE, bSubControl = FALSE, bTagwise = FALSE’).
     # All peaks identified with a log2 fold change equal or greater than 1 in one tissue compared to all others were selected as tissue-specific.
   # B. Determine tissue-specific peaks between species same tissues e.g. Ab5_L vs Nb5_L
-    # you need to find a way to compare different species - use association to orthologous genes?
+    # you need to find a way to compare different species - use association to orthologous genes and/or multiple genome alignment
 
+################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
 
 ## ~ INSERT CODE HERE ~ ##
 
@@ -2612,7 +4109,7 @@ echo '# -- 3b. TF footprinting and creation of signal tracks has completed -- #'
 
 echo '# -- 4. Differential analysis of peaks has started -- #'
 
-JOBID16=$( sbatch -W --dependency=afterok:${JOBID15} XX.sh | awk '{print $4}' ) # JOB16 depends on JOB15 completing successfully
+JOBID32=$( sbatch -W --dependency=afterok:${JOBID31} XX.sh | awk '{print $4}' ) # JOB32 depends on JOB31 completing successfully
 
 ################################################################################################################
 
