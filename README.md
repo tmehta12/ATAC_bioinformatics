@@ -15,7 +15,7 @@ Multi tissue and multi species ATAC bioinformatics analysis pipeline
 
 Example input:
 
-    ./ATAC_Bioinf_pipeline_v2b_gDNA.sh -s Mz1_L_gDNA -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa
+      ./ATAC_Bioinf_pipeline_v2b_gDNA.sh -s Mz1_L_gDNA -g M_zebra_UMD1 -f mze_ref_M_zebra_UMD1_chrUn.fa
     
 Note: Script is adapted for SBATCH usage
 
@@ -39,7 +39,7 @@ This pipeline is ran as species-specific, from each folder, and contains the fol
         
 Example input:
 
-     ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f /tgac/workarea/group-vh/Tarang/Reference_Genomes/cichlids/Assemblies_12092016/Maylandia_zebra/mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
+     ./ATAC_Bioinf_pipeline_v2b.sh -s Mz1_L_ATAC -g M_zebra_UMD1 -f mze_ref_M_zebra_UMD1_chrUn.fa -m KT221043 -u mehtat
 
 Note: Script is adapted for SBATCH usage
 
