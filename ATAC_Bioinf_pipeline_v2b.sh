@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #!/bin/bash -e
-#SBATCH -p tgac-medium # partition (queue)
+#SBATCH -p ei-medium # partition (queue)
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
@@ -177,7 +177,7 @@ cd $trimdir
 # run as an array in sbatch script
 
 echo '#!/bin/bash -e' > 1a.trimadaptors.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 1a.trimadaptors.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 1a.trimadaptors.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1a.trimadaptors.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1a.trimadaptors.sh
 echo "#SBATCH --array=$trimarray" >> 1a.trimadaptors.sh
@@ -212,7 +212,7 @@ JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) #
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_ATAC_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
 
 echo '#!/bin/bash -e' > 1b.renamefiles.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 1b.renamefiles.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 1b.renamefiles.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1b.renamefiles.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1b.renamefiles.sh
 echo '#SBATCH --mem 8000' >> 1b.renamefiles.sh
@@ -246,7 +246,7 @@ cd $readalign
 # 2a. Build genome indexes for bowtie2 alignment - variables assigned on command line input
 
 echo '#!/bin/bash -e' > 2a.genomeindex.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 2a.genomeindex.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 2a.genomeindex.sh
 echo '#SBATCH -N 1 # number of nodes' >> 2a.genomeindex.sh
 echo '#SBATCH -n 1 # number of tasks' >> 2a.genomeindex.sh
 echo '#SBATCH --mem 48000' >> 2a.genomeindex.sh
@@ -370,7 +370,7 @@ JOBID5=$( sbatch -W --dependency=afterok:${JOBID4} 3.mtfilt_fragcount_A.sh | awk
 
 ## 3b. remove mitochondrial mapped reads from ATAC data and plot fragment lengths
 echo '#!/bin/bash -e' > 3.mtfilt_fragcount_B.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 3.mtfilt_fragcount_B.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH -n 1 # number of tasks' >> 3.mtfilt_fragcount_B.sh
 echo '#SBATCH --mem 48000' >> 3.mtfilt_fragcount_B.sh
@@ -465,7 +465,7 @@ JOBID6=$( sbatch -W --dependency=afterok:${JOBID5} 3.mtfilt_fragcount_B.sh | awk
 
 # 3b-A. Plot fragment lengths - note that this will produce a ggplot error and there is no STDOUT but the file will be Rplots.pdf
 echo '#!/bin/bash -e' > 3.mtfilt_fragcount_B_a.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 3.mtfilt_fragcount_B_a.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 3.mtfilt_fragcount_B_a.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.mtfilt_fragcount_B_a.sh
 echo '#SBATCH -n 1 # number of tasks' >> 3.mtfilt_fragcount_B_a.sh
 echo '#SBATCH --mem 24000' >> 3.mtfilt_fragcount_B_a.sh
@@ -492,7 +492,7 @@ cd $filtdir
 mkdir $filtdir/tmp
 
 echo '#!/bin/bash -e' > 4.postalign_filt.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 4.postalign_filt.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 4.postalign_filt.sh
 echo '#SBATCH -N 1 # number of nodes' >> 4.postalign_filt.sh
 echo '#SBATCH --mem 120000' >> 4.postalign_filt.sh
 echo '#SBATCH -t 0-10:59' >> 4.postalign_filt.sh
@@ -572,7 +572,7 @@ mkdir -p $peakcall
 cd $peakcall
 
 echo '#!/bin/bash -e' > 5.peakcall.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 5.peakcall.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 5.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5.peakcall.sh
 echo '#SBATCH -t 0-12:59' >> 5.peakcall.sh
@@ -632,7 +632,7 @@ echo "Genrich -t $Test2 -c $Control2 -o $output_prefix'_Genrich.peaks' -p $Macs2
 # 10. peak 	Summit position (0-based offset from chromStart): the midpoint of the peak interval with the highest significance (the longest interval in case of ties)
 
 echo '#!/bin/bash -e' > 5f.peakcall.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 5f.peakcall.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 5f.peakcall.sh
 echo '#SBATCH -N 1 # number of nodes' >> 5f.peakcall.sh
 echo '#SBATCH --mem 48000' >> 5f.peakcall.sh
 echo '#SBATCH -t 0-04:59' >> 5f.peakcall.sh

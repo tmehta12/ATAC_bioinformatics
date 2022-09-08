@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #!/bin/bash -e
-#SBATCH -p tgac-medium # partition (queue)
+#SBATCH -p ei-medium # partition (queue)
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
@@ -28,10 +28,6 @@
   # ATAC_Bioinf_pipeline_v2c_part3a.R
 # 3. Run as an sbatch script with 8Gb memory and ~4 days runtime - will spawn off other jobs
 
-## Major Note:
-# This script cannot run ATACseqQC on HPC (due to BSgenome build installation) - therefore it is broken for that step (surpressed here)
-# Nonetheless, a script for running locally has been created (and requires copying files locally): ATAC_Bioinf_pipeline_v2c_part2aB_ATACseqQClocal.sh
-
 ## Other Notes:
 # Install R-4.0.2 with the required packages:
 # "RMySQL","rtracklayer","GenomicFeatures","GLAD","gsl","ensembldb","GenomicRanges","MotIV","motifStack","ATACseqQC","ChIPpeakAnno", "MotifDb", "GenomicAlignments","Rsamtools","BSgenome","Biostrings","ggplot2","DiffBind", "DESeq2", "motifbreakR"
@@ -47,7 +43,12 @@
 # 	2a. TSS enrichment
 # 	2b. Fraction of reads in annotated regions
 # 3. TF footprinting and creation of signal tracks (needs to be ran on shifted BAM)- RGT (HINT-ATAC)
-# 4. Differential analysis of peaks - Homer and DiffBind
+# 4. Peak orthology
+#   4a. Generate a presence and absence matrix at gene level for the peaks
+#   4b. Start to analyse/subset the main tables, getting the values on
+#   4c. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs.
+#   4d. Get a paired nt conservation score - run phylop
+# 5. Differential analysis of peaks - DiffBind
 
 ################################################################################################################
 
@@ -309,7 +310,13 @@ spdiffread=spdiffread_paths.txt
 spdiffcond=spdiffcond_paths.txt
 spdiffout=spdiffout_paths.txt
 
-### 4. Differential analysis of peaks
+### 4a. Peak orthology
+peakorth=($scripts/4.Peak_Orth) # assign peak orth dir
+
+### 4b. Phylop of peaks
+phylopdir=($scripts/4b.peak_phylop) # assign peak orth dir
+
+### 5. Differential analysis of peaks
 
 
 
@@ -411,7 +418,7 @@ while read -r r1 r2; do
     echo "$r1 and $r2 EXISTS"
     #
     echo '#!/bin/bash -e' > 1a.IDR_${IDR_THRESH}.sh
-    echo '#SBATCH -p tgac-medium # partition (queue)' >> 1a.IDR_${IDR_THRESH}.sh
+    echo '#SBATCH -p ei-medium # partition (queue)' >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH -N 1 # number of nodes' >> 1a.IDR_${IDR_THRESH}.sh
     echo '#SBATCH -n 1 # number of tasks' >> 1a.IDR_${IDR_THRESH}.sh
     echo "#SBATCH --array=$IDRarray" >> 1a.IDR_${IDR_THRESH}.sh
@@ -451,7 +458,7 @@ while read -r r1 r2; do
     #
     #
     echo '#!/bin/bash -e' > 1aB.IDR.sh
-    echo '#SBATCH -p tgac-short # partition (queue)' >> 1aB.IDR.sh
+    echo '#SBATCH -p ei-short # partition (queue)' >> 1aB.IDR.sh
     echo '#SBATCH -N 1 # number of nodes' >> 1aB.IDR.sh
     echo '#SBATCH -n 1 # number of tasks' >> 1aB.IDR.sh
     echo '#SBATCH --mem-per-cpu 8000' >> 1aB.IDR.sh
@@ -510,7 +517,7 @@ done < $idrpairs2
 #
 #     6. strand [+-.] Use '.' if no strand is assigned.
 #
-#     7. signalValue float
+#     7. signalValue float - fold-change at peak summit
 #     Measurement of enrichment for the region for merged peaks. When a peak list is provided this is the value from the peak list.
 #
 #     8. p-value float
@@ -579,7 +586,7 @@ JOBID2=$( sbatch -W --dependency=afterok:${JOBID1} 1aB.IDR.sh | awk '{print $4}'
 # 1bA. Create a 3 column file - col1: variableID; col2: tagAlign input; col3: IDR peak file
 
 echo '#!/bin/bash -e' > 1bA.FRIPawk.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 1bA.FRIPawk.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 1bA.FRIPawk.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1bA.FRIPawk.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1bA.FRIPawk.sh
 echo '#SBATCH --mem-per-cpu 4000' >> 1bA.FRIPawk.sh
@@ -598,7 +605,7 @@ echo '# -- 1b. FRiP calculation has started -- #'
 JOBID3=$( sbatch -W --dependency=afterok:${JOBID2} 1bA.FRIPawk.sh | awk '{print $4}' ) # JOB3 depends on JOB2 completing successfully
 
 echo '#!/bin/bash -e' > 1bB.FRIPok.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 1bB.FRIPok.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 1bB.FRIPok.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1bB.FRIPok.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1bB.FRIPok.sh
 echo '#SBATCH --mem-per-cpu 1000' >> 1bB.FRIPok.sh
@@ -885,7 +892,7 @@ echo 'forgeBSgenomeDataPkg("'$BSsp6b'.seedfile")' >> ${BSsp6a}_forgeBSgenome.R
 
 # 2aBa. Forge BS genomes
 echo '#!/bin/bash -e' > 2aBa.forgeBSgenomes.sh
-echo "#SBATCH -p tgac-short # partition (queue)" >> 2aBa.forgeBSgenomes.sh
+echo "#SBATCH -p ei-short # partition (queue)" >> 2aBa.forgeBSgenomes.sh
 echo "#SBATCH -N 1 # number of nodes" >> 2aBa.forgeBSgenomes.sh
 echo "#SBATCH -n 1 # number of tasks" >> 2aBa.forgeBSgenomes.sh
 echo "#SBATCH --array=0-$spnumberarray" >> 2aBa.forgeBSgenomes.sh
@@ -927,7 +934,7 @@ echo "${speciesBSgenome5}_${BSsp5d}.tar.gz" >> speciesBSgenomeIDs2
 echo "${speciesBSgenome6}_${BSsp6d}.tar.gz" >> speciesBSgenomeIDs2
 
 echo '#!/bin/bash -e' > 2aBb.buildBSgenomes.sh
-echo "#SBATCH -p tgac-medium # partition (queue)" >> 2aBb.buildBSgenomes.sh
+echo "#SBATCH -p ei-medium # partition (queue)" >> 2aBb.buildBSgenomes.sh
 echo "#SBATCH -N 1 # number of nodes" >> 2aBb.buildBSgenomes.sh
 echo "#SBATCH -n 1 # number of tasks" >> 2aBb.buildBSgenomes.sh
 echo "#SBATCH --array=0-$spnumberarray" >> 2aBb.buildBSgenomes.sh
@@ -983,7 +990,7 @@ grep -F "$speciesid5" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_
 grep -F "$speciesid6" $prefixATAC2 | cut -f2 > "$(basename "$prefixATAC2" .txt)_sp6.txt"
 
 echo '#!/bin/bash -e' > ${speciesid1}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp1numberarray" >> ${speciesid1}_$atacqcscript2
@@ -1005,7 +1012,7 @@ printf '\n' >> ${speciesid1}_$atacqcscript2
 echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotMzg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome1' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome1a >> ${speciesid1}_$atacqcscript2
 
 echo '#!/bin/bash -e' > ${speciesid2}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp2numberarray" >> ${speciesid2}_$atacqcscript2
@@ -1027,7 +1034,7 @@ printf '\n' >> ${speciesid2}_$atacqcscript2
 echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotPng' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome2' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome2a >> ${speciesid2}_$atacqcscript2
 
 echo '#!/bin/bash -e' > ${speciesid3}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp3numberarray" >> ${speciesid3}_$atacqcscript2
@@ -1049,7 +1056,7 @@ printf '\n' >> ${speciesid3}_$atacqcscript2
 echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotAbg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome3' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome3a >> ${speciesid3}_$atacqcscript2
 
 echo '#!/bin/bash -e' > ${speciesid4}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp4numberarray" >> ${speciesid4}_$atacqcscript2
@@ -1071,7 +1078,7 @@ printf '\n' >> ${speciesid4}_$atacqcscript2
 echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotNbg' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome4' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome4a >> ${speciesid4}_$atacqcscript2
 
 echo '#!/bin/bash -e' > ${speciesid5}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp5numberarray" >> ${speciesid5}_$atacqcscript2
@@ -1093,7 +1100,7 @@ printf '\n' >> ${speciesid5}_$atacqcscript2
 echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.postalign_filt/${samples[${SLURM_ARRAY_TASK_ID}]}.nochrM.nodup.filt.bam '$annotOng' '$annotdir'/${samples[${SLURM_ARRAY_TASK_ID}]} "${samples[${SLURM_ARRAY_TASK_ID}]}_1_PTscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_2_NFRscore.tiff" '$speciesBSgenome5' "${samples[${SLURM_ARRAY_TASK_ID}]}_3_TSSscore.txt" "${samples[${SLURM_ARRAY_TASK_ID}]}_4_cumulativepercscore.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_5_logtransformedTSSsignalheatmap.tiff" "${samples[${SLURM_ARRAY_TASK_ID}]}_6_rescaledTSSsignal.tiff"' $speciesBSgenome5a >> ${speciesid5}_$atacqcscript2
 
 echo '#!/bin/bash -e' > ${speciesid6}_$atacqcscript2
-echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
+echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$atacqcscript2
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$atacqcscript2
 echo '#SBATCH --array=0-'"$sp6numberarray" >> ${speciesid6}_$atacqcscript2
@@ -1116,7 +1123,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 
 # # This is a while loop for each species that will check species ID etc and run ATACseqQC accordingly - problem with this is that jobs are NOT run in parallel!
 # echo '#!/bin/bash -e' > ${speciesid1}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid1}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid1}_$atacqcscript2
@@ -1138,7 +1145,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 # echo "done < $prefixATAC2" >> ${speciesid1}_$atacqcscript2
 #
 # echo '#!/bin/bash -e' > ${speciesid2}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid2}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid2}_$atacqcscript2
@@ -1160,7 +1167,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 # echo "done < $prefixATAC2" >> ${speciesid2}_$atacqcscript2
 #
 # echo '#!/bin/bash -e' > ${speciesid3}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid3}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid3}_$atacqcscript2
@@ -1182,7 +1189,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 # echo "done < $prefixATAC2" >> ${speciesid3}_$atacqcscript2
 #
 # echo '#!/bin/bash -e' > ${speciesid4}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid4}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid4}_$atacqcscript2
@@ -1204,7 +1211,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 # echo "done < $prefixATAC2" >> ${speciesid4}_$atacqcscript2
 #
 # echo '#!/bin/bash -e' > ${speciesid5}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid5}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid5}_$atacqcscript2
@@ -1226,7 +1233,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 # echo "done < $prefixATAC2" >> ${speciesid5}_$atacqcscript2
 #
 # echo '#!/bin/bash -e' > ${speciesid6}_$atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> ${speciesid6}_$atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> ${speciesid6}_$atacqcscript2
@@ -1249,7 +1256,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 #
 ## This is a while loop for all species samples but that will take an eternity!
 # echo '#!/bin/bash -e' > $atacqcscript2
-# echo '#SBATCH -p tgac-medium # partition (queue)' >> $atacqcscript2
+# echo '#SBATCH -p ei-medium # partition (queue)' >> $atacqcscript2
 # echo '#SBATCH -N 1 # number of nodes' >> $atacqcscript2
 # echo '#SBATCH -n 1 # number of tasks' >> $atacqcscript2
 # echo '#SBATCH --mem-per-cpu 120000' >> $atacqcscript2
@@ -1314,7 +1321,7 @@ echo 'Rscript '$atacqcscript' '$scripts'/${samples[${SLURM_ARRAY_TASK_ID}]}/4.po
 #
 # ## The following is only for whether the flags are used with the 'optparser' library in $atacqcscript script
 # echo '#!/bin/bash -e' > $atacqcscript2
-# echo "#SBATCH -p tgac-medium # partition (queue)" >> $atacqcscript2
+# echo "#SBATCH -p ei-medium # partition (queue)" >> $atacqcscript2
 # echo "#SBATCH -N 1 # number of nodes" >> $atacqcscript2
 # echo "#SBATCH -n 1 # number of tasks" >> $atacqcscript2
 # echo "#SBATCH --mem-per-cpu 60000" >> $atacqcscript2
@@ -1562,7 +1569,7 @@ grep -F "$speciesid6" $fripprefix2 | cut -f2 > "$(basename "$fripprefix2" .txt)_
 
 # vii. run the array for calculating fraction of reads in annotated regions
 echo '#!/bin/bash -e' > ${speciesid1}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid1}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid1}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid1}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid1}_$friarscript
 echo '#SBATCH --array=0-'"$sp1numberfriararray" >> ${speciesid1}_$friarscript
@@ -1588,7 +1595,7 @@ echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid1}_$fr
 echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid1}_$friarscript
 
 echo '#!/bin/bash -e' > ${speciesid2}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid2}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid2}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid2}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid2}_$friarscript
 echo '#SBATCH --array=0-'"$sp2numberfriararray" >> ${speciesid2}_$friarscript
@@ -1614,7 +1621,7 @@ echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid2}_$fr
 echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid2}_$friarscript
 
 echo '#!/bin/bash -e' > ${speciesid3}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid3}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid3}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid3}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid3}_$friarscript
 echo '#SBATCH --array=0-'"$sp3numberfriararray" >> ${speciesid3}_$friarscript
@@ -1640,7 +1647,7 @@ echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid3}_$fr
 echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid3}_$friarscript
 
 echo '#!/bin/bash -e' > ${speciesid4}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid4}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid4}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid4}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid4}_$friarscript
 echo '#SBATCH --array=0-'"$sp4numberfriararray" >> ${speciesid4}_$friarscript
@@ -1666,7 +1673,7 @@ echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid4}_$fr
 echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid4}_$friarscript
 
 echo '#!/bin/bash -e' > ${speciesid5}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid5}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid5}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid5}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid5}_$friarscript
 echo '#SBATCH --array=0-'"$sp5numberfriararray" >> ${speciesid5}_$friarscript
@@ -1692,7 +1699,7 @@ echo 'promperc=$(perl -E "say ${promoterfr}/${total}*100")' >> ${speciesid5}_$fr
 echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'\t'"'$geneperc'"'\t'"'$promoterfr'"'\t'"'$promperc > fraction_of_reads_in_annotatedregions.txt' >> ${speciesid5}_$friarscript
 
 echo '#!/bin/bash -e' > ${speciesid6}_$friarscript
-echo '#SBATCH -p tgac-short # partition (queue)' >> ${speciesid6}_$friarscript
+echo '#SBATCH -p ei-short # partition (queue)' >> ${speciesid6}_$friarscript
 echo '#SBATCH -N 1 # number of nodes' >> ${speciesid6}_$friarscript
 echo '#SBATCH -n 1 # number of tasks' >> ${speciesid6}_$friarscript
 echo '#SBATCH --array=0-'"$sp6numberfriararray" >> ${speciesid6}_$friarscript
@@ -1719,7 +1726,7 @@ echo 'echo -e ${samples[${SLURM_ARRAY_TASK_ID}]}'"'\t'"'$total'"'\t'"'$genefr'"'
 
 # ## This is for running as a while loop - lot slower
 # echo '#!/bin/bash -e' > $friarscript
-# echo "#SBATCH -p tgac-medium # partition (queue)" >> $friarscript
+# echo "#SBATCH -p ei-medium # partition (queue)" >> $friarscript
 # echo "#SBATCH -N 1 # number of nodes" >> $friarscript
 # echo "#SBATCH -n 1 # number of tasks" >> $friarscript
 # echo "#SBATCH --mem-per-cpu 60000" >> $friarscript
@@ -1943,7 +1950,7 @@ done < $antfiles
   # acalliptera_gene_ensembl
 
 echo '#!/bin/bash -e' > 3.2_biomart_dl.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 3.2_biomart_dl.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 3.2_biomart_dl.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.2_biomart_dl.sh
 echo '#SBATCH -c 1 # number of cores' >> 3.2_biomart_dl.sh
 echo '#SBATCH --mem 8000 # memory pool for all cores' >> 3.2_biomart_dl.sh
@@ -2445,7 +2452,7 @@ done
 # nano setuplogo.sh
 #
 # #!/bin/bash -e
-# #SBATCH -p tgac-short # partition (queue)
+# #SBATCH -p ei-short # partition (queue)
 # #SBATCH -N 1 # number of nodes
 # #SBATCH -n 1 # number of tasks
 # #SBATCH --array=0-4
@@ -2497,10 +2504,12 @@ done
 
 ############################################################################################################################
 
-# rgt-hint footprinting output is a bed-file and .info file for number of peaks and footprints (but no overlapping motif information)
-# bed file output: col1 - chr, col2 - start, col3 - end, col4 - footprintID, col5 - score?, col6 - .
+# rgt-hint footprinting output is a bed-file, *_mpbs.bed and .info file for number of peaks and footprints
+# the *_mpbs.bed file contains the following cols
+# col1 - chr, col2 - start, col3 - end, col4 - motifID, col5 - bit-score of the motif matching, col6 - strand
 
-# The output of HINT-ATAC footprinting is a.bed-file of footprint ranges ranked by tag count.
+
+# The output of HINT-ATAC footprinting is a .bed-file of footprint ranges ranked by tag count.
 # All TFBS overlapping a footprint with more than 2/3 of the TFBS bases was assumed to be bound and scored using the tag count of the footprint.
 # The rest of the TFBS (within peaks) were set to score 0 (low chance of protein binding).
 # The auROC was calculated based on the ability of these scores to predict true protein binding.
@@ -2553,7 +2562,7 @@ done
 for Dfpsp in "${!fpsp@}"; do
   # echo "$Dfpsp is set to ${!Dfpsp}"
   echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp.sh'
-  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp.sh'
+  echo '#SBATCH -p ei-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH -n 1 # number of tasks' >> "${!Dfpsp}"'_TFfp.sh'
   echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"peararrayend")" >> "${!Dfpsp}"'_TFfp.sh'
@@ -2624,7 +2633,7 @@ done
 for Dfpsp in "${!fpsp@}"; do
   # echo "$Dfpsp is set to ${!Dfpsp}"
   echo '#!/bin/bash -e' > "${!Dfpsp}"'_TFfp_b.sh'
-  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp_b.sh'
+  echo '#SBATCH -p ei-medium # partition (queue)' >> "${!Dfpsp}"'_TFfp_b.sh'
   echo '#SBATCH -N 1 # number of nodes' >> "${!Dfpsp}"'_TFfp_b.sh'
   echo '#SBATCH -n 1 # number of tasks' >> "${!Dfpsp}"'_TFfp_b.sh'
   echo '#SBATCH --array=0-'"$(eval "echo \$"${!Dfpsp}"peararrayend")" >> "${!Dfpsp}"'_TFfp_b.sh'
@@ -2712,7 +2721,7 @@ done
 # nano motifmatch.sh # this code holds the most promise as actually loading files - basically the same as original
 #
 # #!/bin/bash -e
-# #SBATCH -p tgac-medium # partition (queue)
+# #SBATCH -p ei-medium # partition (queue)
 # #SBATCH -N 1 # number of nodes
 # #SBATCH -n 1 # number of tasks
 # #SBATCH --mem-per-cpu 32000
@@ -2747,7 +2756,7 @@ done
 # nano motifmatch.sh # this code holds the most promise as actually loading files - basically the same as original
 #
 # #!/bin/bash -e
-# #SBATCH -p tgac-medium # partition (queue)
+# #SBATCH -p ei-medium # partition (queue)
 # #SBATCH -N 1 # number of nodes
 # #SBATCH -n 1 # number of tasks
 # #SBATCH --mem-per-cpu 32000
@@ -2963,7 +2972,7 @@ done
 # for i in Mz Ac Pn Ab Nb On; do sbatch ${i}_TFfp_c.sh; done
 
 # this runs for a single sample
-# rgt-hint differential --organism $(eval echo $organism) --bc --nc 30 --mpbs-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/$(eval echo $output)_fp/1aAc_3dpf_ATAC/v1/1aAc_3dpf_ATAC_mpbs.bed --reads-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/2.Annotation/1aAc_3dpf_ATAC/1aAc_3dpf_ATAC.nochrM.nodup.filt.shifted.bam --conditions 1aAc_3dpf_ATAC --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/$(eval echo $output)_fp/1aAc_3dpf_ATAC/v1/diff
+# rgt-hint differential --organism $(eval echo $organism) --bc --nc 30 --mpbs-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/Ac_fp/1aAc_3dpf_ATAC/v1/1aAc_3dpf_ATAC_mpbs.bed --reads-files /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/2.Annotation/1aAc_3dpf_ATAC/1aAc_3dpf_ATAC.nochrM.nodup.filt.shifted.bam --conditions 1aAc_3dpf_ATAC --output-location /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/3.TFfprint_SignalTrack/$(eval echo $output)_fp/1aAc_3dpf_ATAC/v1/diff
 
 ## Dc. Create signal tracks using a modified bedtools approach - this is outputted to '$scripts/*_*_ATAC/5.peak_calling'
 
@@ -3009,7 +3018,7 @@ done
 for Gfpsp in "${!fpsp@}"; do
   # echo "$Dfpsp is set to ${!Dfpsp}"
   echo '#!/bin/bash -e' > "${!Gfpsp}"'_sigtrack.sh'
-  echo '#SBATCH -p tgac-medium # partition (queue)' >> "${!Gfpsp}"'_sigtrack.sh'
+  echo '#SBATCH -p ei-medium # partition (queue)' >> "${!Gfpsp}"'_sigtrack.sh'
   echo '#SBATCH -N 1 # number of nodes' >> "${!Gfpsp}"'_sigtrack.sh'
   echo '#SBATCH -n 1 # number of tasks' >> "${!Gfpsp}"'_sigtrack.sh'
   echo '#SBATCH --array=0-'"$(eval "echo \$"${!Gfpsp}"sigarrayend")" >> "${!Gfpsp}"'_sigtrack.sh'
@@ -3374,14 +3383,13 @@ done
 # 		ii. Using gene orthology, create a unified matrix for all species. For each species, have five cols - B, E, L, T and any tissue: mark a 1 or 0 for presence or absence. Have extra cols for On G and Ac embryos.
 # B. Start to analyse/subset the main tables, getting the values on
 # 		i. Presence and absence of peaks in genes (in general) according to tissue and species
-# 		ii. Flag genes falling 10-20bp from TSS and their presence/absence
+# 		ii. Flag peak summits falling +-100bp from TSS and their presence/absence
 # C. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs.
 # D. Get a paired nt conservation score - run phylop
 
 ################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
 
-peakorth=($scripts/4.Peak_Orth) # assign raw reads dir
-# mkdir $peakorth
+mkdir -p $peakorth
 cd $peakorth
 
 # A. Generate a presence and absence matrix at gene level for the peaks
@@ -3481,7 +3489,7 @@ rm *.tmp
 # cat biomart_headers cmilii_gene_ensembl_biomart1a.txt > cmilii_gene_ensembl_biomart.txt
 
 # echo '#!/bin/bash -e' > 4_biomart_dl.sh
-# echo '#SBATCH -p tgac-short # partition (queue)' >> 4_biomart_dl.sh
+# echo '#SBATCH -p ei-short # partition (queue)' >> 4_biomart_dl.sh
 # echo '#SBATCH -N 1 # number of nodes' >> 4_biomart_dl.sh
 # echo '#SBATCH -c 1 # number of cores' >> 4_biomart_dl.sh
 # echo '#SBATCH --mem 8000 # memory pool for all cores' >> 4_biomart_dl.sh
@@ -3880,7 +3888,7 @@ done # for loop to generate intermediate matrix files for each sample - one for 
 
 # for loop over all true and all false files to create the unified matrix
 i=0
-cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim   ## use first two columns as delimiter (as thye will be the same for all files)
+cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim   ## use first two columns as delimiter (as they will be the same for all files)
 for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.True; do
   i=$(($i+1))  ## for adding count to distinguish files from original ones
   cut -f3 $file > ${file}__${i}.temp
@@ -3922,7 +3930,7 @@ awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print 
 # 		ii. Presence and absence of peaks in genes (in general) according to tissue and species - run on 1-to-1 above and first filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
 ################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
 
-# first, filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
+# first, filter out for replicates with inconsistent presence or absence e.g. present in one and not absent in other replicates, but only needs to be present in at least 2 replicates
 awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat" 1.txt)2.txt" |
 awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
 awk '$12==$16 || $12==$24 || $16==$24' |
@@ -3974,22 +3982,24 @@ for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_4.txt; do
   rm ${i}.tmp
 done
 
-#### FINAL (BASIC) PRESENCE-ABSENCE MATRIX FILES
+#### INTERMEDIATE (BASIC) PRESENCE-ABSENCE MATRIX FILES
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_1.txt # 38,445 - total number of orthogroups/genes with peaks mapped in the five cichlid species
-# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_2.txt # 13,998 - total number of 1-to-1 orthogroups/genes with peaks mapped in the five cichlid species
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_2.txt # 13,997 - total number of 1-to-1 orthogroups/genes with peaks mapped in the five cichlid species
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt # 3005 (True) and 1923 (False) - total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_4.txt # 3005 (True) and 1923 (False) - simplified (collated '|' separated replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_5.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
 
-# 		iii. Flag genes falling +-100bp from TSS and their presence/absence - NOTE: this method is good for parsing ANYTHING from *.orth5 e.g. peak summits, peak lengths etc. to create and add to the matrices
+
+
+# 		iii. Flag peak summits falling +-100bp from TSS and their presence/absence (and also retain the peakID to cross check with alignments after!)- NOTE: this method is good for parsing ANYTHING from *.orth5 e.g. peak summits, peak lengths etc. to create and add to the matrices
 # first, parse the *.orth5 files for orthogroups with peak summits falling +-100bp TSS (use the 'Summit_to_TSS' col - col22). This outputs Orthogroup, Unified_GeneSymbol, Summit_to_TSS and a 1 or 0 for peak +/-100bp (or equal to)
 for i in *.orth5; do
   sample=$(echo ${i} | sed 's/_ATAC_peaks.final.narrowPeak.promoverlap.orth5/_peakTSS+-100/g')
   sample2=$(echo ${i} | sed 's/_ATAC_peaks.final.narrowPeak.promoverlap.orth5//g')
-  printf "Orthogroup\tUnified_GeneSymbol\t${sample2}_Summit_to_TSS\t$sample\n" > ${i}.True
-  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1"; else print $1,$3,$22,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.True
-  printf "Orthogroup\tUnified_GeneSymbol\t$sample\n" > ${i}.False
-  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1"; else print $1,$3,$22,"0"}' OFS='\t' ${i} | sed '1,1d' >> ${i}.False
+  printf "Orthogroup\tUnified_GeneSymbol\t${sample2}_Summit_to_TSS\t$sample\t${sample2}_peakID\n" > ${i}.True
+  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1",$8; else print $1,$3,$22,"0",$8}' OFS='\t' ${i} | sed '1,1d' >> ${i}.True
+  printf "Orthogroup\tUnified_GeneSymbol\t${sample2}_Summit_to_TSS\t$sample\t${sample2}_peakID\n" > ${i}.False
+  awk '{if($22!="NULL" && $22<=100 && $22>=-100) print $1,$3,$22,"1",$8; else print $1,$3,$22,"0",$8}' OFS='\t' ${i} | sed '1,1d' >> ${i}.False
 done # for loop to generate intermediate matrix files for each sample - one for true IDR and one for false IDR
 
 # for loop over all true and all false files to create the unified matrix - at this point remove the *_Summit_to_TSS column for ease
@@ -3997,86 +4007,1348 @@ Tmat2=MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmatTSS_1.txt
 Fmat2=MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmatTSS_1.txt
 
 i=0
-cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim   ## use first two columns as delimiter (as they will be the same for all files)
+cut -f1,2 Ab5_B_ATAC_peaks.final.narrowPeak.promoverlap.orth5.True > delim
 for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.True; do
   i=$(($i+1))  ## for adding count to distinguish files from original ones
-  cut -f4 $file > ${file}__${i}.temp
+  cut -f4 $file > ${file}__${i}.temp1
+  cut -f5 $file > ${file}__${i}.temp2
 done
-paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.True__*.temp > $Tmat2 # do the join
+
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.True__*.temp1 {Mz,Pn,Ab,Nb,On}*orth5.True__*.temp2 > $Tmat2 # do the join
 
 i=0
 for file in {Mz,Pn,Ab,Nb,On}*_*_ATAC_peaks*.False; do
   i=$(($i+1))  ## for adding count to distinguish files from original ones
-  cut -f4 $file > ${file}__${i}.temp
+  cut -f4 $file > ${file}__${i}.temp1
+  cut -f5 $file > ${file}__${i}.temp2
 done
-paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.False__*.temp > $Fmat2 # do the join
+paste -d'\t' delim {Mz,Pn,Ab,Nb,On}*orth5.False__*.temp1 {Mz,Pn,Ab,Nb,On}*orth5.False__*.temp2 > $Fmat2 # do the join
 
-rm *orth5.True *orth5.False *__*.temp delim
+rm *orth5.True *orth5.False *__*.temp* delim
 
 #     i. Presence and absence of peaks in 1-to-1 (5 sp) orthologs only
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Tmat2 | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Tmat2" 1.txt)2.txt" # 13,997
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Fmat2 | grep -v 'REMOVEME' | cut -f1-56 > "$(basename "$Fmat2" 1.txt)2.txt" # 13,997
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Tmat2 | grep -v 'REMOVEME' | cut -f1-110 > "$(basename "$Tmat2" 1.txt)2.txt" # 13,997
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print $0,"REMOVEME";}}' $orthENSGS5cich $Fmat2 | grep -v 'REMOVEME' | cut -f1-110 > "$(basename "$Fmat2" 1.txt)2.txt" # 13,997
 
 # second, for each species tissue replicates, determine the orthogroups with consistent peak summits falling +-100bp TSS
 # filter out for replicates with inconsistent presence or absence e.g. present in one not absent in other replicates, but only needs to be present in at least 2 replicates
-awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat2" 1.txt)2.txt" |
-awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
-awk '$12==$16 || $12==$24 || $16==$24' |
-awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
-awk '$15==$19 || $15==$23 || $19==$23' |
-awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
-awk '$42==$47 || $42==$52 || $47==$52' |
-awk '$43==$48 || $43==$53 || $48==$53' |
-awk '$44==$49 || $44==$54 || $49==$54' |
-awk '$45==$50 || $45==$55 || $50==$55' |
-awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Tmat2" 1.txt)3.txt" # 4074
-
-awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Fmat2" 1.txt)2.txt" |
-awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
-awk '$12==$16 || $12==$24 || $16==$24' |
-awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
-awk '$15==$19 || $15==$23 || $19==$23' |
-awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
-awk '$42==$47 || $42==$52 || $47==$52' |
-awk '$43==$48 || $43==$53 || $48==$53' |
-awk '$44==$49 || $44==$54 || $49==$54' |
-awk '$45==$50 || $45==$55 || $50==$55' |
-awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Fmat2" 1.txt)3.txt" # 4075
-
-head -1 $Tmat2 > MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt
-for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_3.txt; do
-  cat MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt $i > ${i}.tmp
-  rm ${i}
-  mv ${i}.tmp ${i}
-done
-
-for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_2.txt; do
-  sed '1,1d' $i > ${i}.tmp
-  rm ${i}
-  mv ${i}.tmp ${i}
-done
+## THIS IS WRONG - NOT REQUIRED AS IT CAN BE DETERMINED DIRECTLY FROM THE TABLE - if this is run then it eventaully assigns a NULL for peaks IDs that are present (but not +/-100bpTSS in all replicates), which is WRONG!!
+# awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat2" 1.txt)2.txt" |
+# awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+# awk '$12==$16 || $12==$24 || $16==$24' |
+# awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+# awk '$15==$19 || $15==$23 || $19==$23' |
+# awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+# awk '$42==$47 || $42==$52 || $47==$52' |
+# awk '$43==$48 || $43==$53 || $48==$53' |
+# awk '$44==$49 || $44==$54 || $49==$54' |
+# awk '$45==$50 || $45==$55 || $50==$55' |
+# awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Tmat2" 1.txt)3.txt" # 4074
+#
+# awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Fmat2" 1.txt)2.txt" |
+# awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
+# awk '$12==$16 || $12==$24 || $16==$24' |
+# awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
+# awk '$15==$19 || $15==$23 || $19==$23' |
+# awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
+# awk '$42==$47 || $42==$52 || $47==$52' |
+# awk '$43==$48 || $43==$53 || $48==$53' |
+# awk '$44==$49 || $44==$54 || $49==$54' |
+# awk '$45==$50 || $45==$55 || $50==$55' |
+# awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Fmat2" 1.txt)3.txt" # 4074
+#
+# head -1 $Tmat2 > MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt
+# for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_3.txt; do
+#   cat MzPnAbNbOn_BELT_G_ATAC_TSSheader.txt $i > ${i}.tmp
+#   rm ${i}
+#   mv ${i}.tmp ${i}
+# done
+#
+# for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmatTSS_2.txt; do
+#   sed '1,1d' $i > ${i}.tmp
+#   rm ${i}
+#   mv ${i}.tmp ${i}
+# done
+#
+# # Create a general presence and absence of peaks in genes according to tissue and species - don't create a unified one using the crazy awk script so that you can see if maybe one peak is near a TSS and identify which simply
+# for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmatTSS_3.txt; do
+#   awk '{print $1,$2,$3"|"$7,$4"|"$8,$5"|"$9,$6"|"$10,$11"|"$14"|"$18"|"$22,$12"|"$16"|"$24,$13"|"$17"|"$21"|"$25,$15"|"$19"|"$23,$26"|"$30,$27"|"$31,$28"|"$32,$29"|"$33,$34"|"$38,$35"|"$39,$36"|"$40,$37"|"$41,$42"|"$47"|"$52,$43"|"$48"|"$53,$44"|"$49"|"$54,$45"|"$50"|"$55,$46"|"$51"|"$56,$57"|"$61,$58"|"$62,$59"|"$63,$60"|"$64,$65"|"$68"|"$72"|"$76,$66"|"$70"|"$78,$67"|"$71"|"$75"|"$79,$69"|"$73"|"$77,$80"|"$84,$81"|"$85,$82"|"$86,$83"|"$87,$88"|"$92,$89"|"$93,$90"|"$94,$91"|"$95,$96"|"$101"|"$106,$97"|"$102"|"$107,$98"|"$103"|"$108,$99"|"$104"|"$109,$100"|"$105"|"$110}' OFS='\t' ${i} > "$(basename "${i}" 3.txt)4.txt"
+# done
+#
+# # third (and finally), map the orthogroups (for each species tissue) that have consistent peak summits falling +-100bp TSS, otherwise, show as NULLs > MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Tmat2}" 1.txt)4.txt" "$(basename "${Tmat}" 1.txt)5.txt" | cut -f1-23,26-68 > "$(basename "${Tmat}" 1.txt)6.txt"
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Fmat2}" 1.txt)4.txt" "$(basename "${Fmat}" 1.txt)5.txt" | cut -f1-23,26-68 > "$(basename "${Fmat}" 1.txt)6.txt"
+#
 
 # Create a general presence and absence of peaks in genes according to tissue and species - don't create a unified one using the crazy awk script so that you can see if maybe one peak is near a TSS and identify which simply
-for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmatTSS_3.txt; do
-  awk '{print $1,$2,$3"|"$7,$4"|"$8,$5"|"$9,$6"|"$10,$11"|"$14"|"$18"|"$22,$12"|"$16"|"$24,$13"|"$17"|"$21"|"$25,$15"|"$19"|"$23,$26"|"$30,$27"|"$31,$28"|"$32,$29"|"$33,$34"|"$38,$35"|"$39,$36"|"$40,$37"|"$41,$42"|"$47"|"$52,$43"|"$48"|"$53,$44"|"$49"|"$54,$45"|"$50"|"$55,$46"|"$51"|"$56}' OFS='\t' ${i} > "$(basename "${i}" 3.txt)4.txt"
+for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmatTSS_2.txt; do
+  awk '{print $1,$2,$3"|"$7,$4"|"$8,$5"|"$9,$6"|"$10,$11"|"$14"|"$18"|"$22,$12"|"$16"|"$24,$13"|"$17"|"$21"|"$25,$15"|"$19"|"$23,$26"|"$30,$27"|"$31,$28"|"$32,$29"|"$33,$34"|"$38,$35"|"$39,$36"|"$40,$37"|"$41,$42"|"$47"|"$52,$43"|"$48"|"$53,$44"|"$49"|"$54,$45"|"$50"|"$55,$46"|"$51"|"$56,$57"|"$61,$58"|"$62,$59"|"$63,$60"|"$64,$65"|"$68"|"$72"|"$76,$66"|"$70"|"$78,$67"|"$71"|"$75"|"$79,$69"|"$73"|"$77,$80"|"$84,$81"|"$85,$82"|"$86,$83"|"$87,$88"|"$92,$89"|"$93,$90"|"$94,$91"|"$95,$96"|"$101"|"$106,$97"|"$102"|"$107,$98"|"$103"|"$108,$99"|"$104"|"$109,$100"|"$105"|"$110}' OFS='\t' ${i} > "$(basename "${i}" 2.txt)3NEW.txt"
 done
 
 # third (and finally), map the orthogroups (for each species tissue) that have consistent peak summits falling +-100bp TSS, otherwise, show as NULLs > MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Tmat2}" 1.txt)4.txt" "$(basename "${Tmat}" 1.txt)5.txt" | cut -f1-23,26-46 > "$(basename "${Tmat}" 1.txt)6.txt"
-awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Fmat2}" 1.txt)4.txt" "$(basename "${Fmat}" 1.txt)5.txt" | cut -f1-23,26-46 > "$(basename "${Fmat}" 1.txt)6.txt"
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Tmat2}" 1.txt)3NEW.txt" "$(basename "${Tmat}" 1.txt)5.txt" | cut -f1-23,26-68 > "$(basename "${Tmat}" 1.txt)6.txt"
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' "$(basename "${Fmat2}" 1.txt)3NEW.txt" "$(basename "${Fmat}" 1.txt)5.txt" | cut -f1-23,26-68 > "$(basename "${Fmat}" 1.txt)6.txt"
 
 #### FINAL (BASIC) PRESENCE-ABSENCE MATRIX FILE
-# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks and peak summits falling +-100bp TSS that are present in at least two replicates of each species tissue
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks and peak summits falling +-100bp TSS that are present in at least two replicates of each species tissue (with the peak IDs shown for mapping back to original files)
 
 
-# C. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs.
+# C. Are the peaks preserved - use the alignment. If it's crap then run a local alignment for pairs (but will still need a multiple alignment!)
+
+cd $peakorth # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/
+
+# i. create a readable format of the MAF file
+# MAF original format
+# The "s" lines together with the "a" lines define a multiple alignment.
+#     src -- The name of one of the source sequences for the alignment. For sequences that are resident in a browser assembly, the form 'database.chromosome' allows automatic creation of links to other assemblies. Non-browser sequences are typically reference by the species name alone.
+#     start -- The start of the aligning region in the source sequence. This is a zero-based number. If the strand field is "-" then this is the start relative to the reverse-complemented source sequence (see Coordinate Transforms).
+#     size -- The size of the aligning region in the source sequence. This number is equal to the number of non-dash characters in the alignment text field below.
+#     strand -- Either "+" or "-". If "-", then the alignment is to the reverse-complemented source.
+#     srcSize -- The size of the entire source sequence, not just the parts involved in the alignment.
+#     text -- The nucleotides (or amino acids) in the alignment and any insertions (dashes) as well.
+
+# Parse the MAF file to show
+# 1. species full name
+# 2. species short name (Mz,Ac,Pn,Ab,Nb,On)
+# 3. alignment id e.g. a1, a2 ..aN - for each 'a' block, add a counting number
+# 4. chr
+# 5. chr length
+# 6. start
+# 7. end
+# 8. length of alignment
+# 9. strand
+# 10. nucleotide sequence
+
+maf=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/6sp_cactus_MGA/out/MzAcPnAbNb_OnRef_Cactus_amend.maf)
+mafsummary=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/MzAcPnAbNb_OnRef_Cactus_amend.maf.summary)
+
+printf 'sp\tsp_id\talign_id\tchr\tchr_length\tstart\tend\talign_length\tstrand\talign_seq\n' > $mafsummary # create the header and add to it below
+
+awk '/^a/ { $0=$0 "" ++i }1' $maf | # this adds a counter number to the 'a' line for each alignment
+awk 'BEGIN{OFS="\t"} /^a/ {h=$0; next} {print h, $0}' | # this then adds the alignment counter as a column to each proceeding row
+awk '{if($3~ /^Oreochromis_niloticus/){print "On",$0;}if($3~ /^Pundamilia_nyererei/){print "Pn",$0;}if($3~ /^Astatotilapia_calliptera/){print "Ac",$0;}if($3~ /^Metriaclima_zebra/){print "Mz",$0;}if($3~ /^Neolamprologus_brichardi/){print "Nb",$0;}if($3~ /^Astatotilapia_burtoni/){print "Ab",$0;}if($3~ /^Anc0/){print "Anc0",$0;}if($3~ /^Anc1/){print "Anc1",$0;}if($3~ /^Anc2/){print "Anc2",$0;}if($3~ /^Anc3/){print "Anc3",$0;}if($3~ /^Anc4/){print "Anc4",$0;}}' OFS='\t' | # add species short name
+awk '{sub(/\./," ")}1' | # split by the first dot in the species name for chr
+awk '{print $4,$1,$2,$5,$9,$6,$6+$7,$7,$8,$10}' OFS='\t' >> $mafsummary #DONE
+
+# ii. for each orthogroup in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt presence/absence matrices, do the following:
+
+# ii-a. pull out all peak IDs with orthogroup and gene name (in cols 1,2,45-65) in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt and get their chr, start and end in *.orth5 (output orth, gene, peakID, chr, start, end, strand, MACS2_integer_score, pval, qval)
+# Change the test_TrueIDR_PAmat_6.txt file to have this format - all peakIDs, orthogroup and gene (removing those where NULL exists for peakID)
+
+for i in MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.txt; do
+  cut -f1,2 ${i} > "$(basename "${i}" .txt).tmp1" # get the orthogroups and genes only
+  cut -f45-65 ${i} | sed $'s/\t/|/g' > "$(basename "${i}" .txt).tmp2" # get the peaksIDs and separate all with '|' (so contain all into one column)
+  paste -d'\t' "$(basename "${i}" .txt).tmp1" "$(basename "${i}" .txt).tmp2" | sed '1,1d' | awk '{n = split($3,x,"|"); for (i = 1; i <= n; ++i) {printf "%s\t%s\t%s\n", x[i], $1, $2 }}' | awk '$1!="NULL"' > "$(basename "${i}" .txt).tmp" # paste together, remove the header, awk script to turn each peakID in '|' column (col3) to a row with orthogroup and gene symbol
+  rm "$(basename "${i}" .txt).tmp1" "$(basename "${i}" .txt).tmp2"
+done
+
+# cat all the *.orth5 files (removing headers)
+DEST=collated.orth5
+
+echo "" | sed '1,1d' >$DEST
+for i in *.promoverlap.orth5
+do
+    sed -e'1d' $i >>$DEST
+done
+
+# awk match command (on peakIDs) to output (orth, spID (short name), gene, ensemblID, peakID, chr, start, end, MACS2_integer_score, pval, qval,IDR,Prom_start,Summit_to_TSS)
+for i in MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.tmp MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.tmp; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$8]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $DEST ${i} | awk '{print $2,$1,$3,$5,$1,$8,$9,$10,$12,$15,$16,$18,$23,$25}' OFS='\t' | awk '{ sub(/_.*$/, "", $2); print }' OFS='\t' | awk '{ sub(/[0-9=%]/, "", $2); print }' OFS='\t' | awk '{ sub(/Pnm/,"Pn", $2); print }' OFS='\t' > "$(basename "${i}" _6.tmp)_7.txt"
+done
 
 
+# ii-b. then check whether the peak coordinates overlap (in any way, even 1bp) with the corresponding species in MAF, and assign the peakID (and other deets) to it (NULL if not)
+# for this, amend the chr to be sp_id'_'chr in both files, rearranging to bed format: sp_id'_'chr; start; end; other cols
+
+nano 0.mafintersect.sh
+
+#!/bin/bash -e
+#SBATCH -p ei-medium # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 88000
+#SBATCH -t 0-01:59
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+
+mafsummary=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/MzAcPnAbNb_OnRef_Cactus_amend.maf.summary)
+
+ml bedtools/2.25.0
+
+awk '{print $2"_"$4,$6,$7,$0}' OFS='\t' $mafsummary | sort -k1,1 -k2,2n | sed -e '$ d' > $mafsummary.tmp # amend the chr col to reflect spID too and sort for intersect, then remove the last line that will be the header
+
+for i in MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_7.txt; do
+  awk '{print $2"_"$6,$7,$8,$0}' OFS='\t' ${i} | sort -k1,1 -k2,2n > ${i}.tmp # amend the chr col to reflect spID too and sort for intersect
+  bedtools intersect -a ${i}.tmp -b $mafsummary.tmp -wao > "$(basename "${i}" _7.txt)_8.txt" # intersect the maf and the present/absent peaks
+done
+
+# run the above
+sbatch 0.mafintersect.sh
+
+cut -f8 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_7.txt.tmp | sort -u | wc -l # Check if all peaks retained: 21321
+cut -f8 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8.txt | sort -u | wc -l # Checked: 21321 - all peaks have been retained
+rm MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_7.txt.tmp $mafsummary.tmp
+
+###### Above ran successfuly and the two outputs MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_8.txt need to be parsed
+
+cd $peakorth # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/
+
+# For the parsing you need to
+# 1. split MzPnAbNbOn_BELT_G_ATAC_*IDR_PAmat_8.txt by species and create a unified col4[orthogroup]_col23[align_ID]
+for i in Mz Pn Ab Nb On; do
+  awk -v var="$i" '$5==var' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8.txt | awk '{print $4"_"$23,$0}' OFS='\t' > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${i}.txt
+  awk -v var="$i" '$5==var' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8.txt | awk '{print $4"_"$23,$0}' OFS='\t' > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${i}.txt
+done
+
+# 2. for every species pairwise combination, awk match the unified col4[orthogroup]_col23[align_ID] column, retaining non-matches with relevant number (total of 32) of NAs
+# create a file with all pairwise comps and do a while loop
+# NOTE: this will create duplicate lines but in a different order - this will be rectified in the next step
+printf 'On\tMz\n' > sp_pair
+printf 'Nb\tMz\n' >> sp_pair
+printf 'Ab\tMz\n' >> sp_pair
+printf 'Pn\tMz\n' >> sp_pair
+printf 'On\tPn\n' >> sp_pair
+printf 'Nb\tPn\n' >> sp_pair
+printf 'Ab\tPn\n' >> sp_pair
+printf 'Mz\tPn\n' >> sp_pair
+printf 'On\tAb\n' >> sp_pair
+printf 'Nb\tAb\n' >> sp_pair
+printf 'Pn\tAb\n' >> sp_pair
+printf 'Mz\tAb\n' >> sp_pair
+printf 'On\tNb\n' >> sp_pair
+printf 'Ab\tNb\n' >> sp_pair
+printf 'Pn\tNb\n' >> sp_pair
+printf 'Mz\tNb\n' >> sp_pair
+printf 'Nb\tOn\n' >> sp_pair
+printf 'Ab\tOn\n' >> sp_pair
+printf 'Pn\tOn\n' >> sp_pair
+printf 'Mz\tOn\n' >> sp_pair
+
+while read -r c r; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${c}.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${r}.txt | sort -V -k1,1 > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${r}${c}.txt
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${c}.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${r}.txt | sort -V -k1,1 > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${r}${c}.txt
+done < sp_pair
+
+# get the stats on peaks that overlap based on MAF
+for i in MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_Mz*.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_Pn*.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_Ab*.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_Nb*.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_On*.txt; do
+  total=$(wc -l ${i} | awk '{print $1}')
+  map=$(grep -v NULL ${i} | wc -l)
+  perc=$(perl -E "say ${map}/${total}*100")
+  comp=$(echo ${i} | sed 's|MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_||g' | sed 's|.txt||g')
+  echo -e ${comp}'\t'${map}'\t'${total}'\t'${perc}
+done
+
+# MzAb	10705	87383	12.2506666056327
+# MzNb	10450	87383	11.9588478308138
+# MzOn	24231	87383	27.729649931909
+# MzPn	12308	87383	14.0851195312589
+# PnAb	15121	112551	13.4347984469263
+# PnMz	17481	112551	15.5316256630328
+# PnNb	15232	112551	13.533420404972
+# PnOn	35985	112551	31.9721726150812
+# AbMz	8712	55679	15.6468327376569
+# AbNb	7378	55679	13.2509563749349
+# AbOn	18007	55679	32.3407388782126
+# AbPn	8919	55679	16.0186066560103
+# NbAb	6865	60306	11.3836102543694
+# NbMz	7816	60306	12.9605677710344
+# NbOn	16971	60306	28.1414784598547
+# NbPn	8215	60306	13.6221934799191
+# OnAb	35463	177699	19.9567808485135
+# OnMz	39142	177699	22.0271357745401
+# OnNb	36374	177699	20.4694455230474
+# OnPn	41577	177699	23.3974304863843
 
 
-# D. Get a paired nt conservation score - run phylop
+for i in MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Mz*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Pn*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Ab*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Nb*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_On*.txt; do
+  total=$(wc -l ${i} | awk '{print $1}')
+  map=$(grep -v NULL ${i} | wc -l)
+  perc=$(perl -E "say ${map}/${total}*100")
+  comp=$(echo ${i} | sed 's|MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_||g' | sed 's|.txt||g')
+  echo -e ${comp}'\t'${map}'\t'${total}'\t'${perc}
+done
+
+# MzAb	1496	15928	9.39226519337017
+# MzNb	1554	15928	9.7564038171773
+# MzOn	4426	15928	27.7875439477649
+# MzPn	1970	15928	12.3681567051733
+# PnAb	2554	24725	10.3296258847321
+# PnMz	3021	24725	12.2184024266936
+# PnNb	2830	24725	11.4459049544995
+# PnOn	8823	24725	35.6845298281092
+# AbMz	1166	9418	12.3805478870248
+# AbNb	901	9418	9.56678700361011
+# AbOn	2907	9418	30.8664259927798
+# AbPn	1474	9418	15.6508812911446
+# NbAb	939	9797	9.58456670409309
+# NbMz	1362	9797	13.9022149637644
+# NbOn	2860	9797	29.1926099826477
+# NbPn	1584	9797	16.1682147596203
+# OnAb	6288	45496	13.8209952523299
+# OnMz	7326	45496	16.1025145067698
+# OnNb	5838	45496	12.8318973096536
+# OnPn	9706	45496	21.3337436258133
+
+# 3. join files, column-wise, based on the unified col4[orthogroup]_col23[align_ID] column to create a single file - sort the column groups by species (Mz,Pn,Ab,Nb,On) and then remove duplicated lines (sort -u)
+
+# 3i. since the same ref species files are ordered the same (based on 1st col), cut out for every species to delete redundant ref cols
+
+for i in MzPn PnMz AbMz NbMz OnMz; do
+  cut -f1-32 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${i}.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${i}_REFcut.txt
+  cut -f1-32 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${i}.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${i}_REFcut.txt
+done
+
+for i in MzPn MzAb MzNb MzOn PnMz PnAb PnNb PnOn AbMz AbPn AbNb AbOn NbMz NbPn NbAb NbOn OnMz OnPn OnAb OnNb; do
+  cut -f33-64 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${i}.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_${i}_cut.txt
+  cut -f33-64 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${i}.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_${i}_cut.txt
+done
+
+# 3ii. paste together the cut files with the main ref file but do this in the order of MzPnAbNbOn for all (to sort -u in next step) - 32 cols for each species, so 160 in total
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPn_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn.txt
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPn_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn.txt
+
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMzAbNbOn.txt
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_PnMzAbNbOn.txt
+
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMzPnNbOn.txt
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_AbMzPnNbOn.txt
+
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMzPnAbOn.txt
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbMz_REFcut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbOn_cut.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_NbMzPnAbOn.txt
+
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMz_REFcut.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMzPnAbNb.txt
+paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnMz_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnPn_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnAb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnNb_cut.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnMz_REFcut.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnMzPnAbNb.txt
+
+# 3iii. cat all the single species files and sort -u
+for i in True False; do
+  cat MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_MzPnAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_PnMzAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_AbMzPnNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_NbMzPnAbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_OnMzPnAbNb.txt | sort -u | sort -V -k1,1 > MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_MzPnAbNbOn_collated.txt
+done
+# cat MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMzAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMzPnNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMzPnAbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMzPnAbNb.txt | wc -l # 140589
+# wc -l MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt # 133261/140589
+
+
+# this gives the following general header for EACH species
+# orth_alignmentid, sp_chr, peak_start, peak_end, peak_closestorth, spID, peak_closestgene, ensemblID, peakID, peak_chr, peak_start, peak_end, MACS2_integer_score, MACS2_pval, MACS2_qval, IDR, Prom_start, Summit_to_TSS, sp_chr, MAFalign_start, MAFalign_end, sp_full, spID, MAF_alignment_id, MAF_chr, MAF_chr_length, MAF_align_start, MAF_align_end, MAF_align_length, MAF_align_strand, MAF_align_ntseq, bedtlsint_peak_MAFalign_overlap
+#
+# OMA00160_a5038274	Mz_LG12	23123717	23125143
+# # orth_alignmentid, sp_chr, peak_start, peak_end
+#
+# OMA00160	Mz	dmxl1	ENSMZEG00005008659	Mz2_E_ATAC_peak_47010f	LG12	23123717	23125143	43	4.39883	2.81157	T	23127736	2726
+# # orth, spID (short name), gene, ensemblID, peakID, chr, start, end, MACS2_integer_score, pval, qval,IDR,Prom_start,Summit_to_TSS
+#
+# Mz_LG12	23123667	23123854
+# # sp_chr, MAFalign_start, MAFalign_end
+#
+# Metriaclima_zebra	Mz	a5038274	LG12	34086040	23123667	23123854	187	+	AAAACAGTATTTCACCTTTGTGTATTTGGCAGCGAAGTAAATTCAATACAAGGAGTCCATTAATCAAAAGGGTGCAGGGAATTTGTACGGAGGGTTAAATGGATCACCGGTGCAGGTTACACCTTACTGTAACCCTACGAGCCCGGTTAATCAACTTATCATACAATCAAGGGCTGAACAGTCT--GAA	137
+# # 1. species full name
+# # 2. species short name (Mz,Ac,Pn,Ab,Nb,On)
+# # 3. alignment id e.g. a1, a2 ..aN - for each 'a' block, add a counting number
+# # 4. chr
+# # 5. chr length
+# # 6. start
+# # 7. end
+# # 8. length of alignment
+# # 9. strand
+# # 10. nucleotide sequence
+# # 11. bedtlsint_peak_MAFalign_overlap
+
+# 4. add a header to the two (True and False IDR) files above, ensuring one is 'Orthogroup' for awk matching below - 'Orthogroup' is col5
+
+# printf 'orth_alignmentid\tsp_chr\tpeak_start\tpeak_end\tOrthogroup\tspID\tpeak_closestgene\tensemblID\tpeakID\tpeak_chr\tpeak_start\tpeak_end\tMACS2_integer_score\tMACS2_pval\tMACS2_qval\tIDR\tProm_start\tSummit_to_TSS\tsp_chr\tMAFalign_start\tMAFalign_end\tsp_full\tspID\tMAF_alignment_id\tMAF_chr\tMAF_chr_length\tMAF_align_start\tMAF_align_end\tMAF_align_length\tMAF_align_strand\tMAF_align_ntseq\tbedtlsint_peak_MAFalign_overlap\torth_alignmentid\tsp_chr\tpeak_start\tpeak_end\tOrthogroup\tspID\tpeak_closestgene\tensemblID\tpeakID\tpeak_chr\tpeak_start\tpeak_end\tMACS2_integer_score\tMACS2_pval\tMACS2_qval\tIDR\tProm_start\tSummit_to_TSS\tsp_chr\tMAFalign_start\tMAFalign_end\tsp_full\tspID\tMAF_alignment_id\tMAF_chr\tMAF_chr_length\tMAF_align_start\tMAF_align_end\tMAF_align_length\tMAF_align_strand\tMAF_align_ntseq\tbedtlsint_peak_MAFalign_overlap\torth_alignmentid\tsp_chr\tpeak_start\tpeak_end\tpeak_closestorth\tspID\tpeak_closestgene\tensemblID\tpeakID\tpeak_chr\tpeak_start\tpeak_end\tMACS2_integer_score\tMACS2_pval\tMACS2_qval\tIDR\tProm_start\tSummit_to_TSS\tsp_chr\tMAFalign_start\tMAFalign_end\tsp_full\tspID\tMAF_alignment_id\tMAF_chr\tMAF_chr_length\tMAF_align_start\tMAF_align_end\tMAF_align_length\tMAF_align_strand\tMAF_align_ntseq\tbedtlsint_peak_MAFalign_overlap\torth_alignmentid\tsp_chr\tpeak_start\tpeak_end\tpeak_closestorth\tspID\tpeak_closestgene\tensemblID\tpeakID\tpeak_chr\tpeak_start\tpeak_end\tMACS2_integer_score\tMACS2_pval\tMACS2_qval\tIDR\tProm_start\tSummit_to_TSS\tsp_chr\tMAFalign_start\tMAFalign_end\tsp_full\tspID\tMAF_alignment_id\tMAF_chr\tMAF_chr_length\tMAF_align_start\tMAF_align_end\tMAF_align_length\tMAF_align_strand\tMAF_align_ntseq\tbedtlsint_peak_MAFalign_overlap\torth_alignmentid\tsp_chr\tpeak_start\tpeak_end\tpeak_closestorth\tspID\tpeak_closestgene\tensemblID\tpeakID\tpeak_chr\tpeak_start\tpeak_end\tMACS2_integer_score\tMACS2_pval\tMACS2_qval\tIDR\tProm_start\tSummit_to_TSS\tsp_chr\tMAFalign_start\tMAFalign_end\tsp_full\tspID\tMAF_alignment_id\tMAF_chr\tMAF_chr_length\tMAF_align_start\tMAF_align_end\tMAF_align_length\tMAF_align_strand\tMAF_align_ntseq\tbedtlsint_peak_MAFalign_overlap\n' > peak_MAF_header.txt
+
+printf 'orth_alignmentid_Mz\tsp_chr_Mz\tpeak_start_Mz\tpeak_end_Mz\tOrthogroup\tspID_Mz\tpeak_closestgene_Mz\tensemblID_Mz\tpeakID_Mz\tpeak_chr_Mz\tpeak_start_Mz\tpeak_end_Mz\tMACS2_integer_score_Mz\tMACS2_pval_Mz\tMACS2_qval_Mz\tIDR_Mz\tProm_start_Mz\tSummit_to_TSS_Mz\tsp_chr_Mz\tMAFalign_start_Mz\tMAFalign_end_Mz\tsp_full_Mz\tspID_Mz\tMAF_alignment_id_Mz\tMAF_chr_Mz\tMAF_chr_length_Mz\tMAF_align_start_Mz\tMAF_align_end_Mz\tMAF_align_length_Mz\tMAF_align_strand_Mz\tMAF_align_ntseq_Mz\tbedtlsint_peak_MAFalign_overlap_Mz\torth_alignmentid_Pn\tsp_chr_Pn\tpeak_start_Pn\tpeak_end_Pn\tpeak_closestorth_Pn\tspID_Pn\tpeak_closestgene_Pn\tensemblID_Pn\tpeakID_Pn\tpeak_chr_Pn\tpeak_start_Pn\tpeak_end_Pn\tMACS2_integer_score_Pn\tMACS2_pval_Pn\tMACS2_qval_Pn\tIDR_Pn\tProm_start_Pn\tSummit_to_TSS_Pn\tsp_chr_Pn\tMAFalign_start_Pn\tMAFalign_end_Pn\tsp_full_Pn\tspID_Pn\tMAF_alignment_id_Pn\tMAF_chr_Pn\tMAF_chr_length_Pn\tMAF_align_start_Pn\tMAF_align_end_Pn\tMAF_align_length_Pn\tMAF_align_strand_Pn\tMAF_align_ntseq_Pn\tbedtlsint_peak_MAFalign_overlap_Pn\torth_alignmentid_Ab\tsp_chr_Ab\tpeak_start_Ab\tpeak_end_Ab\tpeak_closestorth_Ab\tspID_Ab\tpeak_closestgene_Ab\tensemblID_Ab\tpeakID_Ab\tpeak_chr_Ab\tpeak_start_Ab\tpeak_end_Ab\tMACS2_integer_score_Ab\tMACS2_pval_Ab\tMACS2_qval_Ab\tIDR_Ab\tProm_start_Ab\tSummit_to_TSS_Ab\tsp_chr_Ab\tMAFalign_start_Ab\tMAFalign_end_Ab\tsp_full_Ab\tspID_Ab\tMAF_alignment_id_Ab\tMAF_chr_Ab\tMAF_chr_length_Ab\tMAF_align_start_Ab\tMAF_align_end_Ab\tMAF_align_length_Ab\tMAF_align_strand_Ab\tMAF_align_ntseq_Ab\tbedtlsint_peak_MAFalign_overlap_Ab\torth_alignmentid_Nb\tsp_chr_Nb\tpeak_start_Nb\tpeak_end_Nb\tpeak_closestorth_Nb\tspID_Nb\tpeak_closestgene_Nb\tensemblID_Nb\tpeakID_Nb\tpeak_chr_Nb\tpeak_start_Nb\tpeak_end_Nb\tMACS2_integer_score_Nb\tMACS2_pval_Nb\tMACS2_qval_Nb\tIDR_Nb\tProm_start_Nb\tSummit_to_TSS_Nb\tsp_chr_Nb\tMAFalign_start_Nb\tMAFalign_end_Nb\tsp_full_Nb\tspID_Nb\tMAF_alignment_id_Nb\tMAF_chr_Nb\tMAF_chr_length_Nb\tMAF_align_start_Nb\tMAF_align_end_Nb\tMAF_align_length_Nb\tMAF_align_strand_Nb\tMAF_align_ntseq_Nb\tbedtlsint_peak_MAFalign_overlap_Nb\torth_alignmentid_On\tsp_chr_On\tpeak_start_On\tpeak_end_On\tpeak_closestorth_On\tspID_On\tpeak_closestgene_On\tensemblID_On\tpeakID_On\tpeak_chr_On\tpeak_start_On\tpeak_end_On\tMACS2_integer_score_On\tMACS2_pval_On\tMACS2_qval_On\tIDR_On\tProm_start_On\tSummit_to_TSS_On\tsp_chr_On\tMAFalign_start_On\tMAFalign_end_On\tsp_full_On\tspID_On\tMAF_alignment_id_On\tMAF_chr_On\tMAF_chr_length_On\tMAF_align_start_On\tMAF_align_end_On\tMAF_align_length_On\tMAF_align_strand_On\tMAF_align_ntseq_On\tbedtlsint_peak_MAFalign_overlap_On\n' > peak_MAF_header.txt
+
+cat peak_MAF_header.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt.tmp; rm MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt; mv MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt.tmp MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt
+cat peak_MAF_header.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt.tmp; rm MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt; mv MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt.tmp MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt
+
+
+# 5. Check for coherence of the orthologous peak IDs e.g. Mz1_L_ATAC_peak_278484 in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt and those assigned to ortholgous alignment blocks in the file above
+  # i. accordingly, flag as MAFalign_False (when matched to MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_6.txt) if there is no hit
+  # ii. NOTE: it is unlikely that every orthologous peak will have coherence (between orthologous peaks based on the orthogroup and MAF alignment), so showing the MAFalignment line even if one of the peaks is coherent e.g. Mz2_E_ATAC_peak_111182e and On1_T_ATAC_peak_117727g have MAF align but the line is: Mz1_L_ATAC_peak_171854d|Mz2_L_ATAC_peak_154357d Mz1_T_ATAC_peak_200603c|Mz2_T_ATAC_peak_185879d Pnm1_B_ATAC_peak_59845d|Pnm2_B_ATAC_peak_53189d|Pnm3_B_ATAC_peak_67241b|Pnm4_B_ATAC_peak_60789  Pnm1_L_ATAC_peak_119933d|Pnm2_L_ATAC_peak_65974b|Pnm4_L_ATAC_peak_88266a        Pnm1_T_ATAC_peak_75953d|Pnm2_T_ATAC_peak_91582b|Pnm3_T_ATAC_peak_94498d|Pnm4_T_ATAC_peak_59314d Pnm2_E_ATAC_peak_94126d|Pnm3_E_ATAC_peak_39712b|Pnm4_E_ATAC_peak_88812e Ab5_B_ATAC_peak_108174d|Ab6_B_ATAC_peak_30651c  NULL|Ab6_E_ATAC_peak_212023     Ab5_L_ATAC_peak_243325d|Ab6_L_ATAC_peak_148116d Ab5_T_ATAC_peak_202942c|Ab6_T_ATAC_peak_224267e NULL|NULL       NULL|NULL       NULL|NULL       NULL|NULL
+       # On1_B_ATAC_peak_126898d|On2_B_ATAC_peak_124619e|On3_B_ATAC_peak_132366f On1_E_ATAC_peak_198937b|On2_E_ATAC_peak_153467b|On3_E_ATAC_peak_196430c On1_G_ATAC_peak_239020b|On2_G_ATAC_peak_288219d|On3_G_ATAC_peak_218333a On1_L_ATAC_peak_174856d|On2_L_ATAC_peak_161192e|On3_L_ATAC_peak_138846d On1_T_ATAC_peak_117727g|On2_T_ATAC_peak_151844d|On3_T_ATAC_peak_179992c
+# 6. Output two final files (True and False IDR) of presence and absence, plus coherence with multiple alignments, ensuring you have headers
+
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"MAFalign_False";}}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt | grep -v 'MAFalign_False' | wc -l # 626/3006 orthologous peaks have MAF alignment (but need to check if peaks are coherent)
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False";}}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt > MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_MAFalign.orthpeaksFINAL.txt
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$5]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False","MAFalign_False";}}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.txt > MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_MAFalign.orthpeaksFINAL.txt
+
+# getting max/min column numbers for each row in a file (to check all is uniform)
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_MAFalign.orthpeaksFINAL.txt | sort -nu | head -n 1 # 225
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_MAFalign.orthpeaksFINAL.txt | sort -nu | tail -n 1 # 225
+
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_MAFalign.orthpeaksFINAL.txt | sort -nu | head -n 1 # 225
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_MAFalign.orthpeaksFINAL.txt | sort -nu | tail -n 1 # 225
+
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt | sort -nu | head -n 1 # 160
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt | sort -nu | tail -n 1 # 160
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt | sort -nu | head -n 1 # 65
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt | sort -nu | tail -n 1 # 65
+head -1 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_6.txt | awk '{print NF}' # 65 - there are 65 headers
+
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt | sort -nu | head -n 1 # 160
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_MzPnAbNbOn_collated.txt | sort -nu | tail -n 1 # 160
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.txt | sort -nu | head -n 1 # 65
+awk '{print NF}' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.txt | sort -nu | tail -n 1 # 65
+head -1 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_6.txt | awk '{print NF}' # 65 - there are 65 headers
+
+##### FINAL ORTHOLOGY FILES - ORTHOLOGOUS PEAKS ACCORDING TO GENE AND THEN THOSE WITH COHERENCE OF MAPPING IN MAF TOO
+## TOTAL OF 225 COLUMNS
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_MAFalign.orthpeaksFINAL.txt
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth/MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_MAFalign.orthpeaksFINAL.txt
+
+##### Run PhyloP #####
+# phyloP scores measure evolutionary conservation at individual alignment sites. Interpretations of the scores are compared to the evolution that is expected under neutral drift.
+# Positive scores — Measure conservation, which is slower evolution than expected, at sites that are predicted to be conserved.
+# Negative scores — Measure acceleration, which is faster evolution than expected, at sites that are predicted to be fast-evolving.
+
+# Da. Per base nt conservation score - run PhyloP
 # this is ran in script '/Users/mehtat/github/ATAC_bioinformatics/Multiple_genome_alignments_Cactus.sh'
+phylop=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/6sp_cactus_MGA/phylop/6sp_cactus_MGA_OnRef_phyloPscore.data # collated phylop scores, On ref - missing positions are non-aligned
+# Note this is using the whole MAF (cactus ran on 6 species) and therefore a per base nt conservation score for all 6 species (On as reference)
+# DONE Above (as of 25/11/20)
 
+## BELOW HAS BEEN ADAPTED TO USE PEAKS AS SINGLE FEATURE INPUT FOR PHYLOP (TO OBTAIN ONE SCORE FOR EACH PEAK)
+
+## Db. Running PhyloP on Onil peaks vs all other species:
+# best approach is to use an array based on the peaks as features instead
+# this will output:
+  # chr
+  # start
+  # end
+  # name
+  # scale	- this is the altsubscale (we want more than 1 for deviation)
+  # lnlratio - this is the likelihood-ratio-test (we want <0.05)
+  # pval - this is the CONACC score: +ve is conserved and -ve is accelerated
+
+mkdir -p $phylopdir
+cd $phylopdir # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop
+
+
+# A. create the Onil (and other species) peaks feature file (example format below)
+
+# head /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/MKQE02000050.1.phylop_pseudoaCNEs.features.gff
+# MKQE02000050	phastCons	pseudo_aCNE	5189	5571	0.622780104712042	+	.	MKQE02000050.1.1
+# MKQE02000050	phastCons	pseudo_aCNE	7211	7432	0.687054298642534	+	.	MKQE02000050.1.2
+# add a col for what feature the peak overlaps
+
+# whilst you're at it, split all peaks (of all species) by annotation and create feature file - 5kb gene promoter, intergenic, intronic, 3’ UTR, and CNEs
+
+# i. create new annotation files for each species, containing:
+# intergenic
+# CNEs
+# 5kb gene promoter
+# 5' UTR
+# exon
+# intron
+# 3’ UTR
+
+# Onil annot: below needs CNEs adding - might be worth doing afresh (since running for all species anyway)
+# /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/bedtools/ONilo_gff_Corrected_PostWilfried_PostTarang_Intergenic_Regions.bed.30bp_filtered.sorted
+
+refgenensemblcich=(/ei/projects/1/14165957-4403-4f46-94c5-dadb0ec866ec/data/ensembl/cichlids)
+
+gtfmzeb=$refgenensemblcich/Mzebra/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.100.gtf.gz
+gtfpnye=$refgenensemblcich/Pnyererei_v1.0/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.100.gtf.gz
+gtfabur=$refgenensemblcich/Aburtoni/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.100.gtf.gz
+gtfnbri=$refgenensemblcich/Nbrichardi/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.100.gtf.gz
+gtfacal=$refgenensemblcich/Acalliptera/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.100.gtf.gz
+gtfonil=$refgenensemblcich/Oniloticus/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100.gtf.gz
+
+promannotMz=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Mzebra/current_gtf/maylandia_zebra/Maylandia_zebra.M_zebra_UMD2a.101.5kb_promoters.bed
+promannotPn=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Pnyererei/current_gtf/pundamilia_nyererei/Pundamilia_nyererei.PunNye1.0.101.5kb_promoters.bed
+promannotAb=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Aburtoni/current_gtf/haplochromis_burtoni/Haplochromis_burtoni.AstBur1.0.101.5kb_promoters.bed
+promannotNb=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Nbrichardi/current_gtf/neolamprologus_brichardi/Neolamprologus_brichardi.NeoBri1.0.101.5kb_promoters.bed
+promannotAc=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Acalliptera/current_gtf/astatotilapia_calliptera/Astatotilapia_calliptera.fAstCal1.2.101.5kb_promoters.bed
+promannotOn=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2/genomes/Oniloticus/current_gtf/oreochromis_niloticus/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.5kb_promoters.bed
+
+zcat $gtfmzeb | grep -v "^#" | cut -f3 | sort | uniq -c | sort -k1rn
+#  384819 exon
+#  375438 CDS
+#   39681 transcript
+#   37664 stop_codon
+#   32585 start_codon
+#   28622 gene
+#   25132 five_prime_utr
+#   17712 three_prime_utr
+# these contain - exon, CDS, transcript, stop_codon, start_codon, gene, five_prime_utr, three_prime_utr
+# we want to retain exon, five_prime_utr, three_prime_utr (including info on gene_id, transcript_id, gene_name, exon_number)
+# create a final bed file accordingly - ideally with gene_id and gene_name for intron and 5kb gene promoter
+
+# need to add intergenic, intron, CNEs, 5kb gene promoter
+# intergenic will be between CDS (so maybe retain in gtf at first), intron will be between exon.
+# 5kb gene promoter will overlap intergenic (as it is still intergenic)
+# CNE will overlap intergenic, intron and 5kb gene promoter (as that loci can be both)
+
+# amended bed output format: chrom, start, end, feature, score (as '.'), strand, gene_id, transcript_id, exon_number, gene_name
+# files to merge for each sp will be *.map.bed
+
+# So the exonic regions are already defined; however, I would like to remove overlapping exons. The merge utility in BEDTools can accomplish this; however before merging make sure the coordinates are sorted. We can use sortBed to sort the BED file:
+
+source bedtools-2.30.0
+
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t"} $3=="exon" {print $1,$4-1,$5,$3,".",$7,$10,$14,$18,$20}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -k1,1 -k2,2n | awk '{print $1"_"$2,$0}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_exon_pre-merged.bed # since bedtools merge creates a three col output, we need to create a file to map back to (but only use chr_start since merging changes coordinates of end)
+#
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t"} $3=="exon" {print $1,$4-1,$5,$3,".",$7,$10,$14,$18,$20}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -k1,1 -k2,2n |
+# bedtools merge -i - | awk '{print $1"_"$2,$0}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_exon_merged.bed
+#
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $(basename "${gtfmzeb}" .gtf.gz)_exon_pre-merged.bed $(basename "${gtfmzeb}" .gtf.gz)_exon_merged.bed | cut -f6-15 > $(basename "${gtfmzeb}" .gtf.gz)_exon_merged.map.bed # map the gene info back - this is the final exon file
+
+for i in "${!gtf@}"; do
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t"} $3=="exon" {print $1,$4-1,$5,$3,".",$7,$10,$14,$18,$20}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -k1,1 -k2,2n | awk '{print $1"_"$2,$0}' OFS='\t' > $(basename "${!i}" .gtf.gz)_exon_pre-merged.bed # since bedtools merge creates a three col output, we need to create a file to map back to (but only use chr_start since merging changes coordinates of end)
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t"} $3=="exon" {print $1,$4-1,$5,$3,".",$7,$10,$14,$18,$20}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -k1,1 -k2,2n |
+  bedtools merge -i - | awk '{print $1"_"$2,$0}' OFS='\t' > $(basename "${!i}" .gtf.gz)_exon_merged.bed
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $(basename "${!i}" .gtf.gz)_exon_pre-merged.bed $(basename "${!i}" .gtf.gz)_exon_merged.bed | cut -f6-15 > $(basename "${!i}" .gtf.gz)_exon_merged.map.bed # map the gene info back - this is the final exon file
+done
+
+
+# iii. process introns
+# To define intronic regions, we just need to subtract the exonic region from the genic region.
+# bedtools subtract can do this
+
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -k1,1 -k2,2n |
+# bedtools subtract -a stdin -b $(basename "${gtfmzeb}" .gtf.gz)_exon_merged.map.bed |
+# sed 's|gene|intron|g' > $(basename "${gtfmzeb}" .gtf.gz)_intron.map.bed
+
+for i in "${!gtf@}"; do
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -k1,1 -k2,2n |
+  bedtools subtract -a stdin -b $(basename "${!i}" .gtf.gz)_exon_merged.map.bed |
+  sed 's|gene|intron|g' > $(basename "${!i}" .gtf.gz)_intron.map.bed
+done
+
+# iv. process intergenic
+# define intergenic regions, we use complement to find regions not covered by genes.
+# need chromosome sizes for this:
+genomemzeb=$refgenensemblcich/Mzebra/dna/Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa
+genomepnye=$refgenensemblcich/Pnyererei_v1.0/dna/Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa
+genomeabur=$refgenensemblcich/Aburtoni/dna/Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa
+genomenbri=$refgenensemblcich/Nbrichardi/dna/Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa
+genomeacal=$refgenensemblcich/Acalliptera/dna/Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa
+genomeonil=$refgenensemblcich/Oniloticus/dna/Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa
+
+source bioawk-1.0
+for i in "${!genome@}"; do
+  #echo "${!i}"
+  bioawk -c fastx '{ print $name, length($seq) }' < "${!i}" | awk '{print $1,$2}' OFS="\t" | sort -V -k1,1 > "$(basename "${!i}").chrom.sizes"
+done
+
+mzchr=Maylandia_zebra.M_zebra_UMD2a.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+pnchr=Pundamilia_nyererei.PunNye1.0.dna.nonchromosomal.fa.chrom.sizes
+abchr=Haplochromis_burtoni.AstBur1.0.dna.nonchromosomal.fa.chrom.sizes
+nbchr=Neolamprologus_brichardi.NeoBri1.0.dna.nonchromosomal.fa.chrom.sizes
+acchr=Astatotilapia_calliptera.fAstCal1.2.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+onchr=Oreochromis_niloticus.O_niloticus_UMD_NMBU.dna.primary_assembly.allLG.and.nonchromosomal.fa.chrom.sizes
+
+zcat ${gtfmzeb} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${mzchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_intergenic.bed
+
+zcat ${gtfpnye} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${pnchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfpnye}" .gtf.gz)_intergenic.bed
+
+zcat ${gtfabur} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${abchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfabur}" .gtf.gz)_intergenic.bed
+
+zcat ${gtfnbri} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${nbchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfnbri}" .gtf.gz)_intergenic.bed
+
+zcat ${gtfacal} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${acchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfacal}" .gtf.gz)_intergenic.bed
+
+zcat ${gtfonil} |
+awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+sed 's|"||g' | sed 's|;||g'|
+sort -V -k1,1 -k2,2n |
+bedtools complement -i stdin -g ${onchr} | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfonil}" .gtf.gz)_intergenic.bed
+
+# then do double mappings to annotate the intergenic e.g. ENS_intergenic_ENS and genesymbol_intergenic_genesymbol
+# # a. create a gene map to use
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -V -k1,1 -k2,2n | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_gene.bed
+# # b. double map both first two cols of intergenic file to corresponding in gene
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfmzeb}" .gtf.gz)_gene.bed $(basename "${gtfmzeb}" .gtf.gz)_intergenic.bed | awk '{print $1,$2,$3,$4,$5,"intergenic",".",$13,$14"_intergenic_",$15,$16,$17"_intergenic_"}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_intergenic.firstmap.bed # map col1 intergenic to col2 gene
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfmzeb}" .gtf.gz)_gene.bed $(basename "${gtfmzeb}" .gtf.gz)_intergenic.firstmap.bed | awk '{print $3,$4,$5,$6,$7,$8,$9$21,$10,$11,$12$24}' OFS='\t' > $(basename "${gtfmzeb}" .gtf.gz)_intergenic.map.bed # map col2 above to col1 gene
+
+for i in "${!gtf@}"; do
+  # a. create a gene map to use
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t";} $3=="gene" {print $1,$4-1,$5,$3,".",$7,$10,".",".",$14}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -V -k1,1 -k2,2n | awk '{print $1"_"$2,$1"_"$3,$0}' OFS='\t' > $(basename "${!i}" .gtf.gz)_gene.bed
+  # b. double map both first two cols of intergenic file to corresponding in gene
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${!i}" .gtf.gz)_gene.bed $(basename "${!i}" .gtf.gz)_intergenic.bed | awk '{print $1,$2,$3,$4,$5,"intergenic",".",$13,$14"_intergenic_",$15,$16,$17"_intergenic_"}' OFS='\t' > $(basename "${!i}" .gtf.gz)_intergenic.firstmap.bed # map col1 intergenic to col2 gene
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${!i}" .gtf.gz)_gene.bed $(basename "${!i}" .gtf.gz)_intergenic.firstmap.bed | awk '{print $3,$4,$5,$6,$7,$8,$9$21,$10,$11,$12$24}' OFS='\t' > $(basename "${!i}" .gtf.gz)_intergenic.map.bed # map col2 above to col1 gene
+done
+
+rm *intergenic.firstmap.bed
+
+# v. process 5kb promoters and add gene symbols
+
+# create a complete promoter bed file with gene symbols (using those from gene mappings)
+# awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfmzeb}" .gtf.gz)_gene.bed ${promannotMz} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${Mz5kbpromannot}" .bed).map.bed
+
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfmzeb}" .gtf.gz)_gene.bed ${promannotMz} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotMz}" .bed).map.bed
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfpnye}" .gtf.gz)_gene.bed ${promannotPn} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotPn}" .bed).map.bed
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfabur}" .gtf.gz)_gene.bed ${promannotAb} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotAb}" .bed).map.bed
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfnbri}" .gtf.gz)_gene.bed ${promannotNb} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotNb}" .bed).map.bed
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfacal}" .gtf.gz)_gene.bed ${promannotAc} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotAc}" .bed).map.bed
+awk 'BEGIN{OFS="\t"}NR==FNR{a[$9]=$0;next}{if(a[$4]){print $0,a[$4];}else{print $0,"NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL","NULL";}}' $(basename "${gtfonil}" .gtf.gz)_gene.bed ${promannotOn} | awk '{print $1,$2,$3,"5kb_gene_promoter",".",$6,$4,".",".",$18}' OFS='\t' > $(basename "${promannotOn}" .bed).map.bed
+
+# vi. process five_prime_utr and three_prime_utr (including info on gene_id, transcript_id, gene_name, exon_number)
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t";} $3=="five_prime_utr" {print $1,$4-1,$5,$3,".",$7,$10,$14,".",$18}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -V -k1,1 -k2,2n > $(basename "${gtfmzeb}" .gtf.gz)_5UTR.map.bed
+
+for i in "${!gtf@}"; do
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t";} $3=="five_prime_utr" {print $1,$4-1,$5,$3,".",$7,$10,$14,".",$18}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -V -k1,1 -k2,2n > $(basename "${!i}" .gtf.gz)_5UTR.map.bed
+done
+
+# zcat ${gtfmzeb} |
+# awk 'BEGIN{OFS="\t";} $3=="three_prime_utr" {print $1,$4-1,$5,$3,".",$7,$10,$14,".",$18}' |
+# sed 's|"||g' | sed 's|;||g'|
+# sort -V -k1,1 -k2,2n > $(basename "${gtfmzeb}" .gtf.gz)_3UTR.map.bed
+
+for i in "${!gtf@}"; do
+  zcat ${!i} |
+  awk 'BEGIN{OFS="\t";} $3=="three_prime_utr" {print $1,$4-1,$5,$3,".",$7,$10,$14,".",$18}' |
+  sed 's|"||g' | sed 's|;||g'|
+  sort -V -k1,1 -k2,2n > $(basename "${!i}" .gtf.gz)_3UTR.map.bed
+done
+
+
+# vii. process CNEs and add
+# CNEs - however, coordinates are On only - need to liftover from MAF for each species!!!!
+# this will be for three sets of files (in each species)
+  # 1. hCNEs - avg conservation of >=0.9
+  # cat /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/*.6sp_CNEs.mostcons.avgcons.bed | awk '$10=="hCNE"' # hCNEs - however, coordinates are On only - need to liftover from MAF for each species!!!!
+
+  # 2. pseudo_aCNE - avg conservation of <0.9
+  #cat /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/*.6sp_CNEs.mostcons.avgcons.bed | awk '$10=="pseudo_aCNE"'
+
+  # 3. aCNE - CNEs deviating from the neutral model, and so have a negative CONACC score, lnl ratio <0.05, and significant divergence (altsubscale >1).
+  #/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/BedTool_Intersect/aCNEfeatures_TOTAL_NonCODING_PostFilter_* # aCNEs - however, coordinates are On only - need to liftover from MAF for each species!!!!
+
+# On pairwise alignment MAFs for this: /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting/mafsplit2b_Oreochromis_niloticus-${SPECIES}/*.maf
+
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE
+
+
+# 0. Create a main bed file
+# output structures:
+# Oreochromis_niloticus.LG10	15132	15262	LG10.1	0	+	108.493	130	0.834561538461538	pseudo_aCNE
+
+
+
+# i. For each ref (On) chr, create hCNEs + pseudo_aCNE files - this is JUST for On and will be used on each species pairwise MAFs to get corresponding coords in those sp
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs
+
+for i in /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/*.6sp_CNEs.mostcons.avgcons.bed; do
+  awk '{print "Oreochromis_niloticus."$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}' OFS='\t' ${i} > $(basename "${i}" _CNEs.mostcons.avgcons.bed)_hCNEs_pseudoaCNEs.bed
+done
+
+# ii. For the aCNEs
+# A. collate just the On coords for ALL species (removing redundancy)
+# B. add to the relevant chr hCNEs and pseudo_aCNE file above, removing redundant pseudo_aCNEs (that are aCNEs)
+
+
+for i in /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/BedTool_Intersect/aCNEfeatures_TOTAL_NonCODING_PostFilter_*; do
+  awk '{print "Oreochromis_niloticus."$1,$2,$3,$4,"0",$6,$7,$8,$9,"aCNE"}' OFS='\t' ${i} >> On_aCNEs.collated.bed
+done
+
+sort -V -k1,1 -k2,2n On_aCNEs.collated.bed > On_aCNEs.collated.bed.tmp1
+
+# split by same first col (chr) - name as chr.6sp_aCNEs.bed
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/split
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/split
+awk -F'\t' '{print>$1}' /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/On_aCNEs.collated.bed.tmp1
+for i in *; do
+  name=$(echo ${i} | sed 's|Oreochromis_niloticus.||g')
+  mv ${i} ${name}.6sp_aCNEs.bed
+done
+mv * ../
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/
+rm -r split
+rm On_aCNEs.collated.bed On_aCNEs.collated.bed.tmp1
+
+for i in *; do
+  chr=$(echo $i | sed 's|.6sp.*||g')
+  cat ${chr}.6sp_hCNEs_pseudoaCNEs.bed ${chr}.6sp_aCNEs.bed | # then cat chr.6sp_aCNEs.bed and chr.6sp_hCNEs_pseudoaCNEs.bed
+  sort -V -k1,1 -k2,2n | # then sort -V -k1,1 -k2,2n
+  sed 's|Oreochromis_niloticus.||g' |
+  sort -u -k4,4 | sort -V -k1,1 -k2,2n > ${chr}.On.6sp.CNEs.bed # then remove redundant CNEs - retain aCNE, pseuodo_aCNE and hCNE in that order - since every aCNE is first, you can delete the second entry
+done
+
+rm *.6sp_hCNEs_pseudoaCNEs.bed
+rm *.6sp_aCNEs.bed
+
+# Also create a bed file of ALL CNEs in On as the main map file for that species > Oreochromis_niloticus_CNEs.map.bed
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/mapfiles
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/mapfiles
+
+cat /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/* | sed 's|Oreochromis_niloticus.||g' | sort -V -k1,1 -k2,2n > Oreochromis_niloticus_CNEs.map.tmp1
+
+# map to genes - this needs to find the closest gene
+ongeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100_gene.bed
+cut -f3-12 $ongeneannot | sort -V -k1,1 -k2,2n > Oreochromis_niloticus.O_niloticus_UMD_NMBU.100_gene.bed
+source bedtools-2.30.0
+bedtools closest -a Oreochromis_niloticus_CNEs.map.tmp1 -b Oreochromis_niloticus.O_niloticus_UMD_NMBU.100_gene.bed -d > Oreochromis_niloticus_CNEs.map.tmp2
+awk '{print $1,$2,$3,$10,".",$6,$17,".",$7";"$8";"$9";"$21,$20}' OFS='\t' Oreochromis_niloticus_CNEs.map.tmp2 > Oreochromis_niloticus_CNEs.map.bed
+
+# CNE map cols ARE:
+# 1. chr
+# 2. start
+# 3. end
+# 4. CNE type: Average_Conservation Score <0.9 = pseudo_aCNE; Average_Conservation Score >=0.9 = hCNE; aCNE = deviating from the neutral model, and so have a negative CONACC score, lnl ratio <0.05, and significant divergence (altsubscale >1)
+# 5. score = .
+# 6. CNE strand
+# 7. closest Ensembl Gene ID
+# 8. Ensembl Transcript ID = .
+# 9. CNE details - Total conservation score; length of CNE; Average_Conservation Score; Gene distance from CNE
+# 10. closest gene symbol
+
+# NOTE: /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/mapfiles/Oreochromis_niloticus_CNEs.map.tmp2 has the complete bedtools closest output and therefore MORE details on gene annotation
+
+# create some final files that DO NOT include pseudo_aCNE (since they are pseudo they are very unreliable)
+
+# CNE map cols ARE:
+# 1. chr
+# 2. start
+# 3. end
+# 4. CNE type: Average_Conservation Score >=0.9 = hCNE; aCNE = Average_Conservation Score <0.9, deviating from the neutral model, and so have a negative CONACC score, lnl ratio <0.05, and significant divergence (altsubscale >1)
+# 5. score = .
+# 6. CNE strand
+# 7. closest Ensembl Gene ID
+# 8. Ensembl Transcript ID = .
+# 9. CNE details - Total conservation score; length of CNE; Average_Conservation Score; Gene distance from CNE
+# 10. closest gene symbol
+
+grep -v 'pseudo_aCNE' Oreochromis_niloticus_CNEs.map.tmp1 > Oreochromis_niloticus.6sp_hCNEs_aCNEs.bed
+grep -v 'pseudo_aCNE' Oreochromis_niloticus_CNEs.map.bed > Oreochromis_niloticus.6sp_hCNEs_aCNEs.map.bed
+
+
+## Now, use the above (per chr) On CNE files to obtain CNE coordinates in other species
+# On CNE files (split by chr) to use below (to obtain coordinates in other species) are here: /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/${chr}.On.6sp.CNEs.bed
+
+
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/{Astatotilapia_burtoni,Astatotilapia_calliptera,Metriaclima_zebra,Neolamprologus_brichardi,Pundamilia_nyererei}
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping
+
+nano map_sp_CNEs.sh
+
+#!/bin/bash -e
+#SBATCH -p ei-medium # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 22000 # memory pool for all cores
+#SBATCH -t 1-23:59 # time (D-HH:MM)
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+
+# 1. You can output the MAF (from all pairwise) based on CNEs as features - this way you obtain the comp sp associated coords
+# 2. Then output the coordinates of both ref (On) and other sp on a single line (add the length to create an 'end' coordinate)
+
+wd=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping
+cnedir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs
+mafdir=/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting
+
+source ucsc_utils-v333
+
+for i in Astatotilapia_burtoni Astatotilapia_calliptera Metriaclima_zebra Neolamprologus_brichardi Pundamilia_nyererei; do
+  cd ${wd}/${i}
+  ls -1 ${cnedir}/*.On.6sp.CNEs.bed > cnefiles
+  while read -r c; do
+    chr=$(echo ${c} | sed 's|/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/||g' | sed 's|.On.6sp.CNEs.bed||g')
+    out=$(echo $(basename "${c}" .bed).maf)
+    # 1. You can output the MAF (from all pairwise) based on CNEs as features - this way you obtain the comp sp associated coords
+    mafsInRegion ${c} ${out} ${mafdir}/mafsplit2b_Oreochromis_niloticus-${i}/${chr}.maf
+    # 2. Then output the coordinates of both ref (On) and other sp on a single line (add the length to create an 'end' coordinate)
+    grep -v 'version' ${out} | # remove first few lines
+    sed '/^$/d' | # remove blank lines
+    awk '{print $1,$2,$3,$3+$4,$5}' OFS='\t' | # get the relevant cols and input an end coordinate
+    sed 's/.*score=0.000000.*/;;;;/' | # replace the whole alignment line with something that can be used as a line delimiter e.g. ';;;;'
+    awk 'BEGIN{RS="\n?\\;;;;\n"; FS="\n"; OFS="\t"} {$1=$1} NR>1' | # use the new line delimiter to join all lines inbetween the delimiter
+    cut -f2-5,7-10,12-15 > $(basename "${out}" .maf).tmp1 # keep only the necessary columns
+    # check the min and max number of cols
+    awk '{print NF}' $(basename "${out}" .maf).tmp1 | sort -nu | head -n 1 >> minmaxcol # 4
+    awk '{print NF}' $(basename "${out}" .maf).tmp1 | sort -nu | tail -n 1 >> minmaxcol # 12 - this means there are no more than two hits
+    # if there are MORE than 12 cols then you need amend below (cutting the extra mapped cols)
+  done < cnefiles
+done
+
+for i in Astatotilapia_burtoni Astatotilapia_calliptera Metriaclima_zebra Neolamprologus_brichardi Pundamilia_nyererei; do
+  echo "======="${i}"======="
+  sort -u ${wd}/${i}/minmaxcol # we want no more than 12 otherwise the cutting of columns needs to be amended below
+done
+
+source bedtools-2.30.0
+
+refsp=Oreochromis_niloticus # insert the reference species for awk removal of lines below
+
+for species in Astatotilapia_burtoni Astatotilapia_calliptera Metriaclima_zebra Neolamprologus_brichardi Pundamilia_nyererei; do
+  cd ${wd}/${species}
+  while read -r file; do
+    chr=$(echo ${file} | sed 's|/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/On_hCNEs_pseudoaCNEs/||g' | sed 's|.On.6sp.CNEs.bed||g')
+    out=$(echo $(basename "${file}" .bed).maf)
+    # A. create a file with all lines, retaining those where the ref has a hit and also any multiple hits
+    cut -f1-8 $(basename "${out}" .maf).tmp1 | awk -F'\t' 'NF==8 {print}' > $(basename "${out}" .maf).tmp2a
+    cut -f1-4,9-12 $(basename "${out}" .maf).tmp1 | awk -F'\t' 'NF==8 {print}' > $(basename "${out}" .maf).tmp2b
+    cat $(basename "${out}" .maf).tmp2a $(basename "${out}" .maf).tmp2b | sort -V -k1,1 -k2,2n | awk '{print $1,$2,$3,".",".",$4,$5,$6,$7,$8}' OFS='\t' > $(basename "${out}" .maf).tmp3
+    # B. at this stage you can concatenate adjoining regions in the ref
+    bedtools merge -i $(basename "${out}" .maf).tmp3 -s > $(basename "${out}" .maf).tmp4
+    # C. now need to map back to a pre-merge file to get the comp sp columns - use intersect then process
+    bedtools intersect -a $(basename "${out}" .maf).tmp4 -b $(basename "${out}" .maf).tmp3 -wao | sort -V -k10,10 -k11,11n | sort -V -k1,1 -k2,2n | awk '{print $1"_"$2"_"$3,$0}' OFS='\t' | awk -v refsp="$refsp" '$11!~refsp' | awk '{print $11,$12,$13,".",".",$14,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}' OFS='\t' | sort -V -k1,1 -k2,2n > $(basename "${out}" .maf).tmp5
+    bedtools merge -i $(basename "${out}" .maf).tmp5 -d 5 -c 4,5,6,7,8,9,10,11,12,13,14,15,16 -o collapse > $(basename "${out}" .maf).tmp5a # using a max 5bp distance to join
+    while read -r a b c d e f g h i j k l m n o p; do
+      # echo ${g} | tr ',' '\n' | sort -u | tr '\n' ','
+      newf=$(echo ${f} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      newg=$(echo ${g} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      newh=$(echo ${h} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      newi=$(echo ${i} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      newj=$(echo ${j} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      newp=$(echo ${p} | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's|,$||')
+      echo -e ${newg}'\t'${newh}'\t'${newi}'\t'${newj}'\t'${newp}'\t'${a}'\t'${b}'\t'${c}'\t'${newf} >> $(basename "${out}" .maf).tmp5c
+    done < $(basename "${out}" .maf).tmp5a # output format to be (ref chr_ref_start_ref_end,ref chr,ref_start,ref_end,ref_strand,sp_chr,sp_start,sp_end,sp_strand)
+    while read -r a b c d e f g h i; do
+      newa=$(echo ${a} | sed 's|,.*||')
+      newb=$(echo ${b} | sed 's|,.*||')
+      newc=$(echo ${c} | sed 's|,.*||')
+      newd=$(echo ${d} | sed 's|,.*||')
+      newe=$(echo ${e} | sed 's|,.*||')
+      newf=$(echo ${f} | sed 's|,.*||')
+      newg=$(echo ${g} | sed 's|,.*||')
+      newh=$(echo ${h} | sed 's|,.*||')
+      newi=$(echo ${i} | sed 's|,.*||')
+      echo -e ${newa}'\t'${newb}'\t'${newc}'\t'${newd}'\t'${newe}'\t'${newf}'\t'${newg}'\t'${newh}'\t'${newi} >> $(basename "${out}" .maf).tmp5d
+    done < $(basename "${out}" .maf).tmp5c # output format to be (ref chr_ref_start_ref_end,ref chr,ref_start,ref_end,ref_strand,sp_chr,sp_start,sp_end,sp_strand)
+    sort -V -k2,2 -k3,3n $(basename "${out}" .maf).tmp5d | awk '$8-$7>=30' > $(basename "${out}" .maf).tmp6 # sort and remove instances where comp sp CNE is <30bp
+    # awk '{print $1"_"$2,$1"_"$3,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}' OFS='\t' $(basename "${out}" .maf).tmp3 > $(basename "${out}" .maf).tmp3a
+    # awk '{print $1"_"$2,$1"_"$3,$1,$2,$3}' OFS='\t' $(basename "${out}" .maf).tmp4 > $(basename "${out}" .maf).tmp4a
+    # awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NULL";}}' $(basename "${out}" .maf).tmp3a $(basename "${out}" .maf).tmp4a > $(basename "${out}" .maf).tmp5a
+    # awk 'BEGIN{OFS="\t"}NR==FNR{a[$2]=$0;next}{if(a[$2]){print $0,a[$2];}else{print $0,"NULL";}}' $(basename "${out}" .maf).tmp3a $(basename "${out}" .maf).tmp5a > $(basename "${out}" .maf).tmp5b
+    # cut -f3-5,13-15,28-29 $(basename "${out}" .maf).tmp5b | awk '{print $1"_"$2"_"$3,$1,$2,$3,$4,$5,$6,$7,$8}' OFS='\t' > $(basename "${out}" .maf).tmp6
+    # D. now map to the CNEs main input bed file - check if direct matches work (have you recovered all CNEs of ref coordinates from the MAF and concatenated correctly?)
+    # E. some CNEs will go missing as no alignment - to be expected for those that have diverged or CNE called based on conservation with another species
+    awk '{print "Oreochromis_niloticus."$1"_"$2"_"$3,"Oreochromis_niloticus."$1,$2,$3,$4,$5,$6,$7,$8,$9,$10}' OFS='\t' ${file} > $(basename "${file}" .bed).amend.bed
+    # F. this creates a FINALISED CNE bed file with all the phast details for each species
+    awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"NOMATCH";}}' $(basename "${out}" .maf).tmp6 $(basename "${file}" .bed).amend.bed | grep -v 'NOMATCH' | awk '{print $17,$18,$19,$5,$6,$20,$8,$9,$10,$11}' OFS='\t' >> ${species}.6sp_CNEs.bed.tmp1
+  done < cnefiles
+done
+
+# G. Now create the finalised and collated CNE file for each comparison species (Onil created above)
+for i in Astatotilapia_burtoni Astatotilapia_calliptera Metriaclima_zebra Neolamprologus_brichardi Pundamilia_nyererei; do
+  cd ${wd}/${i}
+  sed 's/^[^.]*.//g' ${i}.6sp_CNEs.bed.tmp1 | sort -V -k1,1 -k2,2n > ${i}.6sp_CNEs.bed
+  rm ${i}.6sp_CNEs.bed.tmp1  ### TO RUN ONCE COMPLETED - DONE
+done
+
+cd ${wd}
+rm */*.tmp*  ### TO RUN ONCE COMPLETED - DONE
+rm */*.amend.bed  ### TO RUN ONCE COMPLETED - DONE
+
+# For Part B above: used bedtools merge to combine overlapping or “book-ended” or distance < 5bp features in an interval file into a single feature which spans all of the combined features.
+# for example:
+# Oreochromis_niloticus.LG10      20241   20320   +       Astatotilapia_calliptera.10     73546   73625   +
+# Oreochromis_niloticus.LG10      20320   20352   +       Astatotilapia_calliptera.10     73653   73685   +
+# Oreochromis_niloticus.LG10      20352   20383   +       Astatotilapia_calliptera.10     73685   73716   +
+# will turn into:
+# Oreochromis_niloticus.LG10      20241   20383   +       Astatotilapia_calliptera.10     73546   73716   +
+
+# For Part C Above: for any multiple matches, the first hit is taken since that will invariably be the correct match; as an example:
+# Oreochromis_niloticus.MKQE02000170.1_185448_185579,Oreochromis_niloticus.MKQE02000170.1_185585_185674	Oreochromis_niloticus.MKQE02000170.1	185448,185585	185579,185674	+	Metriaclima_zebra.AGTA05000053.1	74635	74772	+
+# goes to:
+# Oreochromis_niloticus.MKQE02000170.1_185448_185579	Oreochromis_niloticus.MKQE02000170.1	185448	185579	+	Metriaclima_zebra.AGTA05000053.1	74635	74772	+
+
+
+# 3. now create a mapped bed file for the annotation (using bedtools closest - Onil created above)
+
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/mapfiles
+
+accne=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/Astatotilapia_calliptera/Astatotilapia_calliptera.6sp_CNEs.bed
+abcne=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/Astatotilapia_burtoni/Astatotilapia_burtoni.6sp_CNEs.bed
+mzcne=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/Metriaclima_zebra/Metriaclima_zebra.6sp_CNEs.bed
+nbcne=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/Neolamprologus_brichardi/Neolamprologus_brichardi.6sp_CNEs.bed
+pncne=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping/Pundamilia_nyererei/Pundamilia_nyererei.6sp_CNEs.bed
+
+acgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Astatotilapia_calliptera.fAstCal1.2.100_gene.bed
+abgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Haplochromis_burtoni.AstBur1.0.100_gene.bed
+mzgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Maylandia_zebra.M_zebra_UMD2a.100_gene.bed
+nbgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Neolamprologus_brichardi.NeoBri1.0.100_gene.bed
+pngeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Pundamilia_nyererei.PunNye1.0.100_gene.bed
+
+cut -f3-12 $acgeneannot | sort -V -k1,1 -k2,2n > Astatotilapia_calliptera.fAstCal1.2.100_gene.bed
+cut -f3-12 $abgeneannot | sort -V -k1,1 -k2,2n > Astatotilapia_burtoni.AstBur1.0.100_gene.bed
+cut -f3-12 $mzgeneannot | sort -V -k1,1 -k2,2n > Metriaclima_zebra.M_zebra_UMD2a.100_gene.bed
+cut -f3-12 $nbgeneannot | sort -V -k1,1 -k2,2n > Neolamprologus_brichardi.NeoBri1.0.100_gene.bed
+cut -f3-12 $pngeneannot | sort -V -k1,1 -k2,2n > Pundamilia_nyererei.PunNye1.0.100_gene.bed
+
+source bedtools-2.30.0
+
+spcnedir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/CNE/sp_mapping
+
+for i in Astatotilapia_calliptera.fAstCal1.2.100_gene.bed Astatotilapia_burtoni.AstBur1.0.100_gene.bed Metriaclima_zebra.M_zebra_UMD2a.100_gene.bed Neolamprologus_brichardi.NeoBri1.0.100_gene.bed Pundamilia_nyererei.PunNye1.0.100_gene.bed; do
+  sp=$(echo ${i} | awk -F'.' '{print $1}')
+  grep -v 'pseudo_aCNE' ${spcnedir}/${sp}/${sp}.6sp_CNEs.bed > ${sp}.6sp_hCNEs_aCNEs.bed
+  bedtools closest -a ${sp}.6sp_hCNEs_aCNEs.bed -b ${i} -d > ${sp}.6sp_hCNEs_aCNEs.map.tmp2
+  awk '{print $1,$2,$3,$10,".",$6,$17,".",$7";"$8";"$9";"$21,$20}' OFS='\t' ${sp}.6sp_hCNEs_aCNEs.map.tmp2 > ${sp}.6sp_hCNEs_aCNEs.map.bed
+done
+
+rm *.6sp_hCNEs_aCNEs.map.tmp2 ### TO RUN ONCE COMPLETED - DONE
+
+# run the above
+sbatch map_sp_CNEs.sh ## DONE (but created individual species files to run instead - took around one day each)
+
+
+# 4. copy FINAL CNE files (and the code to the CNE pipeline script):
+mkdir -p /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/FINALfiles # DONE
+
+cp *_CNEs.map.bed /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/FINALfiles # DONE
+cp *.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/FINALfiles # DONE
+cp ${wd}/*.sh /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/FINALfiles # DONE
+cp *.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop # DONE
+
+
+
+# viii. add all the annotations to create a final annotation file in gff format for each species (add to ref locations too, and CNE stuff to CNE pipeline)
+# intergenic, CNEs, 5kb gene promoter, 5' UTR, exon, intron, 3’ UTR
+
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/final_annot
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/final_annot
+
+dir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop
+
+source bedtools-2.30.0
+
+# since 5kb promoters are still overlapping intergenic, subtract them to create a NEW intergenic file for each species
+bedtools subtract -a ${dir}/Astatotilapia_calliptera.fAstCal1.2.100_intergenic.map.bed -b ${dir}/Astatotilapia_calliptera.fAstCal1.2.101.5kb_promoters.map.bed > ${dir}/Astatotilapia_calliptera.fAstCal1.2.100_intergenic.NEWminus5kbProm.map.bed
+bedtools subtract -a ${dir}/Haplochromis_burtoni.AstBur1.0.100_intergenic.map.bed -b ${dir}/Haplochromis_burtoni.AstBur1.0.101.5kb_promoters.map.bed > ${dir}/Haplochromis_burtoni.AstBur1.0.100_intergenic.NEWminus5kbProm.map.bed
+bedtools subtract -a ${dir}/Maylandia_zebra.M_zebra_UMD2a.100_intergenic.map.bed -b ${dir}/Maylandia_zebra.M_zebra_UMD2a.101.5kb_promoters.map.bed > ${dir}/Maylandia_zebra.M_zebra_UMD2a.100_intergenic.NEWminus5kbProm.map.bed
+bedtools subtract -a ${dir}/Neolamprologus_brichardi.NeoBri1.0.100_intergenic.map.bed -b ${dir}/Neolamprologus_brichardi.NeoBri1.0.101.5kb_promoters.map.bed > ${dir}/Neolamprologus_brichardi.NeoBri1.0.100_intergenic.NEWminus5kbProm.map.bed
+bedtools subtract -a ${dir}/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100_intergenic.map.bed -b ${dir}/Oreochromis_niloticus.O_niloticus_UMD_NMBU.101.5kb_promoters.map.bed > ${dir}/Oreochromis_niloticus.O_niloticus_UMD_NMBU.100_intergenic.NEWminus5kbProm.map.bed
+bedtools subtract -a ${dir}/Pundamilia_nyererei.PunNye1.0.100_intergenic.map.bed -b ${dir}/Pundamilia_nyererei.PunNye1.0.101.5kb_promoters.map.bed > ${dir}/Pundamilia_nyererei.PunNye1.0.100_intergenic.NEWminus5kbProm.map.bed
+
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Astatotilapia_burtoni.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Astatotilapia_burtoni.AstBur1.0.6sp_hCNEs_aCNEs.map.bed
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Astatotilapia_calliptera.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Astatotilapia_calliptera.fAstCal1.2.6sp_hCNEs_aCNEs.map.bed
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Metriaclima_zebra.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Metriaclima_zebra.M_zebra_UMD2a.6sp_hCNEs_aCNEs.map.bed
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Neolamprologus_brichardi.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Neolamprologus_brichardi.NeoBri1.0.6sp_hCNEs_aCNEs.map.bed
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Oreochromis_niloticus.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Oreochromis_niloticus.O_niloticus_UMD_NMBU.6sp_hCNEs_aCNEs.map.bed
+mv /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Pundamilia_nyererei.6sp_hCNEs_aCNEs.map.bed /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Pundamilia_nyererei.PunNye1.0.6sp_hCNEs_aCNEs.map.bed
+
+
+for i in ${dir}/*_intergenic.NEWminus5kbProm.map.bed ${dir}/*.6sp_hCNEs_aCNEs.map.bed ${dir}/*.5kb_promoters.map.bed ${dir}/*_5UTR.map.bed ${dir}/*_exon_merged.map.bed ${dir}/*_intron.map.bed ${dir}/*_3UTR.map.bed; do
+  sp=$(echo $(basename "$i") | awk -F'.' '{print $1}' | sed 's|Haplochromis_burtoni|Astatotilapia_burtoni|g' | sed 's|Maylandia_zebra|Metriaclima_zebra|g')
+  vers=$(echo $(basename "$i") | awk -F'.' '{print $2"."$3}' | sed 's|_intergenic||g' | sed 's|_5UTR||g' | sed 's|_exon_merged||g' | sed 's|_intron||g' | sed 's|_3UTR||g' | sed 's|.101||g' | sed 's|.100||g' | sed 's|.6sp_hCNEs_aCNEs||g')
+  # echo $sp
+  # echo $vers
+  cat ${i} >> ${sp}.${vers}.annot.tmp1
+done
+
+
+for i in *.annot.tmp1; do
+  sort -V -k1,1 -k2,2n ${i} > $(basename "${i}" .tmp1).bed
+done
+
+rm *.tmp*
+
+# # THIS IS FOR THE OLD APPROACH, NOT NEEDED - at this stage, also remove intergenic that are also 5kb gene promoter e.g.
+# # AFNZ01062483.1  0       877     5kb_gene_promoter       .       +       ENSHBUG00000021375      .       .       ensembl
+# # AFNZ01062483.1  0       877     intergenic      .       NULL    NULL_intergenic_ENSHBUG00000021375      NULL    NULL    NULL_intergenic_ensembl
+#
+# for i in *.annot.tmp1; do
+#   sort -V -k1,1 -k2,2n ${i} | awk '!visited[$0]++' > $(basename "${i}" .tmp1).tmp2
+#   awk 'NR==FNR{s[$1,$2,$3]++;next} (s[$1,$2,$3]>1)' $(basename "${i}" .tmp1).tmp2 $(basename "${i}" .tmp1).tmp2 | # this identifies and prints out all duplicated lines (based on chr,start,end)
+#   grep 'intergenic' | awk '{print $1"_"$2"_"$3"_"$4}' > $(basename "${i}" .tmp1).tmp3 # from the above you could extract just the intergenic and then remove them from main file (using a created key)
+#   awk '{print $1"_"$2"_"$3"_"$4,$0}' OFS='\t' $(basename "${i}" .tmp1).tmp2 > $(basename "${i}" .tmp1).tmp4 # create a new main file for mapping the key
+#   awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$0;next}{if(a[$1]){print $0,a[$1];}else{print $0,"KEEPME";}}' $(basename "${i}" .tmp1).tmp3 $(basename "${i}" .tmp1).tmp4 | grep 'KEEPME' | cut -f2-11 > $(basename "${i}" .tmp1).bed # do the map and remove matched lines
+# done
+#
+# rm *.tmp*
+
+# output gff format - example:
+# LG1	NULL_intergenic_ctsd	intergenic	0	43173	.	NULL	NULL	NULL_intergenic_ENSONIG00000015575;NULL
+# LG1	ctsd	5kb_gene_promoter	38173	43173	.	+	.	ENSONIG00000015575;.
+# LG1	ctsd	five_prime_utr	43173	43266	.	+	.	ENSONIG00000015575;ENSONIT00000065129
+
+### For GFF, need to change to 1-BASED, so not book-ended e.g.
+# 1       0       19686   intergenic      .       NULL    NULL_intergenic_ENSACLG00000000002      NULL    NULL    NULL_intergenic_lto1    1
+# 1       19686   19741   exon    .       -       ENSACLG00000000002      ENSACLT00000000002      5       lto1    1
+# 1       19741   20214   intron  .       -       ENSACLG00000000002      .       .       lto1    1
+#
+# turns to:
+#
+# 1       1       19686   intergenic      .       NULL    NULL_intergenic_ENSACLG00000000002      NULL    NULL    NULL_intergenic_lto1    1
+# 1       19687   19741   exon    .       -       ENSACLG00000000002      ENSACLT00000000002      5       lto1    1
+# 1       19742   20214   intron  .       -       ENSACLG00000000002      .       .       lto1    1
+
+for i in *.bed; do
+  awk '{print $1,$10,$4,$2+1,$3,$5,$6,$9,$7";"$8}' OFS='\t' ${i} > $(basename "${i}" .bed).gff
+done
+
+# ix. create the peaks feature files for each species (example below)
+
+# head /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/Rerun_all_240821/MKQE02000050.1.phylop_pseudoaCNEs.features.gff
+# MKQE02000050	phastCons	pseudo_aCNE	5189	5571	0.622780104712042	+	.	MKQE02000050.1.1
+# MKQE02000050	phastCons	pseudo_aCNE	7211	7432	0.687054298642534	+	.	MKQE02000050.1.2
+# create a gff of the peaks, adding the annotated feature they overlap (and all the info), and then split by chromosome
+
+# amend the name col in peaks file and run an intersect with the corresponding species annotations
+
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run
+
+# peak files here - ${idrdir}/*_ATAC_peaks.final.narrowPeak
+
+nano mappeaksfeatures.sh
+
+#!/bin/bash -e
+#SBATCH -p ei-medium # partition (queue)
+#SBATCH -N 1 # number of nodes
+#SBATCH -n 1 # number of tasks
+#SBATCH --mem 12000 # memory pool for all cores
+#SBATCH -t 0-03:59 # time (D-HH:MM)
+#SBATCH -o slurm.%N.%j.out # STDOUT
+#SBATCH -e slurm.%N.%j.err # STDERR
+#SBATCH --mail-type=ALL # notifications for job done & fail
+#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address
+
+idrdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/1.IDR
+phylodir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run
+annotdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/final_annot
+
+mkdir -p ${phylodir}/{Astatotilapia_calliptera,Astatotilapia_burtoni,Metriaclima_zebra,Neolamprologus_brichardi,Oreochromis_niloticus,Pundamilia_nyererei}
+
+source bedtools-2.30.0
+
+# ix-a. amend and store peaks file in species specific folders to run species specific code later
+for i in ${idrdir}/*_ATAC_peaks.final.narrowPeak; do
+  id=$(echo $(basename "${i}" ) | awk -F'_' '{print $1}')
+  file=$(echo $(basename "${i}" ))
+  if [[ ${id} =~ "Ac" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Astatotilapia_calliptera/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Astatotilapia_calliptera.fAstCal1.2.annot.bed -b ${phylodir}/Astatotilapia_calliptera/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Astatotilapia_calliptera/${file}.features.gff
+  fi
+  if [[ ${id} =~ "Ab" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Astatotilapia_burtoni/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Astatotilapia_burtoni.AstBur1.0.annot.bed -b ${phylodir}/Astatotilapia_burtoni/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Astatotilapia_burtoni/${file}.features.gff
+  fi
+  if [[ ${id} =~ "Mz" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Metriaclima_zebra/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Metriaclima_zebra.M_zebra_UMD2a.annot.bed -b ${phylodir}/Metriaclima_zebra/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Metriaclima_zebra/${file}.features.gff
+  fi
+  if [[ ${id} =~ "Nb" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Neolamprologus_brichardi/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Neolamprologus_brichardi.NeoBri1.0.annot.bed -b ${phylodir}/Neolamprologus_brichardi/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Neolamprologus_brichardi/${file}.features.gff
+  fi
+  if [[ ${id} =~ "On" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Oreochromis_niloticus/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Oreochromis_niloticus.O_niloticus_UMD_NMBU.annot.bed -b ${phylodir}/Oreochromis_niloticus/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Oreochromis_niloticus/${file}.features.gff
+  fi
+  if [[ ${id} =~ "Pn" ]]; then
+    # echo -e ${id}'\t'"True"
+    awk '{gsub(/.*\//,"",$4);print}' OFS='\t' ${i} | sort -V -k1,1 -k2,2n > ${phylodir}/Pundamilia_nyererei/${file} # amend the name col in peaks file and sort
+    bedtools intersect -a $annotdir/Pundamilia_nyererei.PunNye1.0.annot.bed -b ${phylodir}/Pundamilia_nyererei/${file} -wb |
+    awk '{print $11,$14,$4,$12,$13,$15,$6,".",$17";"$18";"$19";"$20";"$21";"$7";"$10}' OFS='\t' > ${phylodir}/Pundamilia_nyererei/${file}.features.gff
+  fi
+done
+
+# ix-b. split all the files by chromosome - will need to join all species files first, then split by first col
+for i in Astatotilapia_calliptera Astatotilapia_burtoni Metriaclima_zebra Neolamprologus_brichardi Oreochromis_niloticus Pundamilia_nyererei; do
+  cd ${phylodir}/${i}
+  cat *.features.gff > ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1
+done
+
+for i in Astatotilapia_calliptera Astatotilapia_burtoni Metriaclima_zebra Neolamprologus_brichardi Oreochromis_niloticus Pundamilia_nyererei; do
+  cd ${phylodir}/${i}
+  sort -V -k1,1 -k4,4n ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1 | awk '{OFS="\t"} {if ($7=="NULL") $7="."; print $0}' | awk '{OFS="\t"} {if ($8=="NULL") $8="."; print $0}' > ${i}_ATAC_peaks.final.narrowPeak.features.gff
+  rm ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1
+  mkdir -p ${phylodir}/${i}/split
+  cd ${phylodir}/${i}/split
+  awk -F'\t' '{print>$1}' ${phylodir}/${i}/${i}_ATAC_peaks.final.narrowPeak.features.gff
+done # Note: will only be using the On split files but running anyway for all species
+
+# for i in Astatotilapia_calliptera Astatotilapia_burtoni Metriaclima_zebra Neolamprologus_brichardi Oreochromis_niloticus Pundamilia_nyererei; do
+#   cd ${phylodir}/${i}
+#   awk '{OFS="\t"} {if ($7=="NULL") $7="."; print $0}' ${i}_ATAC_peaks.final.narrowPeak.features.gff > ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1
+#   # awk '{print $1,$3,$2,$4,$5,$6,$8,$7,$9}' OFS='\t' ${i}_ATAC_peaks.final.narrowPeak.features.gff > ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1
+#   rm ${i}_ATAC_peaks.final.narrowPeak.features.gff
+#   mv ${i}_ATAC_peaks.final.narrowPeak.features.gff.tmp1 ${i}_ATAC_peaks.final.narrowPeak.features.gff
+#   mkdir -p ${phylodir}/${i}/split
+#   cd ${phylodir}/${i}/split
+#   awk -F'\t' '{print>$1}' ${phylodir}/${i}/${i}_ATAC_peaks.final.narrowPeak.features.gff
+# done
+
+# run the above
+sbatch mappeaksfeatures.sh
+
+###################################################################################################################################################################################################################################
+###################################################################################################################################################################################################################################
+###### FINAL features-peak mapped files here for each species:
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Astatotilapia_calliptera/Astatotilapia_calliptera_ATAC_peaks.final.narrowPeak.features.gff
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Astatotilapia_burtoni/Astatotilapia_burtoni_ATAC_peaks.final.narrowPeak.features.gff
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Metriaclima_zebra/Metriaclima_zebra_ATAC_peaks.final.narrowPeak.features.gff
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Neolamprologus_brichardi/Neolamprologus_brichardi_ATAC_peaks.final.narrowPeak.features.gff
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Oreochromis_niloticus_ATAC_peaks.final.narrowPeak.features.gff
+# /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Pundamilia_nyererei/Pundamilia_nyererei_ATAC_peaks.final.narrowPeak.features.gff
+
+## Cols are:
+
+# 1. chr/scaff
+# 2. peak ID - as generated and assigned by MACS
+# 3. annotation - intergenic, CNEs, 5kb gene promoter, 5' UTR, exon, intron, 3’ UTR
+# 4. start - The starting position of the feature in the sequence. The first base is numbered 1.
+# 5. end - The ending position of the feature (inclusive).
+# 6. score - Contains the scaled IDR value, min(int(log2(-125IDR), 1000). e.g. peaks with an IDR of 0 have a score of 1000, idr 0.05 have a score of int(-125log2(0.05)) = 540, and idr 1.0 has a score of 0.
+# 7. strand - Valid entries include "+", "-", or "." (for don't know/don't care).
+# 8. frame - all entries will be '.'
+# 9. grouped (separated by ; -  7 values in total)
+  # MACS2 peak IDR output- signalValue float - fold-change at peak summit: Measurement of enrichment for the region for merged peaks. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- p-value float: Merged peak p-value. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- q-value float: Merged peak q-value. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- summit int: Merged peak summit
+  # MACS2 peak IDR output- IDR True (T) or False (F) of peaks passing IDR threshold of 10%
+  # Ensembl Gene ID
+  # Ensembl Gene Symbol
+
+###################################################################################################################################################################################################################################
+###################################################################################################################################################################################################################################
+
+
+## x. Calculate phyloP score of O. niloticus peaks only, as ref pairwise vs all other species
+# here, we are then able to identify ref On peaks that have likely fast evolved in the other comparison species.
+# using this method we want to obtain one score for each peak feature:
+  # phyloP scores measure evolutionary conservation at individual alignment sites. Interpretations of the scores are compared to the evolution that is expected under neutral drift.
+  # Positive scores — Measure conservation, which is slower evolution than expected, at sites that are predicted to be conserved.
+  # Negative scores — Measure acceleration, which is faster evolution than expected, at sites that are predicted to be fast-evolving.
+
+# scripts to create and split the pairwise MAFs and MOD file creation will be in here: /ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting
+
+# x-i. below will prep the script for each species to then run phylop
+
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/slurmout
+
+for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
+  ls -1 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/split/* > ${i}_gff
+  awk '{gsub(/.*\//,"");print}' ${i}_gff > ${i}_gff2
+done
+
+arraystrt=0
+arrayend=$(ls -1 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/split/* | wc -l | awk '{print $1-1}') # get the array end - this wont change since we always use the same On features
+
+for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
+  echo '#!/bin/bash -e' > 1.phyloprun_${i}.sh
+  echo '#SBATCH -p ei-short # partition (queue)' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH -N 1 # number of nodes' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH -n 1 # number of tasks' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH --array='${arraystrt}'-'${arrayend} >> 1.phyloprun_${i}.sh
+  echo '#SBATCH --mem-per-cpu 28000' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH -t 0-00:45' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH -o slurmout/slurm.%A.%a.out # STDOUT' >> 1.phyloprun_${i}.sh
+  echo '#SBATCH -e slurmout/slurm.%A.%a.err # STDERR' >> 1.phyloprun_${i}.sh
+  printf '\n' >> 1.phyloprun_${i}.sh
+  echo '### SOURCE SOFTWARE' >> 1.phyloprun_${i}.sh
+  echo 'source phast-1.3' >> 1.phyloprun_${i}.sh
+  printf '\n' >> 1.phyloprun_${i}.sh
+  echo '# MAKE VARIABLES' >> 1.phyloprun_${i}.sh
+  echo 'SPECIES='${i} >> 1.phyloprun_${i}.sh
+  echo 'MOD=/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting/Cichlid_6sp.Oreochromis_niloticus-${SPECIES}.V2.PariWiseSplit.maf.mod' >> 1.phyloprun_${i}.sh
+  echo 'MAFSPLIT=/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting/mafsplit2b_Oreochromis_niloticus-${SPECIES}' >> 1.phyloprun_${i}.sh
+  echo 'mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Onil_${SPECIES}_PhyloPScores' >> 1.phyloprun_${i}.sh
+  echo 'OUT=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Onil_${SPECIES}_PhyloPScores' >> 1.phyloprun_${i}.sh
+  printf '\n' >> 1.phyloprun_${i}.sh
+  echo '# MAKE ELEMENTS' >> 1.phyloprun_${i}.sh
+  echo 'mapfile -t chr2 < ${SPECIES}_gff # assign as elements to $chr2 variable' >> 1.phyloprun_${i}.sh
+  echo 'mapfile -t chr3 < ${SPECIES}_gff2 # assign as elements to $chr3 variable' >> 1.phyloprun_${i}.sh
+  printf '\n' >> 1.phyloprun_${i}.sh
+  echo '# RUN PHYLOP' >> 1.phyloprun_${i}.sh
+  echo 'echo -e "Running PhyloP for ${chr2[${SLURM_ARRAY_TASK_ID}]} To Generate Conservation Scores for each peak"' >> 1.phyloprun_${i}.sh
+  echo 'phyloP --features ${chr2[${SLURM_ARRAY_TASK_ID}]} --mode CONACC --method LRT ${MOD} ${MAFSPLIT}/${chr3[${SLURM_ARRAY_TASK_ID}]}.maf > ${OUT}/${chr3[${SLURM_ARRAY_TASK_ID}]}.ATAC_peaks.final.narrowPeak.features.out' >> 1.phyloprun_${i}.sh
+  echo 'echo -e "Running of PhyloP ${chr2[${SLURM_ARRAY_TASK_ID}]} Complete"' >> 1.phyloprun_${i}.sh
+done
+
+# run for all ref species comps
+for i in 1.phyloprun_*.sh; do
+  sbatch ${i}
+done
+
+sbatch 1.phyloprun_Astatotilapia_burtoni.sh
+sbatch 1.phyloprun_Astatotilapia_calliptera.sh
+sbatch 1.phyloprun_Metriaclima_zebra.sh
+sbatch 1.phyloprun_Neolamprologus_brichardi.sh
+sbatch 1.phyloprun_Pundamilia_nyererei.sh
+
+## all the LG ones have timed out - need to reamend and run for longer
+for i in slurm.44520082.199.err slurm.44520082.300.err slurm.44520082.478.err slurm.44520979.209.err slurm.44520979.199.err slurm.44520980.49.err slurm.44520980.478.err slurm.44520082.19.err slurm.44521045.31.err slurm.44520980.19.err; do
+  head slurmout/${i}
+done
+
+for i in *_gff *_gff2; do
+  grep LG ${i} > ${i}.LG # create a new file just containing list of the LG scaffs for the array
+done
+
+arraystrt=0
+arrayend=$(wc -l Astatotilapia_burtoni_gff.LG | awk '{print $1-1}') # get the array end - this wont change since we always use the same On features
+
+for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
+  echo '#!/bin/bash -e' > 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -p ei-medium # partition (queue)' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -N 1 # number of nodes' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -n 1 # number of tasks' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH --array='${arraystrt}'-'${arrayend} >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH --mem-per-cpu 28000' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -t 0-05:59' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH --mail-type=ALL # notifications for job done & fail' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH --mail-user=Tarang.Mehta@earlham.ac.uk # send-to address' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -o slurmout/slurm.%A.%a.out # STDOUT' >> 1.phyloprun_${i}_LGonly.sh
+  echo '#SBATCH -e slurmout/slurm.%A.%a.err # STDERR' >> 1.phyloprun_${i}_LGonly.sh
+  printf '\n' >> 1.phyloprun_${i}_LGonly.sh
+  echo '### SOURCE SOFTWARE' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'source phast-1.3' >> 1.phyloprun_${i}_LGonly.sh
+  printf '\n' >> 1.phyloprun_${i}_LGonly.sh
+  echo '# MAKE VARIABLES' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'SPECIES='${i} >> 1.phyloprun_${i}_LGonly.sh
+  echo 'MOD=/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting/Cichlid_6sp.Oreochromis_niloticus-${SPECIES}.V2.PariWiseSplit.maf.mod' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'MAFSPLIT=/ei/projects/9/92817604-7d6f-42a9-b8c4-b9657c1fde33/scratch/FishCNEs/SixSpCNEs/3.phast/MAFSplitting/mafsplit2b_Oreochromis_niloticus-${SPECIES}' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Onil_${SPECIES}_PhyloPScores' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'OUT=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Onil_${SPECIES}_PhyloPScores' >> 1.phyloprun_${i}_LGonly.sh
+  printf '\n' >> 1.phyloprun_${i}_LGonly.sh
+  echo '# MAKE ELEMENTS' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'mapfile -t chr2 < ${SPECIES}_gff.LG # assign as elements to $chr2 variable' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'mapfile -t chr3 < ${SPECIES}_gff2.LG # assign as elements to $chr3 variable' >> 1.phyloprun_${i}_LGonly.sh
+  printf '\n' >> 1.phyloprun_${i}_LGonly.sh
+  echo '# RUN PHYLOP' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'echo -e "Running PhyloP for ${chr2[${SLURM_ARRAY_TASK_ID}]} To Generate Conservation Scores for each peak"' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'phyloP --features ${chr2[${SLURM_ARRAY_TASK_ID}]} --mode CONACC --method LRT ${MOD} ${MAFSPLIT}/${chr3[${SLURM_ARRAY_TASK_ID}]}.maf > ${OUT}/${chr3[${SLURM_ARRAY_TASK_ID}]}.ATAC_peaks.final.narrowPeak.features.out' >> 1.phyloprun_${i}_LGonly.sh
+  echo 'echo -e "Running of PhyloP ${chr2[${SLURM_ARRAY_TASK_ID}]} Complete"' >> 1.phyloprun_${i}_LGonly.sh
+done
+
+# run for all ref species comps
+for i in 1.phyloprun_*_LGonly.sh; do
+  sbatch ${i}
+done
+
+
+## xi. Process the PhyloP outputs to map peak features and create final PhyloP files (for Onil only - can run for other species aadaping code below)
+
+mkdir -p /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures
+
+# a) Map outputs to peak feature files
+
+# i) NOTE: phylop output is 0 base and gff is 1 base so, when mapping, change the mapping ID in features file to 0 base e.g MKQE02000710_16012_16210 > MKQE02000710_16011_16210
+# ii) create a mapping ID column in the gff peak features file (as last col, col10, changing to 0 base e.g MKQE02000710_16012_16210 > MKQE02000710_16011_16210)
+onilpeakfeatgff=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Oreochromis_niloticus_ATAC_peaks.final.narrowPeak.features.gff
+awk '{print $0,$1"_"$4-1"_"$5}' OFS='\t' ${onilpeakfeatgff} > Oreochromis_niloticus_ATAC_peaks.final.narrowPeak.features.amend.gff
+# iii) cat all the phylop outputs for each species into one file (remember to remove headers), remove duplicates, remove header lines, create a mapping ID column (as last col), and sort by coordinates
+for i in Astatotilapia_calliptera_PhyloPScores Metriaclima_zebra_PhyloPScores Pundamilia_nyererei_PhyloPScores Astatotilapia_burtoni_PhyloPScores Neolamprologus_brichardi_PhyloPScores; do
+  sp=$(echo ${i} | sed 's|_PhyloPScores||g')
+  cat /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/Onil_${i}/*.out | awk '!visited[$0]++' | grep -v 'lnlratio' | awk '{print $0,$1"_"$2"_"$3}' OFS='\t' | sort -V -k1,1 -k2,2n > Onil-${sp}.ATAC_peaks.final.narrowPeak.out
+done
+
+wc -l *.out
+# 4607906 Onil-Astatotilapia_burtoni.ATAC_peaks.final.narrowPeak.out
+# 4607855 Onil-Astatotilapia_calliptera.ATAC_peaks.final.narrowPeak.out
+# 4607906 Onil-Metriaclima_zebra.ATAC_peaks.final.narrowPeak.out
+# 4607883 Onil-Neolamprologus_brichardi.ATAC_peaks.final.narrowPeak.out
+# 4607906 Onil-Pundamilia_nyererei.ATAC_peaks.final.narrowPeak.out
+
+
+# iv) do the map (col10 in features and col8 in phylop scores)
+for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$10]=$0;next}{if(a[$8]){print $0,a[$8];}else{print $0,"REMOVEME";}}' Oreochromis_niloticus_ATAC_peaks.final.narrowPeak.features.amend.gff Onil-${i}.ATAC_peaks.final.narrowPeak.out | grep -v 'REMOVEME' | awk '{print $1,$10,$11,$12,$13,$14,$15,$16,$17,$5,$6,$7}' OFS='\t' > Onil-${i}.ATAC_peaks.final.narrowPeak.mapfeatures.out
+done
+
+################################################################################################################################################
+######## THESE ARE THE FINAL PHYLOP FILES OF PEAKS MAPPED TO FEATURES IN O. niloticus only, INCLUDING IDR STATS -
+## have ran for the other species pairwise but haven't collated - just need to run the code above with species-specific gff amend too
+finalphyloppeakdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures
+wc -l ${finalphyloppeakdir}/*.mapfeatures.out
+
+# 4607895 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Astatotilapia_burtoni.ATAC_peaks.final.narrowPeak.mapfeatures.out
+# 4607844 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Astatotilapia_calliptera.ATAC_peaks.final.narrowPeak.mapfeatures.out
+# 4607895 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Metriaclima_zebra.ATAC_peaks.final.narrowPeak.mapfeatures.out
+# 4607878 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Neolamprologus_brichardi.ATAC_peaks.final.narrowPeak.mapfeatures.out
+# 4607895 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Pundamilia_nyererei.ATAC_peaks.final.narrowPeak.mapfeatures.out
+
+## Output is gff format (1-based) - cols are:
+## NOTE: the above files contain Gill peaks too, which we will remove for this paper
+
+# 1. chr/scaff
+# 2. peak ID - as generated and assigned by MACS
+# 3. annotation - intergenic, CNEs, 5kb gene promoter, 5' UTR, exon, intron, 3’ UTR
+# 4. start - The starting position of the feature in the sequence. The first base is numbered 1.
+# 5. end - The ending position of the feature (inclusive).
+# 6. score - Contains the scaled IDR value, min(int(log2(-125IDR), 1000). e.g. peaks with an IDR of 0 have a score of 1000, idr 0.05 have a score of int(-125log2(0.05)) = 540, and idr 1.0 has a score of 0.
+# 7. strand - Valid entries include "+", "-", or "." (for don't know/don't care).
+# 8. frame - all entries will be '.'
+# 9. grouped (separated by ; -  7 values in total)
+  # MACS2 peak IDR output- signalValue float - fold-change at peak summit: Measurement of enrichment for the region for merged peaks. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- p-value float: Merged peak p-value. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- q-value float: Merged peak q-value. When a peak list is provided this is the value from the peak list.
+  # MACS2 peak IDR output- summit int: Merged peak summit
+  # MACS2 peak IDR output- IDR True (T) or False (F) of peaks passing IDR threshold of 10%
+  # Ensembl Gene ID
+  # Ensembl Gene Symbol
+# 10. phylop scale	- this is the altsubscale (we want more than 1 for deviation)
+# 11. phylop lnlratio - this is the likelihood-ratio-test (we want <0.05)
+# 12. phylop pval - this is the CONACC score: +ve is conserved and -ve is accelerated
+
+
+################################################################################################################################################
 
 
 ################################################################################################################

@@ -363,7 +363,7 @@ done < $prefixATAC2 # this while loop will run ATAC script in each ATAC folder
 
 ## checking jobs and the samples associated (change the grep accordingly)
 cd $WD
-jobids=$(squeue -u mehtat | grep '5.peakca' | awk -F' ' '{print $1}' | awk 'BEGIN { ORS = " " } { print }') # this will store the jobids into a single row variable to use in for loop
+jobids=$(squeue -u mehtat | grep '3.mtfilt' | awk -F' ' '{print $1}' | awk 'BEGIN { ORS = " " } { print }') # this will store the jobids into a single row variable to use in for loop
 
 for i in $jobids; do
   com=$(scontrol show jobid -dd $i | grep 'Command=' )
@@ -371,7 +371,160 @@ for i in $jobids; do
   echo -e $com'\t'$err
 done # this will output two columns - first col shows the command where error occured and second shows the stout error file associated. The folder ran before the command will invariably have the error with it.
 
-# ############################################ ~~~~~~~ ############################################
+# # ############################################ ~~~~~~~ ############################################
+# ### dealing with failed jobs
+#
+# cd $WD
+#
+# # 1. pull out the jobids for failed
+# jobids=$(squeue -u mehtat | grep '3.mtfilt' | awk -F' ' '{print $1}' | awk 'BEGIN { ORS = " " } { print }') # this will store the jobids into a single row variable to use in for loop
+#
+# 3.mtfilt_fragcount_B.sh
+#
+# # 2. find the associated main job
+#
+# # first, save the sample id for the failed dependency
+# for i in $jobids; do
+#   sample1=$(scontrol show jobid -dd $i | grep 'Command=' | awk -F'/' '{print $8}') # get the sample name
+#   echo $sample1 >> stopjobsamples.txt
+#   # echo $sample1 | awk 'BEGIN { ORS = " " } { print }'
+#   # scancel $i
+# done
+#
+# # Mz1_E_ATAC Mz2_B_ATAC 2bAc_7dpf_ATAC On3_G_ATAC Mz2_E_ATAC On2_E_ATAC On2_T_ATAC On1_L_ATAC 1aAc_3dpf_ATAC Mz1_T_ATAC On3_L_ATAC On1_E_ATAC Mz2_L_ATAC On2_L_ATAC On1_T_ATAC On3_B_ATAC On2_G_ATAC 1bAc_3dpf_ATAC On1_B_ATAC Mz2_T_ATAC
+#
+# # Mz1_E_ATAC
+# # Mz2_B_ATAC
+# # 2bAc_7dpf_ATAC
+# # On3_G_ATAC
+# # Mz2_E_ATAC
+# # On2_E_ATAC
+# # On2_T_ATAC
+# # On1_L_ATAC
+# # 1aAc_3dpf_ATAC
+# # Mz1_T_ATAC
+# # On3_L_ATAC
+# # On1_E_ATAC
+# # Mz2_L_ATAC
+# # On2_L_ATAC
+# # On1_T_ATAC
+# # On3_B_ATAC
+# # On2_G_ATAC
+# # 1bAc_3dpf_ATAC
+# # On1_B_ATAC
+# # Mz2_T_ATAC
+#
+# # 3. scancel the jobs
+# # then find the associated main job
+# jobids2=$(squeue -u mehtat | grep 'ATAC_Bio' | awk -F' ' '{print $1}' | awk 'BEGIN { ORS = " " } { print }')
+# for i in $jobids2; do
+#   sample2=$(scontrol show jobid -dd $i | grep 'Command=' | awk -F'/' '{print $8}') # get the sample name
+#   com=$(scontrol show jobid -dd $i | grep 'Command=' )
+#   echo -e $i'\t'$sample2 >> jobs.txt
+# done
+#
+# # cancel the main jobs
+# stopmainjobs=$(grep -f stopjobsamples.txt jobs.txt | awk '{print $1}' | awk 'BEGIN { ORS = " " } { print }')
+# for a in $stopmainjobs; do
+#   scancel $a
+# done
+# # cancel the sub jobs
+# for b in $jobids; do
+#   scancel $b
+# done
+#
+# # Mz2_L_ATAC
+# # Mz2_T_ATAC
+# # On1_B_ATAC
+# # On1_E_ATAC
+# # On1_G_ATAC mtfilt running
+# # On1_L_ATAC
+# # On1_T_ATAC
+# # On2_B_ATAC completed
+# # On2_E_ATAC
+# # On2_G_ATAC
+# # On2_L_ATAC
+# # On2_T_ATAC
+# # On3_B_ATAC
+# # On3_G_ATAC
+# # On3_L_ATAC
+# # On3_T_ATAC completed
+# # 1aAc_3dpf_ATAC
+# # 1bAc_3dpf_ATAC
+# # 2aAc_7dpf_ATAC completed
+# # 2bAc_7dpf_ATAC
+# # Mz1_E_ATAC
+# # Mz1_T_ATAC
+# # Mz2_B_ATAC
+# # Mz2_E_ATAC
+#
+# # 4. Re-run the last failed part of the pipeline - problems connecting to ncbi so do it manually by either copying or running in software
+# for i in On1_E_ATAC On1_L_ATAC On1_T_ATAC On2_E_ATAC On2_G_ATAC On2_L_ATAC On2_T_ATAC On3_B_ATAC On3_G_ATAC On3_L_ATAC; do
+#   cp On3_T_ATAC/3.Mtfilt_fragcnt/NC_013663.1.fasta $i/3.Mtfilt_fragcnt
+#   ls -tlrh $i/3.Mtfilt_fragcnt
+# done # DONE
+#
+# for i in 1aAc_3dpf_ATAC 1bAc_3dpf_ATAC 2bAc_7dpf_ATAC; do
+#   cp 2aAc_7dpf_ATAC/3.Mtfilt_fragcnt/NC_018560.1.fasta $i/3.Mtfilt_fragcnt
+#   ls -tlrh $i/3.Mtfilt_fragcnt
+# done # DONE
+#
+# for i in Mz2_L_ATAC Mz2_T_ATAC Mz1_E_ATAC Mz1_T_ATAC Mz2_B_ATAC Mz2_E_ATAC; do
+#   cd $WD2/${i}/3.Mtfilt_fragcnt
+#   sbatch 3.mtfilt_fragcount_A.sh
+# done
+#
+# sampleids=$(awk 'BEGIN { ORS = " " } { print }' stopjobsamples.txt)
+# for i in $sampleids; do
+#   echo $i
+#   ls -tlrh $WD2/${i}/3.Mtfilt_fragcnt
+#   # rm $i/slurm*
+#   # rm $i/3.Mtfilt_fragcnt/{slurm*,*.fasta}
+#   cd $WD2/${i}/3.Mtfilt_fragcnt
+#   sbatch 3.mtfilt_fragcount_B.sh
+# done
+#
+# # 5. Amend the sbatch (supress successfully ran stages and amend job dependency for new start) and re-run
+# # this will supress lines 171-343 and 345-465
+# sampleids=$(awk 'BEGIN { ORS = " " } { print }' stopjobsamples.txt)
+# for i in $sampleids; do
+#   cd $WD2/${i}
+#   awk 'NR==171,NR==343 { $0 = "#" $0 }; 1' ATAC_Bioinf_pipeline_v2b.sh | awk 'NR==345,NR==465 { $0 = "#" $0 }; 1' | sed 's/--dependency=afterok:${JOBID6} //g' > ATAC_Bioinf_pipeline_v2b_edit.sh
+# done
+#
+# sampleids2=stopjobsamples2.txt
+# awk -F'_' '{print $1}' stopjobsamples.txt | sed 's/1a//g' | sed 's/1b//g' | sed 's/2a//g' | sed 's/2b//g' | sed 's/3a//g' | sed 's/3b//g' | sed 's/[0-9]//g' | sed 's/Pnm/Pn/g' > $sampleids2.tmp1 # strip all other characters to expose only species ID
+# awk '{print $1}' stopjobsamples.txt > $sampleids2.tmp2
+# paste $sampleids2.tmp1 $sampleids2.tmp2 > $sampleids2 # create a new file that has species ID alongside the sample ID
+# rm $sampleids2.tmp1 $sampleids2.tmp2
+#
+# while read -r i1 i2; do
+#   if [[ "$i1" == "$sp1" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp1
+#     cd $WD2/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf"
+#     sbatch ATAC_Bioinf_pipeline_v2b_edit.sh -s $i2 -g $sp1ID -f $mzebgenome -m $sp1mitID -u $user -a $mzebgtf
+#   fi
+#   if [[ "$i1" == "$sp5" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp5
+#     cd $WD2/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf"
+#     sbatch ATAC_Bioinf_pipeline_v2b_edit.sh -s $i2 -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
+#   fi
+#   if [[ "$i1" == "$sp6" ]]; then
+#     # echo "New if statement: "$i1 $i2 $sp6
+#     cd $WD2/$i2
+#     # echo "sbatch $ATACscript3 -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf"
+#     sbatch ATAC_Bioinf_pipeline_v2b_edit.sh -s $i2 -g $sp6ID -f $acalgenome -m $sp6mitID -u $user -a $acalgtf
+#   fi
+# done < $sampleids2
+#
+# # 6. Sort out any snagging samples
+# cd $WD2/On1_G_ATAC
+# awk 'NR==171,NR==343 { $0 = "#" $0 }; 1' ATAC_Bioinf_pipeline_v2b.sh | awk 'NR==345,NR==465 { $0 = "#" $0 }; 1' | sed 's/--dependency=afterok:${JOBID6} //g' > ATAC_Bioinf_pipeline_v2b_edit.sh
+# sbatch ATAC_Bioinf_pipeline_v2b_edit.sh -s On1_G_ATAC -g $sp5ID -f $onilgenome -m $sp5mitID -u $user -a $onilgtf
+#
+#
 # ## several jobs failed due to insufficent space > move completed jobs to scratch area (except corresponding gDNA required for ATAC runs)
 # cd $WD
 # mkdir -p $WD2
@@ -606,9 +759,7 @@ done # this will output two columns - first col shows the command where error oc
 #
 # ############################################ ~~~~~~~ ############################################
 
-
-
-# C. Check whether the output files have written their completion status ok:
+# C. Check whether the output files have written their completion status ok # {DONE - all ok}
 cd $WD
 ATACslurmoutstotal=$(ls -1 *_*_ATAC/slurm*.out | wc -l)
 ATACcompleteslurm=$(grep 'EXITING SCRIPT' *_*_ATAC/slurm*.out | wc -l)
@@ -619,7 +770,7 @@ else
   echo -e "Not all ATAC library alignments to peak calling and bigbed conversion have completed successfuly....\nTotal runs = $ATACslurmoutstotal\nTotal completed runs = $ATACcompleteslurm"
 fi
 
-# alternative method to check if scripts were re-ran from midway
+# alternative method to check if scripts were re-ran from midway (since the slurm out won't be complete)
 ATACslurmoutstotal2=$(ls -1 *_*_ATAC/slurm*.out | wc -l)
 ATACcompleteslurm2=$(ls -tlrh *_*_ATAC/5.peak_calling/*_*_Genrich.peaks | wc -l)
 if [[ $ATACslurmoutstotal2 -eq $ATACcompleteslurm2 ]]
@@ -629,47 +780,56 @@ else
   echo -e "Not all ATAC library alignments to peak calling and bigbed conversion have completed successfuly....\nTotal runs = $ATACslurmoutstotal2\nTotal completed runs = $ATACcompleteslurm2"
 fi
 
-# D. Check and print all ATAC mapping rates
+# D. Check and print all ATAC mapping rates # {DONE}
 
 for f in *_*_ATAC/2.read_alignment/*.align.log; do
   sample=$(echo $f | sed 's/_ATAC\/2.read_alignment.*/_ATAC/g')
   ar=$(grep 'overall alignment rate' $f | sed 's/ overall alignment rate//g')
   echo -e $sample'\t'$ar >> ATAC_alignment_stats_mainsummary.txt
-done
+done # {DONE}
 
 for f in *_*_ATAC/2.read_alignment/*.align.log; do
   echo '==================================================' >> ATAC_alignment_stats_summary.txt
   echo $f >> ATAC_alignment_stats_summary.txt
   grep 'overall alignment rate' $f >> ATAC_alignment_stats_summary.txt
   echo '==================================================' >> ATAC_alignment_stats_summary.txt
-done
+done # {DONE}
 for i in *_*_ATAC/2.read_alignment/*_flagstat_qc1.txt; do
   echo '==================================================' >> ATAC_alignment_stats_summary.txt
   echo $i >> ATAC_alignment_stats_summary.txt
   grep 'QC-passed reads' $i >> ATAC_alignment_stats_summary.txt
   grep 'mapped (' $i >> ATAC_alignment_stats_summary.txt
   echo '==================================================' >> ATAC_alignment_stats_summary.txt
-done
+done # {DONE}
 
 # E. report number of narrow peaks - MACS2
 for file in *_*_ATAC/5.peak_calling/*_*_ATAC_peaks.narrowPeak.gz; do
   sample=$(echo $file | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
   peaks=$(zcat $file | wc -l)
   echo -e $sample'\t'$peaks >> ATAC_narrowpeaks_mainsummary.txt
-done
+done # {DONE}
 
-for file in *_*_ATAC/5.peak_calling/*_*_ATAC_peaks.narrowPeak; do
-  sample=$(echo $file | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
-  peaks=$(wc -l $file | awk -F' ' '{print $1}')
-  echo -e $sample'\t'$peaks >> ATAC_narrowpeaks_mainsummary.txt
-done
+# for i in *_*_ATAC; do
+#   cd $WD2/${i}/5.peak_calling
+#   gzip ${i}_peaks.narrowPeak
+#   # cp ${i}_peaks.narrowPeak $WD2
+#   # ls -tlrh $WD2/${i}/5.peak_calling/${i}_peaks.narrowPeak.gz
+# done
+#
+# ls -tlrh $WD2/*_*_ATAC/5.peak_calling/*_peaks.narrowPeak.gz | wc -l
+
+# for file in *_*_ATAC/5.peak_calling/*_*_ATAC_peaks.narrowPeak; do
+#   sample=$(echo $file | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
+#   peaks=$(wc -l $file | awk -F' ' '{print $1}')
+#   echo -e $sample'\t'$peaks >> ATAC_narrowpeaks_mainsummary.txt
+# done
 
 # E. report number of Genrich peaks
 for file in *_*_ATAC/5.peak_calling/*_*_Genrich.peaks; do
   sample=$(echo $file | sed 's/_ATAC\/5.peak_calling.*/_ATAC/g')
   peaks=$(wc -l $file | awk -F' ' '{print $1}')
   echo -e $sample'\t'$peaks >> ATAC_Genrichpeaks_mainsummary.txt
-done
+done # {DONE}
 
 ##############################################################################
 ### Moving folders will be difficult until you have more space - ask for 10tb in scratch
@@ -697,12 +857,12 @@ nano mvgDNA.sh
 WD=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/data/ATACseq/3.run2) # if you change path here then ensure to change in all other scripts
 WD2=(/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2)
 
-ls -1 *_*_gDNA | grep ':' | sed 's/://g' > gDNAfolders
+ls -1 *_*_gDNA | grep '_gDNA:' | sed 's/://g' > gDNAfolders
 mapfile -t gDNAfolders < gDNAfolders
 mv ${gDNAfolders[${SLURM_ARRAY_TASK_ID}]} $WD
 
 # run the above
-sbatch mvgDNA.sh
+sbatch mvgDNA.sh # {DONE}
 
 # Move all ATAC folders back from $WD to $WD2
 
@@ -730,7 +890,7 @@ mapfile -t ATACfolders < ATACfolders
 mv ${ATACfolders[${SLURM_ARRAY_TASK_ID}]} $WD2
 
 # run the above
-sbatch mvATAC.sh
+sbatch mvATAC.sh # {DONE}
 
 # ##############################################################################
 #
@@ -822,3 +982,93 @@ sbatch mvATAC.sh
 ##############################################################################
 
 ## 5. ATAC downstream analysis - IDR, footprinting, peak annotation and differential analysis
+
+# Run directly from the script 'ATAC_Bioinf_pipeline_v2c.sh'
+
+# 2aBc. Run ATACseqQC: create diagnostic plots of TSS enrichment
+# Check that this ran correctly for each sample - simply just input the slurm jobID for each species
+
+sp1_slurmID=28795407
+ls -1 slurm.${sp1_slurmID}.*.out | sort -V > sp1_out
+ls -1 slurm.${sp1_slurmID}.*.err | sort -V > sp1_err
+paste -d'\t' prefixATAC2_sp1.txt sp1_out sp1_err > sp1_ATACseqQCrun.txt; rm sp1_out sp1_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp1_ATACseqQCrun.txt
+
+sp2_slurmID=28795408
+ls -1 slurm.${sp2_slurmID}.*.out | sort -V > sp2_out
+ls -1 slurm.${sp2_slurmID}.*.err | sort -V > sp2_err
+paste -d'\t' prefixATAC2_sp2.txt sp2_out sp2_err > sp2_ATACseqQCrun.txt; rm sp2_out sp2_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp2_ATACseqQCrun.txt
+
+sp3_slurmID=28795409
+ls -1 slurm.${sp3_slurmID}.*.out | sort -V > sp3_out
+ls -1 slurm.${sp3_slurmID}.*.err | sort -V > sp3_err
+paste -d'\t' prefixATAC2_sp3.txt sp3_out sp3_err > sp3_ATACseqQCrun.txt; rm sp3_out sp3_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp3_ATACseqQCrun.txt
+
+sp4_slurmID=28795410
+ls -1 slurm.${sp4_slurmID}.*.out | sort -V > sp4_out
+ls -1 slurm.${sp4_slurmID}.*.err | sort -V > sp4_err
+paste -d'\t' prefixATAC2_sp4.txt sp4_out sp4_err > sp4_ATACseqQCrun.txt; rm sp4_out sp4_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp4_ATACseqQCrun.txt
+
+sp5_slurmID=28795411
+ls -1 slurm.${sp5_slurmID}.*.out | sort -V > sp5_out
+ls -1 slurm.${sp5_slurmID}.*.err | sort -V > sp5_err
+paste -d'\t' prefixATAC2_sp5.txt sp5_out sp5_err > sp5_ATACseqQCrun.txt; rm sp5_out sp5_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp5_ATACseqQCrun.txt
+
+sp6_slurmID=28795113
+ls -1 slurm.${sp6_slurmID}.*.out | sort -V > sp6_out
+ls -1 slurm.${sp6_slurmID}.*.err | sort -V > sp6_err
+paste -d'\t' prefixATAC2_sp6.txt sp6_out sp6_err > sp6_ATACseqQCrun.txt; rm sp6_out sp6_err
+while read -r r1 r2 r3; do
+  last=$(tail -1 $r2) # this will print the last stage completed/running
+  fin=$(grep '13. ATACseqQC' $r2) # this will print whether that sample has completed
+  echo -e $r1'\t'$r2'\t'$r3'\t'$last'\t'$fin
+done < sp6_ATACseqQCrun.txt
+
+# Collate images/QC in one folder
+mkdir ${annotdir}/QCimages
+
+for i in *_*_ATAC/*.tiff; do
+  cp $i ${annotdir}/QCimages
+done
+
+for i in $scripts/*_*_ATAC/3.Mtfilt_fragcnt/*.nochrM.fraglength.pdf; do
+  cp $i ${annotdir}/QCimages
+done
+
+
+# Collate a summary of the TSS score
+    # GRCh38 Refseq TSS annotation
+    #     below 5: Concerning
+    #     5 - 7: Acceptable
+    #     Above 7: Ideal
+printf 'Sample\tMean\tCutoff\n' > ${annotdir}/QCimages/TSSscore_collated.txt
+for i in *_*_ATAC/*_TSSscore.txt; do
+  sample=$(cut -f1 $i | tail -1)
+  mean=$(cut -f5 $i | tail -1)
+  cutoff=$(cut -f8 $i | tail -1)
+  echo -e $sample'\t'$mean'\t'$cutoff >> ${annotdir}/QCimages/TSSscore_collated.txt
+done

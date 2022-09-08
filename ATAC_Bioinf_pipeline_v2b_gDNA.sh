@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #!/bin/bash -e
-#SBATCH -p tgac-medium # partition (queue)
+#SBATCH -p ei-medium # partition (queue)
 #SBATCH -N 1 # number of nodes
 #SBATCH -n 1 # number of tasks
 #SBATCH --mem 8000 # memory pool for all cores
@@ -113,7 +113,7 @@ cd $trimdir
 # run as an array in sbatch script
 
 echo '#!/bin/bash -e' > 1a.trimadaptors.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 1a.trimadaptors.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 1a.trimadaptors.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1a.trimadaptors.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1a.trimadaptors.sh
 echo "#SBATCH --array=$trimarray" >> 1a.trimadaptors.sh
@@ -148,7 +148,7 @@ JOBID1=$( sbatch -W --array=$trimarray 1a.trimadaptors.sh | awk '{print $4}' ) #
 # echo 'PRO1563_S1_lib_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz Pn1_T_gDNA_TCGCCTGC-AACCGCCA_L001_R2.fastq.merged.gz' >> libids.txt
 
 echo '#!/bin/bash -e' > 1b.renamefiles.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 1b.renamefiles.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 1b.renamefiles.sh
 echo '#SBATCH -N 1 # number of nodes' >> 1b.renamefiles.sh
 echo '#SBATCH -n 1 # number of tasks' >> 1b.renamefiles.sh
 echo '#SBATCH --mem 8000' >> 1b.renamefiles.sh
@@ -183,7 +183,7 @@ cd $readalign
 # NOTE: Since the pipeline will be ran several times, it is best to not create genome indexes several times over - if running for one species then run here. Otherwise, run ATAC_Bioinf_pipeline_v2aA_gDNAindexes.sh BEFORE this pipeline.
 
 echo '#!/bin/bash -e' > 2a.genomeindex.sh
-echo '#SBATCH -p tgac-medium # partition (queue)' >> 2a.genomeindex.sh
+echo '#SBATCH -p ei-medium # partition (queue)' >> 2a.genomeindex.sh
 echo '#SBATCH -N 1 # number of nodes' >> 2a.genomeindex.sh
 echo '#SBATCH -n 1 # number of tasks' >> 2a.genomeindex.sh
 echo '#SBATCH --mem 48000' >> 2a.genomeindex.sh
@@ -275,7 +275,7 @@ JOBID4=$( sbatch -W --dependency=afterok:${JOBID3} 2b.readalign.sh | awk '{print
 ### 3. Genomic DNA library alignments completion
 
 echo '#!/bin/bash -e' > 3.gDNA_alignments_complete.sh
-echo '#SBATCH -p tgac-short # partition (queue)' >> 3.gDNA_alignments_complete.sh
+echo '#SBATCH -p ei-short # partition (queue)' >> 3.gDNA_alignments_complete.sh
 echo '#SBATCH -N 1 # number of nodes' >> 3.gDNA_alignments_complete.sh
 echo '#SBATCH -n 1 # number of tasks' >> 3.gDNA_alignments_complete.sh
 echo '#SBATCH --mem 2000' >> 3.gDNA_alignments_complete.sh
