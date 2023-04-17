@@ -3931,29 +3931,40 @@ awk 'BEGIN{OFS="\t"}NR==FNR{a[$1]=$1;next}{if(a[$1]){print $0,a[$1];}else{print 
 ################# NOTE: USE ALL SAMPLES EXCEPT FOR Pnm3_L_ATAC #################
 
 # first, filter out for replicates with inconsistent presence or absence e.g. present in one and not absent in other replicates, but only needs to be present in at least 2 replicates
-awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Tmat" 1.txt)2.txt" |
-awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
-awk '$12==$16 || $12==$24 || $16==$24' |
-awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
-awk '$15==$19 || $15==$23 || $19==$23' |
-awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
-awk '$42==$47 || $42==$52 || $47==$52' |
-awk '$43==$48 || $43==$53 || $48==$53' |
-awk '$44==$49 || $44==$54 || $49==$54' |
-awk '$45==$50 || $45==$55 || $50==$55' |
-awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Tmat" 1.txt)3.txt" # 3005
 
-awk '$3==$7 && $4==$8 && $5==$9 && $6==$10' "$(basename "$Fmat" 1.txt)2.txt" |
-awk '$11==$14 || $11==$18 || $11==$22 || $14==$18 || $14==$22' |
-awk '$12==$16 || $12==$24 || $16==$24' |
-awk '$13==$17 || $13==$21 || $13==$25 || $17==$21 || $17==$25 || $21==$25' |
-awk '$15==$19 || $15==$23 || $19==$23' |
-awk '$26==$30 && $27==$31 && $28==$32 && $29==$33 && $34==$38 && $35==$39 && $36==$40 && $37==$41' |
-awk '$42==$47 || $42==$52 || $47==$52' |
-awk '$43==$48 || $43==$53 || $48==$53' |
-awk '$44==$49 || $44==$54 || $49==$54' |
-awk '$45==$50 || $45==$55 || $50==$55' |
-awk '$46==$51 || $46==$56 || $51==$56' > "$(basename "$Fmat" 1.txt)3.txt" # 1923
+cd /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4.Peak_Orth
+
+#### TO DO THIS CORRECTLY, YOU NEED TO ..
+# 1. check that each replicate is 1 e.g. Mz1_B = 1 (col3) AND Mz2_B = 1 (col7)
+# 2. You then need to run this (and not pipe) individually for each species, and then join the output
+
+awk '$3==1 && $7==1 || $4==1 && $8==1 || $5==1 && $9==1 || $6==1 && $10==1' "$(basename "$Tmat" 1.txt)2.txt" > "$(basename "$Tmat" 1.txt)Mz_tojoin_3.txt"
+awk '$11==1 && $14==1 || $11==1 && $18==1 || $11==1 && $22==1 || $14==1 && $18==1 || $14==1 && $22==1 || $12==1 && $16==1 || $12==1 && $24==1 || $16==1 && $24==1 || $13==1 && $17==1 || $13==1 && $21==1 || $13==1 && $25==1 || $17==1 && $21==1 || $17==1 && $25==1 || $21==1 && $25==1 || $15==1 && $19==1 || $15==1 && $23==1 || $19==1 && $23==1' "$(basename "$Tmat" 1.txt)2.txt" > "$(basename "$Tmat" 1.txt)Pn_tojoin_3.txt"
+awk '$26==1 && $30==1 || $27==1 && $31==1 || $28==1 && $32==1 || $29==1 && $33==1' "$(basename "$Tmat" 1.txt)2.txt" > "$(basename "$Tmat" 1.txt)Ab_tojoin_3.txt"
+awk '$34==1 && $38==1 || $35==1 && $39==1 || $36==1 && $40==1 || $37==1 && $41==1' "$(basename "$Tmat" 1.txt)2.txt" > "$(basename "$Tmat" 1.txt)Nb_tojoin_3.txt"
+awk '$42==1 && $47==1 || $42==1 && $52==1 || $47==1 && $52==1 || $43==1 && $48==1 || $43==1 && $53==1 || $48==1 && $53==1 || $44==1 && $49==1 || $44==1 && $54==1 || $49==1 && $54==1 || $45==1 && $50==1 || $45==1 && $55==1 || $50==1 && $55==1 || $46==1 && $51==1 || $46==1 && $56==1 || $51==1 && $56==1' "$(basename "$Tmat" 1.txt)2.txt" > "$(basename "$Tmat" 1.txt)On_tojoin_3.txt"
+
+awk '$3==1 && $7==1 || $4==1 && $8==1 || $5==1 && $9==1 || $6==1 && $10==1' "$(basename "$Fmat" 1.txt)2.txt" > "$(basename "$Fmat" 1.txt)Mz_tojoinF_3.txt"
+awk '$11==1 && $14==1 || $11==1 && $18==1 || $11==1 && $22==1 || $14==1 && $18==1 || $14==1 && $22==1 || $12==1 && $16==1 || $12==1 && $24==1 || $16==1 && $24==1 || $13==1 && $17==1 || $13==1 && $21==1 || $13==1 && $25==1 || $17==1 && $21==1 || $17==1 && $25==1 || $21==1 && $25==1 || $15==1 && $19==1 || $15==1 && $23==1 || $19==1 && $23==1' "$(basename "$Fmat" 1.txt)2.txt" > "$(basename "$Fmat" 1.txt)Pn_tojoinF_3.txt"
+awk '$26==1 && $30==1 || $27==1 && $31==1 || $28==1 && $32==1 || $29==1 && $33==1' "$(basename "$Fmat" 1.txt)2.txt" > "$(basename "$Fmat" 1.txt)Ab_tojoinF_3.txt"
+awk '$34==1 && $38==1 || $35==1 && $39==1 || $36==1 && $40==1 || $37==1 && $41==1' "$(basename "$Fmat" 1.txt)2.txt" > "$(basename "$Fmat" 1.txt)Nb_tojoinF_3.txt"
+awk '$42==1 && $47==1 || $42==1 && $52==1 || $47==1 && $52==1 || $43==1 && $48==1 || $43==1 && $53==1 || $48==1 && $53==1 || $44==1 && $49==1 || $44==1 && $54==1 || $49==1 && $54==1 || $45==1 && $50==1 || $45==1 && $55==1 || $50==1 && $55==1 || $46==1 && $51==1 || $46==1 && $56==1 || $51==1 && $56==1' "$(basename "$Fmat" 1.txt)2.txt" > "$(basename "$Fmat" 1.txt)On_tojoinF_3.txt"
+
+# get counts - note that these are all lines, not unique
+# 9319 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_Ab_tojoin_3.txt
+# 10398 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_Mz_tojoin_3.txt
+# 9319 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_Nb_tojoin_3.txt
+# 12149 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_On_tojoin_3.txt
+# 11071 MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_Pn_tojoin_3.txt
+#
+# 4446 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_Ab_tojoinF_3.txt
+# 1688 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_Mz_tojoinF_3.txt
+# 9946 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_Nb_tojoinF_3.txt
+# 4609 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_On_tojoinF_3.txt
+# 2941 MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_Pn_tojoinF_3.txt
+
+cat *_tojoin_3.txt | sort -u > "$(basename "$Tmat" 1.txt)3.txt" # 13,618 - 13,618/13,997
+cat *_tojoinF_3.txt | sort -u > "$(basename "$Fmat" 1.txt)3.txt" # 11,740 - 11,740/13,997
 
 head -1 $Tmat > MzPnAbNbOn_BELT_G_ATAC_header.txt
 for i in MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt; do
@@ -3985,11 +3996,12 @@ done
 #### INTERMEDIATE (BASIC) PRESENCE-ABSENCE MATRIX FILES
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_1.txt # 38,445 - total number of orthogroups/genes with peaks mapped in the five cichlid species
 # MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_2.txt # 13,997 - total number of 1-to-1 orthogroups/genes with peaks mapped in the five cichlid species
-# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt # 3005 (True) and 1923 (False) - total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
-# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_4.txt # 3005 (True) and 1923 (False) - simplified (collated '|' separated replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
-# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_5.txt # 3005 (True) and 1923 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt # 13,618 (True) and 11,740 (False) - total number of orthogroups/genes with open chromatin peaks mapped and mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_4.txt # 13,618 (True) and 11,740 (False) - simplified (collated '|' separated replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
+# MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_5.txt # 13,618 (True) and 11,740 (False) - simplified final (no replicates), total number of orthogroups/genes with mapped IDR (T or F) peaks that are present in at least two replicates of each species tissue
 
-
+# get total numbers of unique 1-to-1 orthogroups/genes with peaks mapped in the five cichlid species
+cat MzPnAbNbOn_BELT_G_ATAC_{True,False}IDR_PAmat_3.txt | grep -v 'Orthogroup' | cut -f1 | sort -u | wc -l # 13,889/13,997 (99%)
 
 # 		iii. Flag peak summits falling +-100bp from TSS and their presence/absence (and also retain the peakID to cross check with alignments after!)- NOTE: this method is good for parsing ANYTHING from *.orth5 e.g. peak summits, peak lengths etc. to create and add to the matrices
 # first, parse the *.orth5 files for orthogroups with peak summits falling +-100bp TSS (use the 'Summit_to_TSS' col - col22). This outputs Orthogroup, Unified_GeneSymbol, Summit_to_TSS and a 1 or 0 for peak +/-100bp (or equal to)
@@ -4240,26 +4252,26 @@ for i in MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_Mz*.txt MzPnAbNbOn_BELT_G_ATAC_T
   echo -e ${comp}'\t'${map}'\t'${total}'\t'${perc}
 done
 
-# MzAb	10705	87383	12.2506666056327
-# MzNb	10450	87383	11.9588478308138
-# MzOn	24231	87383	27.729649931909
-# MzPn	12308	87383	14.0851195312589
-# PnAb	15121	112551	13.4347984469263
-# PnMz	17481	112551	15.5316256630328
-# PnNb	15232	112551	13.533420404972
-# PnOn	35985	112551	31.9721726150812
-# AbMz	8712	55679	15.6468327376569
-# AbNb	7378	55679	13.2509563749349
-# AbOn	18007	55679	32.3407388782126
-# AbPn	8919	55679	16.0186066560103
-# NbAb	6865	60306	11.3836102543694
-# NbMz	7816	60306	12.9605677710344
-# NbOn	16971	60306	28.1414784598547
-# NbPn	8215	60306	13.6221934799191
-# OnAb	35463	177699	19.9567808485135
-# OnMz	39142	177699	22.0271357745401
-# OnNb	36374	177699	20.4694455230474
-# OnPn	41577	177699	23.3974304863843
+# MzAb	47707	387697	12.3052280518033
+# MzNb	50249	387697	12.9608947193298
+# MzOn	105700	387697	27.2635589132751
+# MzPn	54426	387697	14.0382824731685
+# PnAb	71808	525038	13.6767243513803
+# PnMz	78636	525038	14.9772016501663
+# PnNb	77671	525038	14.7934054297022
+# PnOn	165991	525038	31.6150450062662
+# AbMz	38713	278109	13.9200816945874
+# AbNb	38328	278109	13.7816467643981
+# AbOn	84706	278109	30.4578420691168
+# AbPn	40894	278109	14.7043065848283
+# NbAb	38750	326897	11.8538866982566
+# NbMz	41782	326897	12.7813959748789
+# NbOn	95248	326897	29.1370064576916
+# NbPn	44736	326897	13.685044524728
+# OnAb	171335	797200	21.4920973406924
+# OnMz	176540	797200	22.1450075263422
+# OnNb	189532	797200	23.7747114902158
+# OnPn	191709	797200	24.0477922729553
 
 
 for i in MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Mz*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Pn*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Ab*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Nb*.txt MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_On*.txt; do
@@ -4270,26 +4282,26 @@ for i in MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_Mz*.txt MzPnAbNbOn_BELT_G_ATAC_
   echo -e ${comp}'\t'${map}'\t'${total}'\t'${perc}
 done
 
-# MzAb	1496	15928	9.39226519337017
-# MzNb	1554	15928	9.7564038171773
-# MzOn	4426	15928	27.7875439477649
-# MzPn	1970	15928	12.3681567051733
-# PnAb	2554	24725	10.3296258847321
-# PnMz	3021	24725	12.2184024266936
-# PnNb	2830	24725	11.4459049544995
-# PnOn	8823	24725	35.6845298281092
-# AbMz	1166	9418	12.3805478870248
-# AbNb	901	9418	9.56678700361011
-# AbOn	2907	9418	30.8664259927798
-# AbPn	1474	9418	15.6508812911446
-# NbAb	939	9797	9.58456670409309
-# NbMz	1362	9797	13.9022149637644
-# NbOn	2860	9797	29.1926099826477
-# NbPn	1584	9797	16.1682147596203
-# OnAb	6288	45496	13.8209952523299
-# OnMz	7326	45496	16.1025145067698
-# OnNb	5838	45496	12.8318973096536
-# OnPn	9706	45496	21.3337436258133
+# MzAb	38492	318978	12.0672899071409
+# MzNb	41675	318978	13.0651643687025
+# MzOn	84710	318978	26.556690430061
+# MzPn	44274	318978	13.8799541034178
+# PnAb	60521	432185	14.0034938741511
+# PnMz	63831	432185	14.7693695986672
+# PnNb	64150	432185	14.8431805823895
+# PnOn	134336	432185	31.0829852956489
+# AbMz	31507	232838	13.5317259210266
+# AbNb	32597	232838	13.9998625653888
+# AbOn	69495	232838	29.8469322017884
+# AbPn	34699	232838	14.9026361676359
+# NbAb	32906	284360	11.5719510479674
+# NbMz	35087	284360	12.338936559291
+# NbOn	79062	284360	27.803488535659
+# NbPn	37415	284360	13.1576171050781
+# OnAb	138016	642349	21.4861391548831
+# OnMz	139664	642349	21.7426975055616
+# OnNb	154330	642349	24.0258800122675
+# OnPn	153869	642349	23.9541121726663
 
 # 3. join files, column-wise, based on the unified col4[orthogroup]_col23[align_ID] column to create a single file - sort the column groups by species (Mz,Pn,Ab,Nb,On) and then remove duplicated lines (sort -u)
 
@@ -4325,8 +4337,8 @@ paste -d'\t' MzPnAbNbOn_BELT_G_ATAC_FalseIDR_PAmat_8_OnMz_cut.txt MzPnAbNbOn_BEL
 for i in True False; do
   cat MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_MzPnAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_PnMzAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_AbMzPnNbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_NbMzPnAbOn.txt MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_OnMzPnAbNb.txt | sort -u | sort -V -k1,1 > MzPnAbNbOn_BELT_G_ATAC_${i}IDR_PAmat_8_MzPnAbNbOn_collated.txt
 done
-# cat MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMzAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMzPnNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMzPnAbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMzPnAbNb.txt | wc -l # 140589
-# wc -l MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt # 133261/140589
+# cat MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_PnMzAbNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_AbMzPnNbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_NbMzPnAbOn.txt MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_OnMzPnAbNb.txt | wc -l # 2314941
+# wc -l MzPnAbNbOn_BELT_G_ATAC_TrueIDR_PAmat_8_MzPnAbNbOn_collated.txt # 2170754/2314941
 
 
 # this gives the following general header for EACH species
@@ -5134,7 +5146,7 @@ sbatch mappeaksfeatures.sh
 
 ###################################################################################################################################################################################################################################
 ###################################################################################################################################################################################################################################
-###### FINAL features-peak mapped files here for each species:
+###### FINAL features-peak mapped files here for each species - NOTE: These are ALL peaks (so IDR True and False - DO NOT USE THESE AND INSTEAD USE THE IDR TRUE PEAK FILES BELOW)
 # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Astatotilapia_calliptera/Astatotilapia_calliptera_ATAC_peaks.final.narrowPeak.features.gff
 # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Astatotilapia_burtoni/Astatotilapia_burtoni_ATAC_peaks.final.narrowPeak.features.gff
 # /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Metriaclima_zebra/Metriaclima_zebra_ATAC_peaks.final.narrowPeak.features.gff
@@ -5160,6 +5172,56 @@ sbatch mappeaksfeatures.sh
   # MACS2 peak IDR output- IDR True (T) or False (F) of peaks passing IDR threshold of 10%
   # Ensembl Gene ID
   # Ensembl Gene Symbol
+
+
+# Create a FINAL set of A) collated (by tissue) IDR true narrow peaks, and B) collated (by tissue) IDR true narrow peaks according to feature
+peakannotdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run
+
+cd $peakannotdir/Astatotilapia_calliptera
+cat 1aAc_3dpf_ATAC_peaks.final.narrowPeak 1bAc_3dpf_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Ac_3dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+cat 1aAc_3dpf_ATAC_peaks.final.narrowPeak.features.gff 1bAc_3dpf_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Ac_3dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+cat 2aAc_7dpf_ATAC_peaks.final.narrowPeak 2bAc_7dpf_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Ac_7dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+cat 2aAc_7dpf_ATAC_peaks.final.narrowPeak.features.gff 2bAc_7dpf_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Ac_7dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+cat 3aAc_12dpf_ATAC_peaks.final.narrowPeak 3bAc_12dpf_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Ac_12dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+cat 3aAc_12dpf_ATAC_peaks.final.narrowPeak.features.gff 3bAc_12dpf_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Ac_12dpf_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+
+cd $peakannotdir/Astatotilapia_burtoni
+for i in B E L T; do
+  cat Ab5_${i}_ATAC_peaks.final.narrowPeak Ab6_${i}_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Ab_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+  cat Ab5_${i}_ATAC_peaks.final.narrowPeak.features.gff Ab6_${i}_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Ab_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+done
+
+cd $peakannotdir/Metriaclima_zebra
+for i in B E L T; do
+  cat Mz1_${i}_ATAC_peaks.final.narrowPeak Mz2_${i}_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Mz_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+  cat Mz1_${i}_ATAC_peaks.final.narrowPeak.features.gff Mz2_${i}_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Mz_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+done
+
+cd $peakannotdir/Neolamprologus_brichardi
+for i in B E L T; do
+  cat Nb4_${i}_ATAC_peaks.final.narrowPeak Nb5_${i}_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Nb_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+  cat Nb4_${i}_ATAC_peaks.final.narrowPeak.features.gff Nb5_${i}_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Nb_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+done
+
+cd $peakannotdir/Pundamilia_nyererei
+for i in B L T; do
+  cat Pnm1_${i}_ATAC_peaks.final.narrowPeak Pnm2_${i}_ATAC_peaks.final.narrowPeak Pnm3_${i}_ATAC_peaks.final.narrowPeak Pnm4_${i}_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Pn_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+  cat Pnm1_${i}_ATAC_peaks.final.narrowPeak.features.gff Pnm2_${i}_ATAC_peaks.final.narrowPeak.features.gff Pnm3_${i}_ATAC_peaks.final.narrowPeak.features.gff Pnm4_${i}_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Pn_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+done
+
+cat Pnm2_E_ATAC_peaks.final.narrowPeak Pnm3_E_ATAC_peaks.final.narrowPeak Pnm4_E_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > Pn_E_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+cat Pnm2_E_ATAC_peaks.final.narrowPeak.features.gff Pnm3_E_ATAC_peaks.final.narrowPeak.features.gff Pnm4_E_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > Pn_E_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+
+cd $peakannotdir/Oreochromis_niloticus
+for i in B E L T; do
+  cat On1_${i}_ATAC_peaks.final.narrowPeak On2_${i}_ATAC_peaks.final.narrowPeak On3_${i}_ATAC_peaks.final.narrowPeak | awk '$11=="T"' | sort -k1,1 -k2,2n > On_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+  cat On1_${i}_ATAC_peaks.final.narrowPeak.features.gff On2_${i}_ATAC_peaks.final.narrowPeak.features.gff On3_${i}_ATAC_peaks.final.narrowPeak.features.gff | grep ';T;' | sort -k1,1 -k2,2n > On_${i}_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+done
+
+
+### FINAL IDR true peak and peaks overlapping features files are:
+## /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/*/*_*_ATAC_peaks.final.IDRtrueCollated.narrowPeak
+## /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/*/*_*_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
 
 ###################################################################################################################################################################################################################################
 ###################################################################################################################################################################################################################################
@@ -5307,14 +5369,34 @@ wc -l *.out
 # 4607906 Onil-Pundamilia_nyererei.ATAC_peaks.final.narrowPeak.out
 
 
-# iv) do the map (col10 in features and col8 in phylop scores)
+# iv) do the map (col10 in features and col8 in phylop scores) - NOTE: THIS IS FOR IDR TRUE AND FALSE
 for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
   awk 'BEGIN{OFS="\t"}NR==FNR{a[$10]=$0;next}{if(a[$8]){print $0,a[$8];}else{print $0,"REMOVEME";}}' Oreochromis_niloticus_ATAC_peaks.final.narrowPeak.features.amend.gff Onil-${i}.ATAC_peaks.final.narrowPeak.out | grep -v 'REMOVEME' | awk '{print $1,$10,$11,$12,$13,$14,$15,$16,$17,$5,$6,$7}' OFS='\t' > Onil-${i}.ATAC_peaks.final.narrowPeak.mapfeatures.out
+done
+
+# iv) do the map (col10 in features and col8 in phylop scores) - NOTE: THIS IS FOR IDR TRUE ONLY SO JUST USE THESE!!!
+cat /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/On_*_ATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff | sort -V -k1,1 -k4,4n > /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/On_CollatedTissueATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff
+awk '{print $0,$1"_"$4-1"_"$5}' OFS='\t' /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/On_CollatedTissueATAC_peaks.final.IDRtrueCollated.narrowPeak.features.gff > On_CollatedTissueATAC_peaks.final.IDRtrueCollated.narrowPeak.features.amend.gff
+
+for i in Astatotilapia_calliptera Metriaclima_zebra Pundamilia_nyererei Astatotilapia_burtoni Neolamprologus_brichardi; do
+  awk 'BEGIN{OFS="\t"}NR==FNR{a[$10]=$0;next}{if(a[$8]){print $0,a[$8];}else{print $0,"REMOVEME";}}' On_CollatedTissueATAC_peaks.final.IDRtrueCollated.narrowPeak.features.amend.gff Onil-${i}.ATAC_peaks.final.narrowPeak.out | grep -v 'REMOVEME' | awk '{print $1,$10,$11,$12,$13,$14,$15,$16,$17,$5,$6,$7}' OFS='\t' > Onil-${i}.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
 done
 
 ################################################################################################################################################
 ######## THESE ARE THE FINAL PHYLOP FILES OF PEAKS MAPPED TO FEATURES IN O. niloticus only, INCLUDING IDR STATS -
 ## have ran for the other species pairwise but haven't collated - just need to run the code above with species-specific gff amend too
+
+# for IDR true only
+finalphyloppeakdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures
+wc -l ${finalphyloppeakdir}/*.IDRtrueCollated.narrowPeak.mapfeatures.out
+
+# 1517775 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Astatotilapia_burtoni.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
+# 1517738 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Astatotilapia_calliptera.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
+# 1517775 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Metriaclima_zebra.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
+# 1517771 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Neolamprologus_brichardi.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
+# 1517775 /ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures/Onil-Pundamilia_nyererei.ATAC_peaks.final.IDRtrueCollated.narrowPeak.mapfeatures.out
+
+# for both IDR true and false
 finalphyloppeakdir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/0.phylop_run/Oreochromis_niloticus/collated_phylop_peaksfeatures
 wc -l ${finalphyloppeakdir}/*.mapfeatures.out
 
