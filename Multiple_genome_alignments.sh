@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##############################################################################
-### Sept 2020 - Multiple genome alignments
+### Multiple genome alignments
 # USAGE: ./alignment.local.sh [reference].fasta
 # REQUIREMENTS: Run in its own directory with nothing but *.fasta files
 # SOFTWARE IT USES:
