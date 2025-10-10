@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##############################################################################
-### Aug 2020 - Running the ATAC/gDNA data using pipeline
+### Cichlid GRNs manuscript - Running the ATAC/gDNA data using pipeline
 ## The pipeline is run with the following scripts in this order:
 # 1. ATAC_Bioinf_pipeline_v2a.sh
 # 2. ATAC_Bioinf_pipeline_v2b_gDNA.sh
