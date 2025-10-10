@@ -1,4 +1,8 @@
 #!/usr/bin/python
+
+# Author: Tarang K. Mehta
+# Create a promoter BED file from gene BED file
+
 print('\n\n\t\tGFF3 VERSION\n\n')
 import sys
 
