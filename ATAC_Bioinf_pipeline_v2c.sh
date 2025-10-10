@@ -4930,11 +4930,11 @@ mzgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/
 nbgeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Neolamprologus_brichardi.NeoBri1.0.100_gene.bed
 pngeneannot=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.run2/4b.peak_phylop/Pundamilia_nyererei.PunNye1.0.100_gene.bed
 
-cut -f3-12 $acgeneannot | sort -V -k1,1 -k2,2n > Astatotilapia_calliptera.fAstCal1.2.100_gene.bed
-cut -f3-12 $abgeneannot | sort -V -k1,1 -k2,2n > Astatotilapia_burtoni.AstBur1.0.100_gene.bed
-cut -f3-12 $mzgeneannot | sort -V -k1,1 -k2,2n > Metriaclima_zebra.M_zebra_UMD2a.100_gene.bed
-cut -f3-12 $nbgeneannot | sort -V -k1,1 -k2,2n > Neolamprologus_brichardi.NeoBri1.0.100_gene.bed
-cut -f3-12 $pngeneannot | sort -V -k1,1 -k2,2n > Pundamilia_nyererei.PunNye1.0.100_gene.bed
+cut -f3-12 $acgeneannot | sort -k1,1 -k2,2n > Astatotilapia_calliptera.fAstCal1.2.100_gene.bed
+cut -f3-12 $abgeneannot | sort -k1,1 -k2,2n > Astatotilapia_burtoni.AstBur1.0.100_gene.bed
+cut -f3-12 $mzgeneannot | sort -k1,1 -k2,2n > Metriaclima_zebra.M_zebra_UMD2a.100_gene.bed
+cut -f3-12 $nbgeneannot | sort -k1,1 -k2,2n > Neolamprologus_brichardi.NeoBri1.0.100_gene.bed
+cut -f3-12 $pngeneannot | sort -k1,1 -k2,2n > Pundamilia_nyererei.PunNye1.0.100_gene.bed
 
 source bedtools-2.30.0
 
@@ -4942,7 +4942,7 @@ spcnedir=/ei/projects/9/9e238063-c905-4076-a975-f7c7f85dbd56/scratch/ATACseq/3.r
 
 for i in Astatotilapia_calliptera.fAstCal1.2.100_gene.bed Astatotilapia_burtoni.AstBur1.0.100_gene.bed Metriaclima_zebra.M_zebra_UMD2a.100_gene.bed Neolamprologus_brichardi.NeoBri1.0.100_gene.bed Pundamilia_nyererei.PunNye1.0.100_gene.bed; do
   sp=$(echo ${i} | awk -F'.' '{print $1}')
-  grep -v 'pseudo_aCNE' ${spcnedir}/${sp}/${sp}.6sp_CNEs.bed > ${sp}.6sp_hCNEs_aCNEs.bed
+  grep -v 'pseudo_aCNE' ${spcnedir}/${sp}/${sp}.6sp_CNEs.bed | sort -k1,1 -k2,2n > ${sp}.6sp_hCNEs_aCNEs.bed
   bedtools closest -a ${sp}.6sp_hCNEs_aCNEs.bed -b ${i} -d > ${sp}.6sp_hCNEs_aCNEs.map.tmp2
   awk '{print $1,$2,$3,$10,".",$6,$17,".",$7";"$8";"$9";"$21,$20}' OFS='\t' ${sp}.6sp_hCNEs_aCNEs.map.tmp2 > ${sp}.6sp_hCNEs_aCNEs.map.bed
 done
@@ -4951,6 +4951,7 @@ rm *.6sp_hCNEs_aCNEs.map.tmp2 ### TO RUN ONCE COMPLETED - DONE
 
 # run the above
 sbatch map_sp_CNEs.sh ## DONE (but created individual species files to run instead - took around one day each)
+# NOTE: the above has not covered all chr in Mz! and maybe missed in others too!!
 
 
 # 4. copy FINAL CNE files (and the code to the CNE pipeline script):
@@ -5144,6 +5145,9 @@ done # Note: will only be using the On split files but running anyway for all sp
 # run the above
 sbatch mappeaksfeatures.sh
 
+
+
+
 ###################################################################################################################################################################################################################################
 ###################################################################################################################################################################################################################################
 ###### FINAL features-peak mapped files here for each species - NOTE: These are ALL peaks (so IDR True and False - DO NOT USE THESE AND INSTEAD USE THE IDR TRUE PEAK FILES BELOW)
@@ -5226,6 +5230,8 @@ done
 ###################################################################################################################################################################################################################################
 ###################################################################################################################################################################################################################################
 
+
+##### CHECK WHETHER BELOW NEEDS RE-RUNNING TOO (13/11/23)
 
 ## x. Calculate phyloP score of O. niloticus peaks only, as ref pairwise vs all other species
 # here, we are then able to identify ref On peaks that have likely fast evolved in the other comparison species.
