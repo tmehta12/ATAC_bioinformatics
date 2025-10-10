@@ -1,4 +1,8 @@
 #!/usr/bin/python
+
+# Author: Tarang K. Mehta
+# Get promoter sequences using genome FASTA and BED file of promoters
+
 import sys
 
 if len(sys.argv) < 3:
