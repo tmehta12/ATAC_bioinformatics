@@ -1,5 +1,6 @@
 #!/usr/bin/python
 #=====================================================================================================================================================
+# Author: Tarang K. Mehta
 
 # Using a bed file, this script will calculate the coordinates of those regions from an alignment fasta
 # use case: calculate the start and end of an ATAC-seq peak, plus the peak summit according to the alignment coordinates (accounting for the alignment gaps of '-')
