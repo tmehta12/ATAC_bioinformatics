@@ -14,7 +14,7 @@
 ################################################################################################################
 
 # ATAC-seq pipeline - Part 2 (gDNA only - to be ran prior to ATAC pipeline 'ATAC_Bioinf_pipeline_v2b.sh')
-# March 2020: Tarang K. Mehta, Earlham Institute, Norwich, UK
+# Tarang Mehta
 
 ################################################################################################################
 
