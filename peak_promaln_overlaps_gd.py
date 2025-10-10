@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 #=====================================================================================================================================================
+# Author: Tarang K. Mehta
 
 # 1. Adjusted peak coords according to alignment gaps using script 'peak_promaln_getcoords.py' and ran in 'ATAC_Bioinf_ManuscriptAnalysis.sh'
 # 2. Each orthogroups new bed files were joined by tissue in 'ATAC_Bioinf_ManuscriptAnalysis.sh')
