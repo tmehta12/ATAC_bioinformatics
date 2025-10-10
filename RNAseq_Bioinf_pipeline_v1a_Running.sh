@@ -1,7 +1,7 @@
 #!/bin/sh
 
 ##############################################################################
-### July 2021 - Running the RNAseq pipeline
+### Running the RNAseq pipeline
 ##############################################################################
 
 # ~ This pipeline will be ran as species-specific, and contains the following components:
