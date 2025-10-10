@@ -2,8 +2,7 @@
 
 ##########################################################################################################
 # Author: T K Mehta
-# Date: July 2020
-# Decsription: converts meme format PWM to JASPAR 2016 PFM format
+# Description: converts meme format PWM to JASPAR 2016 PFM format
 ##########################################################################################################
 
 setwd("~/Documents/TGAC/Projects/Cichlid_GRNs/Arboretum_GT_v3/1.TFBSs_v2/FINAL_cichlidPWM_motifs/MouseDerived/CS/ab")
