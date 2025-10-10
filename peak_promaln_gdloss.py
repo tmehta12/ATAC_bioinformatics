@@ -1,6 +1,8 @@
 #!/usr/bin/python
 #=====================================================================================================================================================
 
+# Author: Tarang K. Mehta
+
 # for every pairwise instance that DOES NOT exist e.g. Mz-On, Mz-Nb and Mz-Pn present but Mz-Ab absent, gets marked as a loss in Ab
 # read each line comparing the pairwise presence (Mz, Pnm, Ab, Nb only) for a ref peak, and then output:
     # 1. orthogroup
