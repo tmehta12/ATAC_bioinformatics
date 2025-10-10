@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 # Get read length (as integer) from fastq for TSS enrichment calculation
+# Author: Tarang K. Mehta
 # Usage: python3
 
 import sys
