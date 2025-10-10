@@ -2,8 +2,7 @@
 
 # ----------------------------------------------------------------------------
 # title: Running ATACseqQC
-# author: Tarang K. Mehta (EI)
-# date: July 2020
+# author: Tarang K. Mehta
 # Description: Running ATACseqQC for diagnostic plots of TSS enrichment
 # How to run: Rscript ATAC_Bioinf_pipeline_v2c_part3a.R -i ${i} -o "$(echo ${i} | sed 's/.meme/.tmp.pwm/g')
 # ----------------------------------------------------------------------------
