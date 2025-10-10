@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # TSS enrich wrapper
-# Adapted from 'ENCODE DCC TSS enrich wrapper' by Daniel Kim, Jin Lee (leepc12@gmail.com)
+# Adapted from 'ENCODE DCC TSS enrich wrapper' by Daniel Kim, Jin Lee
 # Author: Tarang K. Mehta
 # USAGE: python3 ATAC_Bioinf_pipeline_v2b_part5bD.py 'FINAL_BAM' 'TSS' 'OUTPUT_PREFIX' 'read_len' 'CHROMSIZES'
 
