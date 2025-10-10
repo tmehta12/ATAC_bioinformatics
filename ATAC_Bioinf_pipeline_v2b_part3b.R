@@ -8,7 +8,6 @@
 ##
 ## Author: Dr. Tarang K. Mehta
 ##
-## Date Created: 11-03-2020
 ##
 ##
 ## ---------------------------
